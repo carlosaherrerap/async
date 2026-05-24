@@ -1,0 +1,44 @@
+Tabla 1
+create table Principal (
+	Sede_Reg varchar(100) not null,
+	Sede_Juris varchar(100) not null,
+	Doc_Identidad varchar(12) not null,
+	Apellidos varchar(70) not null,
+	Nombres varchar(100) not null,
+	Local varchar(150) not null,
+	Aula int not null,
+	Tipo_Postulante varchar(50) not null,
+	Cargo varchar(100) not null
+)
+
+
+
+--*****************************
+--*****************************
+
+Tabla 2 Users
+
+create table Usuarios (
+	users varchar(20) not null,
+	password varchar(20) not null
+)
+
+create table Parametros_Asistencia (
+	Estado varchar(1) primary key,
+	Descripcion varchar(20) not null,
+	Fecha_min time not null,
+	Fecha_max time not null
+)
+
+create table Asistencias_postulantes (
+	Id int primary key,
+	Doc_Identidad varchar(12) not null,
+	Estado varchar(1),
+	Fecha_Registro datetime default current_timestamp,
+	foreign key (Estado) references Parametros_Asistencia(Estado)
+)
+
+EJEMPLO DE REPORTE:
+
+Id | tipo_doc | numero_doc | apellido_paterno | apellido_materno | nombres | sede_regional | sede_provincial_id | local_id | num_aula | tipo_postulante_id | CARGO
+1 |DNI | 70932665 | ABAD | LLONTOP | MIRIAM JENNIFER | AMAZONAS | AMAZONAS 1 | LOCAL AMAZONAS BAGUA | 1 | TITULAR | TECNICO ADMINISTRATIVO PROVINCIAL
