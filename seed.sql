@@ -1,11 +1,8 @@
--- Seed data (hard reset considerations)
+-- Seed data (para hard reset)
 
--- Usuario administrador (hash bcrypt de la contraseña "admin123")
-INSERT INTO usuarios (username, password_hash, nombre, rol) VALUES
-('admin',
- '$2a$10$Xm7M/k/f1J.5f7H3X.H1OeY4p.S3X0Z6r4W8f9u7d8v7R6Q5P4O3N',
- 'Administrador',
- 'admin');
+-- Usuario admin (contraseña: admin123)
+INSERT INTO usuarios (username, password, nombre, rol) VALUES
+('admin', '$2a$10$oM.bfLvrggVzzZJdJTAANOgn4RqYjaPD4SgEtBgNLzwXY4T3aVWxC', 'Administrador', 'admin');
 
 -- Ejemplo de asistente principal
 INSERT INTO principal (

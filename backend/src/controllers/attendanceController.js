@@ -4,43 +4,49 @@ const registerAttendance = async (req, res) => {
     const { dni, observaciones } = req.body;
 
     try {
-        // 1. Buscar al trabajador por DNI
+        // 1. Buscar al postulante por doc_identidad
         const workerRes = await db.query(
-            'SELECT t.*, p.nombre as puesto, a.nombre as area FROM trabajadores t JOIN puestos p ON t.puesto_id = p.id JOIN areas a ON p.area_id = a.id WHERE t.dni = $1 AND t.activo = TRUE',
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+             FROM principal p 
+             JOIN cargos c ON p.cargo_id = c.id 
+             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             WHERE p.doc_identidad = $1`,
             [dni]
         );
 
         if (workerRes.rows.length === 0) {
-            return res.status(404).json({ message: 'Trabajador no encontrado o inactivo' });
+            return res.status(404).json({ message: 'Postulante no encontrado' });
         }
 
         const worker = workerRes.rows[0];
 
-        // 2. Obtener configuración de horario
-        const configRes = await db.query('SELECT * FROM configuracion LIMIT 1');
-        const config = configRes.rows[0];
+        // 2. Obtener parámetros de horario de asistencia
+        const paramsRes = await db.query('SELECT * FROM parametros_asistencia');
+        const params = paramsRes.rows;
 
-        // 3. Determinar estado (Puntual/Tardanza)
+        // 3. Determinar estado (Puntual/Tardanza) basado en la hora actual
         const now = new Date();
-        const currentTime = now.toTimeString().split(' ')[0];
+        const currentTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
         
-        let estado = 'puntual';
-        if (config) {
-            const [hEntrada, mEntrada] = config.hora_entrada.split(':');
-            const entradaLimit = new Date();
-            entradaLimit.setHours(hEntrada, parseInt(mEntrada) + config.tolerancia_minutos, 0);
-
-            if (now > entradaLimit) {
-                estado = 'tardanza';
+        let estado = 'T'; // Por defecto T (Tarde)
+        for (const p of params) {
+            if (currentTime >= p.hora_min && currentTime <= p.hora_max) {
+                estado = p.estado;
+                break;
             }
+        }
+        // Si la hora es menor que el inicio de puntual, se considera puntual
+        const puntualParam = params.find(p => p.estado === 'P');
+        if (puntualParam && currentTime < puntualParam.hora_min) {
+            estado = 'P';
         }
 
         // 4. Registrar asistencia
         const attendanceRes = await db.query(
-            `INSERT INTO asistencias (trabajador_id, fecha, hora_entrada, estado, observaciones) 
-             VALUES ($1, CURRENT_DATE, CURRENT_TIME, $2, $3) 
-             ON CONFLICT (trabajador_id, fecha) 
-             DO UPDATE SET hora_salida = CURRENT_TIME, observaciones = COALESCE(asistencias.observaciones, $3)
+            `INSERT INTO asistencias (principal_id, estado, fecha_hora, observaciones) 
+             VALUES ($1, $2, CURRENT_TIMESTAMP, $3) 
+             ON CONFLICT (principal_id, (fecha_hora::date)) 
+             DO UPDATE SET observaciones = COALESCE(asistencias.observaciones, $3)
              RETURNING *`,
             [worker.id, estado, observaciones]
         );
@@ -48,9 +54,9 @@ const registerAttendance = async (req, res) => {
         res.status(201).json({
             message: 'Asistencia registrada con éxito',
             worker: {
-                nombre: `${worker.nombres} ${worker.apellidos}`,
-                puesto: worker.puesto,
-                area: worker.area
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`
             },
             record: attendanceRes.rows[0]
         });
@@ -66,29 +72,33 @@ const verifyWorker = async (req, res) => {
 
     try {
         const workerRes = await db.query(
-            'SELECT t.*, p.nombre as puesto, a.nombre as area FROM trabajadores t JOIN puestos p ON t.puesto_id = p.id JOIN areas a ON p.area_id = a.id WHERE t.dni = $1 AND t.activo = TRUE',
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+             FROM principal p 
+             JOIN cargos c ON p.cargo_id = c.id 
+             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             WHERE p.doc_identidad = $1`,
             [dni]
         );
 
         if (workerRes.rows.length === 0) {
-            return res.status(404).json({ message: 'Trabajador no encontrado o inactivo' });
+            return res.status(404).json({ message: 'Postulante no encontrado' });
         }
 
         const worker = workerRes.rows[0];
 
         // Ver si ya marcó entrada hoy
         const attendanceRes = await db.query(
-            'SELECT * FROM asistencias WHERE trabajador_id = $1 AND fecha = CURRENT_DATE',
+            'SELECT * FROM asistencias WHERE principal_id = $1 AND fecha_hora::date = CURRENT_DATE',
             [worker.id]
         );
 
         res.json({
             worker: {
                 id: worker.id,
-                dni: worker.dni,
-                nombre: `${worker.nombres} ${worker.apellidos}`,
-                puesto: worker.puesto,
-                area: worker.area
+                dni: worker.doc_identidad,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`
             },
             status: attendanceRes.rows.length > 0 ? 'entered' : 'none',
             attendance: attendanceRes.rows[0] || null

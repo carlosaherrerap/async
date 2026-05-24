@@ -6,20 +6,27 @@ const exportAttendanceToExcel = async (req, res) => {
     try {
         const query = `
             SELECT 
-                t.dni as "DNI",
-                t.nombres || ' ' || t.apellidos as "Trabajador",
-                a.nombre as "Area",
-                p.nombre as "Puesto",
-                asist.fecha as "Fecha",
-                asist.hora_entrada as "Hora Entrada",
-                asist.hora_salida as "Hora Salida",
-                asist.estado as "Estado",
-                asist.observaciones as "Observaciones"
+                asist.id as "Id",
+                'DNI' as "tipo_doc",
+                p.doc_identidad as "numero_doc",
+                p.ape_pat as "apellido_paterno",
+                p.ape_mat as "apellido_materno",
+                p.nombres as "nombres",
+                p.sede_reg as "sede_regional",
+                p.sede_juris as "sede_provincial_id",
+                p.local as "local_id",
+                p.aula as "num_aula",
+                tp.descripcion as "tipo_postulante_id",
+                c.nombre as "CARGO",
+                to_char(asist.fecha_hora, 'YYYY-MM-DD') as "FECHA_REGISTRO",
+                to_char(asist.fecha_hora, 'HH24:MI:SS') as "HORA_REGISTRO",
+                asist.estado as "ESTADO_ASISTENCIA",
+                COALESCE(asist.observaciones, '') as "OBSERVACIONES"
             FROM asistencias asist
-            JOIN trabajadores t ON asist.trabajador_id = t.id
-            JOIN puestos p ON t.puesto_id = p.id
-            JOIN areas a ON p.area_id = a.id
-            ORDER BY asist.fecha DESC, asist.hora_entrada DESC
+            JOIN principal p ON asist.principal_id = p.id
+            JOIN cargos c ON p.cargo_id = c.id
+            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            ORDER BY asist.fecha_hora DESC
         `;
 
         const result = await db.query(query);
@@ -49,15 +56,14 @@ const exportAttendanceToExcel = async (req, res) => {
 const getAbsentees = async (req, res) => {
     try {
         const query = `
-            SELECT t.dni, t.nombres, t.apellidos, a.nombre as area, p.nombre as puesto
-            FROM trabajadores t
-            JOIN puestos p ON t.puesto_id = p.id
-            JOIN areas a ON p.area_id = a.id
-            WHERE t.activo = TRUE
-            AND NOT EXISTS (
+            SELECT p.doc_identidad as dni, p.nombres, p.ape_pat || ' ' || p.ape_mat as apellidos, 
+                   p.local as area, c.nombre as puesto
+            FROM principal p
+            JOIN cargos c ON p.cargo_id = c.id
+            WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias asist 
-                WHERE asist.trabajador_id = t.id 
-                AND asist.fecha = CURRENT_DATE
+                WHERE asist.principal_id = p.id 
+                AND asist.fecha_hora::date = CURRENT_DATE
             )
         `;
 
@@ -73,9 +79,9 @@ const getStats = async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT 
-                (SELECT COUNT(*) FROM trabajadores WHERE activo = TRUE) as total_trabajadores,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha = CURRENT_DATE) as presentes,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha = CURRENT_DATE AND estado = 'Tardanza') as tardanzas
+                (SELECT COUNT(*) FROM principal) as total_trabajadores,
+                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
+                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas
         `);
         
         const data = stats.rows[0];

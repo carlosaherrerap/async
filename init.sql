@@ -35,7 +35,7 @@ INSERT INTO tipo_postulante (descripcion) VALUES
 ('Titular'),
 ('Reserva');
 
--- 3. Tabla principal – información del asistente
+-- 3. Tabla principal – información del asistente/postulante
 CREATE TABLE principal (
     id SERIAL PRIMARY KEY,
     sede_reg VARCHAR(100) NOT NULL,
@@ -54,35 +54,85 @@ CREATE TABLE principal (
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     username VARCHAR(20) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     nombre VARCHAR(100),
     rol VARCHAR(20) DEFAULT 'operador',
     activo BOOLEAN DEFAULT TRUE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabla de asistencias (registro de ingreso)
+-- 5. Tabla de asistencias (registro de ingreso por postulante)
 CREATE TABLE asistencias (
     id SERIAL PRIMARY KEY,
     principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
     estado CHAR(1) NOT NULL REFERENCES parametros_asistencia(estado),
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    observaciones TEXT,
-    UNIQUE (principal_id, DATE(fecha_hora))
+    observaciones TEXT
 );
 
--- Índices de ayuda
+-- Índices
 CREATE INDEX idx_principal_doc ON principal(doc_identidad);
-CREATE INDEX idx_asistencias_fecha ON asistencias(DATE(fecha_hora));
+CREATE INDEX idx_asistencias_fecha ON asistencias((fecha_hora::date));
+CREATE UNIQUE INDEX idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date));
 
--- Seed data (hard reset considerations)
-INSERT INTO usuarios (username, password_hash, nombre, rol) VALUES
-('admin', '$2a$10$Xm7M/k/f1J.5f7H3X.H1OeY4p.S3X0Z6r4W8f9u7d8v7R6Q5P4O3N', 'Administrador', 'admin');
+-- ==============================================================
+--  SEED DATA
+-- ==============================================================
 
--- Ejemplo de asistente principal
+-- Usuario administrador (contraseña: admin123)
+INSERT INTO usuarios (username, password, nombre, rol) VALUES
+('admin', '$2a$10$oM.bfLvrggVzzZJdJTAANOgn4RqYjaPD4SgEtBgNLzwXY4T3aVWxC', 'Administrador', 'admin');
+
+-- Usuario operador (contraseña: operador123)
+INSERT INTO usuarios (username, password, nombre, rol) VALUES
+('operador1', '$2a$10$oM.bfLvrggVzzZJdJTAANOgn4RqYjaPD4SgEtBgNLzwXY4T3aVWxC', 'Juan Operador', 'operador');
+
+-- ==========================================
+--  POSTULANTES (tabla principal) - 15 registros
+-- ==========================================
+
+-- AMAZONAS
 INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('AMAZONAS', 'AMAZONAS', '70932665', 'ABAD', 'LLONTOP', 'MIRIAM JENNIFER', 'LOCAL AMAZONAS BAGUA', 1, 1, 5);
+('AMAZONAS', 'AMAZONAS', '70932665', 'ABAD', 'LLONTOP', 'MIRIAM JENNIFER', 'LOCAL AMAZONAS BAGUA', 1, 1, 5),
+('AMAZONAS', 'AMAZONAS', '45678901', 'GARCIA', 'PEREZ', 'CARLOS ALBERTO', 'LOCAL AMAZONAS BAGUA', 2, 1, 3),
+('AMAZONAS', 'CONDORCANQUI', '42315678', 'VASQUEZ', 'RIOS', 'ANA MARIA', 'LOCAL CONDORCANQUI NIEVA', 1, 2, 5);
 
--- Registro de asistencia de ejemplo (usa el estado 'P')
+-- LIMA
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
+('LIMA', 'LIMA CENTRO', '10234567', 'TORRES', 'MENDOZA', 'LUIS FERNANDO', 'LOCAL LIMA CENTRO 01', 1, 1, 1),
+('LIMA', 'LIMA CENTRO', '10345678', 'QUISPE', 'HUAMAN', 'ROSA ELENA', 'LOCAL LIMA CENTRO 01', 2, 1, 2),
+('LIMA', 'LIMA NORTE', '10456789', 'RODRIGUEZ', 'SILVA', 'PEDRO MIGUEL', 'LOCAL LIMA NORTE COMAS', 1, 1, 4),
+('LIMA', 'LIMA SUR', '10567890', 'MORALES', 'DIAZ', 'MARIA LUISA', 'LOCAL LIMA SUR VES', 1, 2, 5);
+
+-- AREQUIPA
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
+('AREQUIPA', 'AREQUIPA', '29123456', 'CHAVEZ', 'GUTIERREZ', 'JORGE ENRIQUE', 'LOCAL AREQUIPA CENTRO', 1, 1, 3),
+('AREQUIPA', 'AREQUIPA', '29234567', 'FERNANDEZ', 'PONCE', 'CARMEN ROSA', 'LOCAL AREQUIPA CENTRO', 2, 1, 5),
+('AREQUIPA', 'CAMANA', '29345678', 'HUANCA', 'MAMANI', 'ROBERTO CARLOS', 'LOCAL CAMANA', 1, 2, 5);
+
+-- CUSCO
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
+('CUSCO', 'CUSCO', '23456789', 'CONDORI', 'APAZA', 'EDGAR DAVID', 'LOCAL CUSCO CENTRO', 1, 1, 2),
+('CUSCO', 'CUSCO', '23567890', 'PUMA', 'QUISPE', 'NANCY BEATRIZ', 'LOCAL CUSCO CENTRO', 2, 1, 5);
+
+-- LAMBAYEQUE
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
+('LAMBAYEQUE', 'CHICLAYO', '16789012', 'SANCHEZ', 'OLIVA', 'JOSE MANUEL', 'LOCAL CHICLAYO CENTRO', 1, 1, 4),
+('LAMBAYEQUE', 'CHICLAYO', '16890123', 'CASTILLO', 'BERNAL', 'TERESA MILAGROS', 'LOCAL CHICLAYO CENTRO', 2, 2, 5);
+
+-- LA LIBERTAD
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
+('LA LIBERTAD', 'TRUJILLO', '17901234', 'REYES', 'LEON', 'FRANCISCO JAVIER', 'LOCAL TRUJILLO CENTRO', 1, 1, 1);
+
+-- ==========================================
+--  ASISTENCIAS DE EJEMPLO
+-- ==========================================
 INSERT INTO asistencias (principal_id, estado, observaciones) VALUES
-(1, 'P', 'Asistencia puntual');
+(1, 'P', 'Asistencia puntual'),
+(2, 'P', NULL),
+(4, 'P', NULL),
+(5, 'T', 'Llegó 15 min tarde'),
+(8, 'P', NULL),
+(11, 'T', 'Tráfico en la vía'),
+(13, 'P', NULL),
+(15, 'P', NULL);

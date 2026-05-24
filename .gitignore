@@ -12,12 +12,5 @@ build/
 .expo/
 .expo-shared/
 coverage/
-.ARQUITECTURA_VISTAS.md
-.DIFICULTADES.md
-.README.md
-.REQUERIMIENTOS.md
-.SEGURIDAD_INFRAESTRUCTURA.md
-README.md
-*README.md
-!README.md
+*.md
 .gitignore
