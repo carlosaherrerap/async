@@ -1,0 +1,17 @@
+2. Tipografía: Legibilidad de Alta GamaLa IA suele usar fuentes geométricas genéricas. Para tu FSM necesitas tipografías suizas o de estilo "Neo-Grotesque" que denoten orden matemático y legibilidad en datos numéricos.Para Datos y Tablas (Inter o SF Pro Display): Son fuentes diseñadas específicamente para pantallas. Tienen un tracking (espaciado entre letras) excelente, lo que hace que los números y registros del dashboard se vean impecables y alineados.Para Títulos (Plus Jakarta Sans o General Sans): Tienen terminaciones limpias y un diseño ligeramente moderno que aporta el toque tecnológico sutil sin ser informal.Regla de oro: Usa solo dos grosores de letra (Regular para datos y Semibold para títulos). Limitar las variaciones genera ese orden visual que buscas.
+
+3. Formas y Estructura: Geometría Suave y RigurosaLa IA satura las interfaces con sombras gigantes y tarjetas flotantes. Tu FSM debe lucir plano, plano y estructurado.Bordes ligeramente suavizados: Tarjetas, tablas y botones con un radio de curvatura muy sutil (4px a 6px). Evita los bordes totalmente cuadrados (se ven viejos) y los muy redondeados (se ven infantiles).Líneas de división tenues: Para separar las sedes, registros o paneles, usa líneas delgadas (1px) en un gris casi invisible (#E2E8F0). No uses sombras para separar elementos; usa espacio en blanco.Contenedores limpios: Los paneles del dashboard deben tener el mismo color de fondo que la web o un blanco absoluto, diferenciados solo por una línea perimetral gris muy fina.
+
+
+4. Elementos del Dashboard y EstadísticasGráficos simplificados: Usa gráficos de líneas o barras con trazados finos y rellenos con opacidad baja (semitransparentes). Nada de gradientes llamativos en las barras.Íconos consistentes (Micro-iconografía): Usa sets de íconos de líneas finas (como Phosphor Icons o Heroicons en estilo Outline). Todos deben tener el mismo grosor de trazo para mantener la armonía en la lista de sedes y trabajadores.
+
+
+5. OTROS
+
+- Las transiciones de estados (hover, active, focus) deben ser extremadamente sutiles y rápidas. Usa una curva de tiempo de transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1)
+
+- En los casos que sea necesarios y se llegue a usar el efecto HOVER: No cambies el tamaño ni agregues sombras. Solo cambia el fondo del contenedor a un gris muy tenue (#F1F5F9) o reduce la opacidad del texto un 10%.
+
+- Carga de datos en Dashboard: Evita pantallas de carga con giros coloridos. Usa animaciones de tipo esqueleto (Skeleton load) con un pulso de opacidad muy suave (opacity: 0.6 a 1) que se mueva en línea recta, simulando que la estructura ya está lista."*
+
+- El diseño debe priorizar una alta densidad de información (compact layout) inspirada en interfaces como Tailwind UI o Stripe. El espacio en blanco (padding) debe ser moderado (padding: 12px a 16px en tablas y tarjetas) para permitir ver múltiples registros de trabajadores, sedes y estadísticas en una sola pantalla sin necesidad de hacer scroll excesivo. Los iconos deben ser exclusivamente de estilo lineal fino (outline, grosor 1.5px) y del mismo color que el texto secundario.

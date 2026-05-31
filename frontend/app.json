@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Asistencia Premium",
+    "name": "CONTROL DE ASISTENCIA NIVEL 1",
     "slug": "asistencia-movil",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.asistencia.premium"
+      "package": "com.control.asistencia.nivel1"
     },
     "web": {
       "favicon": "./assets/favicon.png"

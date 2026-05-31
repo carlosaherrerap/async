@@ -12,8 +12,13 @@ app.use(express.json());
 // Routes
 const attendanceRoutes = require('./routes/attendance');
 const authRoutes = require('./routes/auth');
+const rulesRoutes = require('./routes/rules');
+const configRoutes = require('./routes/config');
+
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/rules', rulesRoutes);
+app.use('/api/config', configRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'API de Asistencia activa' });

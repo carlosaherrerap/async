@@ -61,7 +61,14 @@ const ScanScreen = ({ navigation }) => {
         setWorkerData(data);
         setShowModal(true);
       } else {
-        Alert.alert('Error', data.message || 'No se pudo encontrar al trabajador');
+        Alert.alert(
+          'No encontrado', 
+          'El DNI no está registrado. ¿Desea registrarlo ahora?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: dni }) }
+          ]
+        );
       }
     } catch (error) {
       Alert.alert('Error de Conexión', 'No se pudo conectar con el servidor');
@@ -103,9 +110,9 @@ const ScanScreen = ({ navigation }) => {
       />
       
       <View style={styles.overlay}>
-        <LinearGradient colors={['rgba(0,0,0,0.8)', 'transparent']} style={styles.topOverlay}>
+        <View style={styles.topOverlay}>
           <View style={styles.header}>
-            <IconButton icon="chevron-left" iconColor="#fff" size={30} onPress={() => navigation.goBack()} />
+            <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
             <Text style={styles.headerTitle}>Escaneo Vertical de Barras</Text>
             <View style={{ width: 40 }} />
           </View>
@@ -124,7 +131,7 @@ const ScanScreen = ({ navigation }) => {
               <Text style={[styles.toggleText, dniType === 'DNIE' && styles.toggleTextActive]}>DNIe (ELECTRÓNICO)</Text>
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
         <Animated.View style={[styles.scannerFrame, { top: frameY, left: frameX }]}>
            <View style={styles.cornerTopLeft} />
@@ -147,14 +154,14 @@ const ScanScreen = ({ navigation }) => {
            <Text style={styles.guideText}>Gire el documento para escanear la barra vertical</Text>
         </Animated.View>
 
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.bottomOverlay}>
-           <Surface style={styles.manualPanel} elevation={4}>
+        <View style={styles.bottomOverlay}>
+           <Surface style={styles.manualPanel} elevation={3}>
               <Text style={styles.manualLabel}>Ingreso manual de DNI:</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
                   placeholder="Ej: 71234567"
-                  placeholderTextColor="#666"
+                  placeholderTextColor="#64748B"
                   keyboardType="numeric"
                   maxLength={8}
                   value={manualDni}
@@ -164,21 +171,18 @@ const ScanScreen = ({ navigation }) => {
                   style={styles.searchButton}
                   onPress={() => handleDniReceived(manualDni)}
                 >
-                  <LinearGradient
-                    colors={['#33d9b2', '#218c74']}
-                    style={styles.searchButtonGradient}
-                  >
+                  <View style={styles.searchButtonContent}>
                     <MaterialCommunityIcons name="magnify" size={24} color="white" />
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
            </Surface>
-        </LinearGradient>
+        </View>
       </View>
 
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator animating={true} color="#33d9b2" size="large" />
+          <ActivityIndicator animating={true} color="#334155" size="large" />
           <Text style={styles.loadingText}>Verificando...</Text>
         </View>
       )}
@@ -195,9 +199,8 @@ const ScanScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F4F6F8',
   },
-  background: { ...StyleSheet.absoluteFillObject },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
@@ -206,6 +209,9 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   header: {
     flexDirection: 'row',
@@ -213,80 +219,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  backBtn: {
+    backgroundColor: '#F4F6F8',
+  },
   headerTitle: {
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 15,
+    backgroundColor: '#F4F6F8',
+    borderRadius: 6,
     padding: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   toggleButton: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 6,
   },
   toggleActive: {
-    backgroundColor: '#33d9b2',
+    backgroundColor: '#334155',
   },
   toggleText: {
-    color: '#888',
+    color: '#64748B',
     fontWeight: 'bold',
     fontSize: 11,
   },
   toggleTextActive: {
-    color: '#fff',
+    color: '#FFFFFF',
   },
   scannerFrame: {
     position: 'absolute',
-    width: 100, // Narrower for vertical barcode
-    height: 250, // Taller for vertical barcode
+    width: 100,
+    height: 250,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cornerTopLeft: { position: 'absolute', top: 0, left: 0, width: 20, height: 20, borderTopWidth: 3, borderLeftWidth: 3, borderColor: '#33d9b2', borderTopLeftRadius: 10 },
-  cornerTopRight: { position: 'absolute', top: 0, right: 0, width: 20, height: 20, borderTopWidth: 3, borderRightWidth: 3, borderColor: '#33d9b2', borderTopRightRadius: 10 },
-  cornerBottomLeft: { position: 'absolute', bottom: 0, left: 0, width: 20, height: 20, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: '#33d9b2', borderBottomLeftRadius: 10 },
-  cornerBottomRight: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderBottomWidth: 3, borderRightWidth: 3, borderColor: '#33d9b2', borderBottomRightRadius: 10 },
+  cornerTopLeft: { position: 'absolute', top: 0, left: 0, width: 20, height: 20, borderTopWidth: 3, borderLeftWidth: 3, borderColor: '#334155', borderTopLeftRadius: 4 },
+  cornerTopRight: { position: 'absolute', top: 0, right: 0, width: 20, height: 20, borderTopWidth: 3, borderRightWidth: 3, borderColor: '#334155', borderTopRightRadius: 4 },
+  cornerBottomLeft: { position: 'absolute', bottom: 0, left: 0, width: 20, height: 20, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: '#334155', borderBottomLeftRadius: 4 },
+  cornerBottomRight: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderBottomWidth: 3, borderRightWidth: 3, borderColor: '#334155', borderBottomRightRadius: 4 },
   scanLine: {
     width: 2,
     height: '80%',
-    backgroundColor: '#33d9b2',
-    shadowColor: '#33d9b2',
+    backgroundColor: '#B91C1C',
+    shadowColor: '#B91C1C',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 5,
     elevation: 10,
   },
   guideText: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontSize: 10,
     textAlign: 'center',
     width: 150,
     position: 'absolute',
     bottom: -40,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 5,
-    borderRadius: 8,
+    backgroundColor: 'rgba(51, 65, 85, 0.85)',
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   bottomOverlay: {
     padding: 20,
     paddingBottom: 40,
+    backgroundColor: 'rgba(244, 246, 248, 0.8)',
   },
   manualPanel: {
-    backgroundColor: 'rgba(25,25,25,0.95)',
-    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E2E8F0',
   },
   manualLabel: {
-    color: '#888',
+    color: '#64748B',
     fontSize: 12,
     marginBottom: 10,
     fontWeight: '600',
@@ -297,51 +311,36 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: '#121212',
-    borderRadius: 15,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 6,
     paddingHorizontal: 15,
     height: 55,
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 18,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E2E8F0',
   },
   searchButton: {
     width: 55,
     height: 55,
-    borderRadius: 15,
+    borderRadius: 6,
     overflow: 'hidden',
+    backgroundColor: '#334155',
   },
-  searchButtonGradient: {
+  searchButtonContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  permissionText: {
-    color: '#fff',
-    fontSize: 16,
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  permissionButton: {
-    backgroundColor: '#33d9b2',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  permissionButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
   loadingText: {
-    color: '#fff',
+    color: '#334155',
     marginTop: 15,
     fontSize: 16,
     fontWeight: '600',

@@ -1,8 +1,3 @@
--- ==============================================================
---  INICIALIZACIÓN DE BASE DE DATOS – MODELO LÓGICO NORMALIZADO
---  Derivado del documento mod.txt (requisitos del cliente)
--- ==============================================================
-
 -- 1. Tabla de parámetros de asistencia (estados y horarios)
 CREATE TABLE parametros_asistencia (
     estado CHAR(1) PRIMARY KEY,
@@ -20,6 +15,7 @@ CREATE TABLE cargos (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL UNIQUE
 );
+
 INSERT INTO cargos (nombre) VALUES
 ('Monitor Nacional'),
 ('Supervisor Nacional'),
@@ -27,13 +23,29 @@ INSERT INTO cargos (nombre) VALUES
 ('Coordinador Administrativo Regional'),
 ('Tecnico Administrativo Provincial');
 
+CREATE TABLE metas_cargos (
+    cargo_id INT PRIMARY KEY REFERENCES cargos(id),
+    limite_vacantes INT NOT NULL DEFAULT 0
+);
+
 CREATE TABLE tipo_postulante (
     id SERIAL PRIMARY KEY,
     descripcion VARCHAR(50) NOT NULL UNIQUE
 );
+
 INSERT INTO tipo_postulante (descripcion) VALUES
 ('Titular'),
 ('Reserva');
+
+-- 2.5 Tabla de Reglas de Asistencia
+CREATE TABLE reglas_asistencia (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    dias_labor VARCHAR(20) NOT NULL, 
+    hora_ingreso TIME NOT NULL,
+    hora_salida TIME NOT NULL,
+    es_predeterminado BOOLEAN DEFAULT FALSE
+);
 
 -- 3. Tabla principal – información del asistente/postulante
 CREATE TABLE principal (
@@ -47,7 +59,8 @@ CREATE TABLE principal (
     local VARCHAR(150) NOT NULL,
     aula INT NOT NULL,
     tipo_postulante_id INT NOT NULL REFERENCES tipo_postulante(id),
-    cargo_id INT NOT NULL REFERENCES cargos(id)
+    cargo_id INT NOT NULL REFERENCES cargos(id),
+    regla_id INT REFERENCES reglas_asistencia(id)
 );
 
 -- 4. Tabla de usuarios del sistema (login)
@@ -65,8 +78,10 @@ CREATE TABLE usuarios (
 CREATE TABLE asistencias (
     id SERIAL PRIMARY KEY,
     principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
-    estado CHAR(1) NOT NULL REFERENCES parametros_asistencia(estado),
+    estado VARCHAR(20) NOT NULL,
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    hora_entrada TIMESTAMP,
+    hora_salida TIMESTAMP,
     observaciones TEXT
 );
 
@@ -88,41 +103,58 @@ INSERT INTO usuarios (username, password, nombre, rol) VALUES
 ('operador1', '$2a$10$oM.bfLvrggVzzZJdJTAANOgn4RqYjaPD4SgEtBgNLzwXY4T3aVWxC', 'Juan Operador', 'operador');
 
 -- ==========================================
+--  METAS / VACANTES POR CARGO
+-- ==========================================
+INSERT INTO metas_cargos (cargo_id, limite_vacantes) VALUES
+(1, 10), -- Monitor Nacional
+(2, 5),  -- Supervisor Nacional
+(3, 2),  -- Coordinador Regional
+(4, 2),  -- Coordinador Administrativo Regional
+(5, 15); -- Tecnico Administrativo Provincial
+
+-- ==========================================
+--  REGLAS DE ASISTENCIA
+-- ==========================================
+INSERT INTO reglas_asistencia (nombre, dias_labor, hora_ingreso, hora_salida, es_predeterminado) VALUES
+('REGLA GENERAL', 'L,M,X,J,V', '08:00:00', '17:00:00', TRUE),
+('REGLA FIN DE SEMANA', 'S,D', '09:00:00', '14:00:00', FALSE);
+
+-- ==========================================
 --  POSTULANTES (tabla principal) - 15 registros
 -- ==========================================
 
 -- AMAZONAS
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('AMAZONAS', 'AMAZONAS', '70932665', 'ABAD', 'LLONTOP', 'MIRIAM JENNIFER', 'LOCAL AMAZONAS BAGUA', 1, 1, 5),
-('AMAZONAS', 'AMAZONAS', '45678901', 'GARCIA', 'PEREZ', 'CARLOS ALBERTO', 'LOCAL AMAZONAS BAGUA', 2, 1, 3),
-('AMAZONAS', 'CONDORCANQUI', '42315678', 'VASQUEZ', 'RIOS', 'ANA MARIA', 'LOCAL CONDORCANQUI NIEVA', 1, 2, 5);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('AMAZONAS', 'AMAZONAS', '70932665', 'ABAD', 'LLONTOP', 'MIRIAM JENNIFER', 'LOCAL AMAZONAS BAGUA', 1, 1, 5, 1),
+('AMAZONAS', 'AMAZONAS', '45678901', 'GARCIA', 'PEREZ', 'CARLOS ALBERTO', 'LOCAL AMAZONAS BAGUA', 2, 1, 3, 1),
+('AMAZONAS', 'CONDORCANQUI', '42315678', 'VASQUEZ', 'RIOS', 'ANA MARIA', 'LOCAL CONDORCANQUI NIEVA', 1, 2, 5, 1);
 
 -- LIMA
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('LIMA', 'LIMA CENTRO', '10234567', 'TORRES', 'MENDOZA', 'LUIS FERNANDO', 'LOCAL LIMA CENTRO 01', 1, 1, 1),
-('LIMA', 'LIMA CENTRO', '10345678', 'QUISPE', 'HUAMAN', 'ROSA ELENA', 'LOCAL LIMA CENTRO 01', 2, 1, 2),
-('LIMA', 'LIMA NORTE', '10456789', 'RODRIGUEZ', 'SILVA', 'PEDRO MIGUEL', 'LOCAL LIMA NORTE COMAS', 1, 1, 4),
-('LIMA', 'LIMA SUR', '10567890', 'MORALES', 'DIAZ', 'MARIA LUISA', 'LOCAL LIMA SUR VES', 1, 2, 5);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('LIMA', 'LIMA CENTRO', '10234567', 'TORRES', 'MENDOZA', 'LUIS FERNANDO', 'LOCAL LIMA CENTRO 01', 1, 1, 1, 1),
+('LIMA', 'LIMA CENTRO', '10345678', 'QUISPE', 'HUAMAN', 'ROSA ELENA', 'LOCAL LIMA CENTRO 01', 2, 1, 2, 1),
+('LIMA', 'LIMA NORTE', '10456789', 'RODRIGUEZ', 'SILVA', 'PEDRO MIGUEL', 'LOCAL LIMA NORTE COMAS', 1, 1, 4, 1),
+('LIMA', 'LIMA SUR', '10567890', 'MORALES', 'DIAZ', 'MARIA LUISA', 'LOCAL LIMA SUR VES', 1, 2, 5, 1);
 
 -- AREQUIPA
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('AREQUIPA', 'AREQUIPA', '29123456', 'CHAVEZ', 'GUTIERREZ', 'JORGE ENRIQUE', 'LOCAL AREQUIPA CENTRO', 1, 1, 3),
-('AREQUIPA', 'AREQUIPA', '29234567', 'FERNANDEZ', 'PONCE', 'CARMEN ROSA', 'LOCAL AREQUIPA CENTRO', 2, 1, 5),
-('AREQUIPA', 'CAMANA', '29345678', 'HUANCA', 'MAMANI', 'ROBERTO CARLOS', 'LOCAL CAMANA', 1, 2, 5);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('AREQUIPA', 'AREQUIPA', '29123456', 'CHAVEZ', 'GUTIERREZ', 'JORGE ENRIQUE', 'LOCAL AREQUIPA CENTRO', 1, 1, 3, 1),
+('AREQUIPA', 'AREQUIPA', '29234567', 'FERNANDEZ', 'PONCE', 'CARMEN ROSA', 'LOCAL AREQUIPA CENTRO', 2, 1, 5, 1),
+('AREQUIPA', 'CAMANA', '29345678', 'HUANCA', 'MAMANI', 'ROBERTO CARLOS', 'LOCAL CAMANA', 1, 2, 5, 1);
 
 -- CUSCO
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('CUSCO', 'CUSCO', '23456789', 'CONDORI', 'APAZA', 'EDGAR DAVID', 'LOCAL CUSCO CENTRO', 1, 1, 2),
-('CUSCO', 'CUSCO', '23567890', 'PUMA', 'QUISPE', 'NANCY BEATRIZ', 'LOCAL CUSCO CENTRO', 2, 1, 5);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('CUSCO', 'CUSCO', '23456789', 'CONDORI', 'APAZA', 'EDGAR DAVID', 'LOCAL CUSCO CENTRO', 1, 1, 2, 1),
+('CUSCO', 'CUSCO', '23567890', 'PUMA', 'QUISPE', 'NANCY BEATRIZ', 'LOCAL CUSCO CENTRO', 2, 1, 5, 1);
 
 -- LAMBAYEQUE
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('LAMBAYEQUE', 'CHICLAYO', '16789012', 'SANCHEZ', 'OLIVA', 'JOSE MANUEL', 'LOCAL CHICLAYO CENTRO', 1, 1, 4),
-('LAMBAYEQUE', 'CHICLAYO', '16890123', 'CASTILLO', 'BERNAL', 'TERESA MILAGROS', 'LOCAL CHICLAYO CENTRO', 2, 2, 5);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('LAMBAYEQUE', 'CHICLAYO', '16789012', 'SANCHEZ', 'OLIVA', 'JOSE MANUEL', 'LOCAL CHICLAYO CENTRO', 1, 1, 4, 1),
+('LAMBAYEQUE', 'CHICLAYO', '16890123', 'CASTILLO', 'BERNAL', 'TERESA MILAGROS', 'LOCAL CHICLAYO CENTRO', 2, 2, 5, 1);
 
 -- LA LIBERTAD
-INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id) VALUES
-('LA LIBERTAD', 'TRUJILLO', '17901234', 'REYES', 'LEON', 'FRANCISCO JAVIER', 'LOCAL TRUJILLO CENTRO', 1, 1, 1);
+INSERT INTO principal (sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, regla_id) VALUES
+('LA LIBERTAD', 'TRUJILLO', '17901234', 'REYES', 'LEON', 'FRANCISCO JAVIER', 'LOCAL TRUJILLO CENTRO', 1, 1, 1, 1);
 
 -- ==========================================
 --  ASISTENCIAS DE EJEMPLO

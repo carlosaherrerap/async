@@ -43,41 +43,53 @@ const LoginScreen = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <Surface style={styles.card} elevation={4}>
-        <Text style={styles.logoText}>SCA</Text>
-        <Text style={styles.subtitle}>Control de Asistencia</Text>
-
-        <TextInput
-          label="Usuario"
-          value={username}
-          onChangeText={setUsername}
-          mode="outlined"
-          style={styles.input}
-          autoCapitalize="none"
-          textColor="#fff"
+      <View style={styles.content}>
+        <Image 
+          source={require('../../assets/ENLA.png')} 
+          style={styles.logo} 
+          resizeMode="contain" 
         />
+        <Text style={styles.title}>Evaluación Nacional de Logros de Aprendizaje de Estudiantes (ENLA-2026)</Text>
+        
+        <Surface style={styles.card} elevation={1}>
+          <Text style={styles.subtitle}>SCA - Acceso al Sistema</Text>
 
-        <TextInput
-          label="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          mode="outlined"
-          secureTextEntry
-          style={styles.input}
-          textColor="#fff"
-        />
+          <TextInput
+            label="Usuario"
+            value={username}
+            onChangeText={setUsername}
+            mode="outlined"
+            style={styles.input}
+            autoCapitalize="none"
+            textColor="#0F172A"
+            outlineColor="#E2E8F0"
+            activeOutlineColor="#334155"
+          />
 
-        <Button 
-          mode="contained" 
-          onPress={handleLogin} 
-          loading={loading}
-          disabled={loading}
-          style={styles.button}
-          buttonColor="#33d9b2"
-        >
-          Iniciar Sesión
-        </Button>
-      </Surface>
+          <TextInput
+            label="Contraseña"
+            value={password}
+            onChangeText={setPassword}
+            mode="outlined"
+            secureTextEntry
+            style={styles.input}
+            textColor="#0F172A"
+            outlineColor="#E2E8F0"
+            activeOutlineColor="#334155"
+          />
+
+          <Button 
+            mode="contained" 
+            onPress={handleLogin} 
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
+            buttonColor="#334155"
+          >
+            Iniciar Sesión
+          </Button>
+        </Surface>
+      </View>
     </KeyboardAvoidingView>
   );
 };
@@ -85,36 +97,56 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F4F6F8',
     justifyContent: 'center',
+  },
+  content: {
     padding: 20,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 15,
+    color: '#0F172A',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    lineHeight: 22,
   },
   card: {
     padding: 30,
-    borderRadius: 25,
-    backgroundColor: '#1e1e1e',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#33d9b2',
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   subtitle: {
-    color: '#aaa',
-    marginBottom: 30,
+    color: '#64748B',
+    marginBottom: 25,
+    fontSize: 13,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
   },
   input: {
     width: '100%',
-    backgroundColor: '#121212',
+    backgroundColor: '#F9FAFB',
     marginBottom: 15,
   },
   button: {
     width: '100%',
-    marginTop: 10,
-    height: 50,
+    marginTop: 15,
+    height: 52,
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 6,
   }
 });
 

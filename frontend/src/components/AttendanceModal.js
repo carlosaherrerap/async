@@ -25,7 +25,6 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   if (!data) return null;
 
   const { worker, status, attendance } = data;
-  const hasEntered = status === 'entered';
 
   const handleAction = async (actionType) => {
     setLoading(true);
@@ -35,14 +34,14 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           dni: worker.dni,
-          tipo: actionType // Backend could use this to force entry or exit if needed
+          tipo: actionType
         }),
       });
 
       if (response.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onClose();
-        // Trigger a success message in the parent or similar
+        if (onRegisterSuccess) onRegisterSuccess();
       } else {
         const err = await response.json();
         alert(err.message || 'Error al registrar');
@@ -54,24 +53,33 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
     }
   };
 
+  const getStatusColor = () => {
+    if (status === 'completed') return '#15803D';
+    if (status === 'entered') return '#334155';
+    return '#B91C1C';
+  };
+
+  const getStatusLabel = () => {
+    if (status === 'completed') return 'COMPLETADO';
+    if (status === 'entered') return 'EN PLANTA';
+    return 'FUERA';
+  };
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onClose} contentContainerStyle={styles.container}>
         <Animated.View style={{ opacity: fadeAnim, width: '100%', alignItems: 'center' }}>
-          <Surface style={styles.card} elevation={5}>
-            <LinearGradient
-              colors={['#1e1e1e', '#121212']}
-              style={styles.gradient}
-            >
+          <Surface style={styles.card} elevation={3}>
+            <View style={styles.cardContent}>
               <View style={styles.header}>
                 <Avatar.Icon 
                   size={80} 
                   icon="account" 
-                  style={{ backgroundColor: hasEntered ? '#34ace0' : '#33d9b2' }} 
+                  style={{ backgroundColor: getStatusColor() }} 
                 />
-                <View style={styles.statusBadge}>
-                   <Text style={styles.statusText}>
-                     {hasEntered ? 'EN PLANTA' : 'FUERA'}
+                <View style={[styles.statusBadge, { borderColor: getStatusColor() }]}>
+                   <Text style={[styles.statusText, { color: getStatusColor() }]}>
+                     {getStatusLabel()}
                    </Text>
                 </View>
               </View>
@@ -82,51 +90,71 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
 
               <View style={styles.divider} />
 
-              {hasEntered && attendance && (
+              {attendance && attendance.hora_entrada && (
                 <View style={styles.infoRow}>
-                   <MaterialCommunityIcons name="login" size={20} color="#33d9b2" />
-                   <Text style={styles.infoText}>Entrada: {attendance.hora_entrada}</Text>
+                   <MaterialCommunityIcons name="login" size={20} color="#15803D" />
+                   <Text style={styles.infoText}>
+                     Entrada: {new Date(attendance.hora_entrada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                   </Text>
+                </View>
+              )}
+
+              {attendance && attendance.hora_salida && (
+                <View style={styles.infoRow}>
+                   <MaterialCommunityIcons name="logout" size={20} color="#B91C1C" />
+                   <Text style={styles.infoText}>
+                     Salida: {new Date(attendance.hora_salida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                   </Text>
                 </View>
               )}
 
               <View style={styles.actions}>
-                {!hasEntered ? (
+                {status === 'none' && (
                   <TouchableOpacity 
                     style={[styles.actionButton, styles.entryButton]}
                     onPress={() => handleAction('entrada')}
                     disabled={loading}
                   >
-                    <LinearGradient colors={['#33d9b2', '#218c74']} style={styles.btnGradient}>
+                    <View style={[styles.btnContainer, { backgroundColor: '#15803D' }]}>
                       {loading ? <ActivityIndicator color="#fff" /> : (
                         <>
                           <MaterialCommunityIcons name="login" size={24} color="white" />
                           <Text style={styles.btnText}>MARCAR ENTRADA</Text>
                         </>
                       )}
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
-                ) : (
+                )}
+
+                {status === 'entered' && (
                   <TouchableOpacity 
                     style={[styles.actionButton, styles.exitButton]}
                     onPress={() => handleAction('salida')}
                     disabled={loading}
                   >
-                    <LinearGradient colors={['#ff5252', '#b33939']} style={styles.btnGradient}>
+                    <View style={[styles.btnContainer, { backgroundColor: '#B91C1C' }]}>
                       {loading ? <ActivityIndicator color="#fff" /> : (
                         <>
                           <MaterialCommunityIcons name="logout" size={24} color="white" />
                           <Text style={styles.btnText}>MARCAR SALIDA</Text>
                         </>
                       )}
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 )}
+
+                {status === 'completed' && (
+                  <View style={styles.completedAlert}>
+                    <MaterialCommunityIcons name="check-circle" size={24} color="#15803D" style={{ marginBottom: 5 }} />
+                    <Text style={styles.completedText}>Asistencia y Salida registradas por hoy</Text>
+                  </View>
+                )}
                 
-                <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                  <Text style={styles.cancelText}>CANCELAR</Text>
+                <TouchableOpacity style={styles.cancelButton} onClose={onClose} onPress={onClose}>
+                  <Text style={styles.cancelText}>CERRAR</Text>
                 </TouchableOpacity>
               </View>
-            </LinearGradient>
+            </View>
           </Surface>
         </Animated.View>
       </Modal>
@@ -140,13 +168,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    borderRadius: 30,
-    overflow: 'hidden',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
     width: '95%',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
   },
-  gradient: {
+  cardContent: {
     padding: 25,
     alignItems: 'center',
   },
@@ -157,69 +186,71 @@ const styles = StyleSheet.create({
   statusBadge: {
     position: 'absolute',
     bottom: -5,
-    backgroundColor: '#000',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#444',
   },
   statusText: {
-    color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 1,
   },
   name: {
-    color: '#fff',
-    fontSize: 22,
+    color: '#0F172A',
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 10,
   },
   role: {
-    color: '#33d9b2',
+    color: '#64748B',
     fontSize: 14,
     fontWeight: '600',
     marginTop: 5,
   },
   area: {
-    color: '#888',
+    color: '#64748B',
     fontSize: 12,
     marginTop: 2,
+    textAlign: 'center',
   },
   divider: {
     width: '100%',
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: '#E2E8F0',
     marginVertical: 20,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 10,
-    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 6,
     width: '100%',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   infoText: {
-    color: '#fff',
+    color: '#0F172A',
     marginLeft: 10,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   actions: {
     width: '100%',
     gap: 12,
+    marginTop: 10,
   },
   actionButton: {
     width: '100%',
-    height: 60,
-    borderRadius: 18,
+    height: 54,
+    borderRadius: 6,
     overflow: 'hidden',
   },
-  btnGradient: {
+  btnContainer: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -228,16 +259,32 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+  },
+  completedAlert: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: '#F0FDF4', // HSL(142, 30%, 96%)
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completedText: {
+    color: '#15803D',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
   },
   cancelButton: {
-    paddingVertical: 15,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   cancelText: {
-    color: '#666',
+    color: '#64748B',
     fontWeight: 'bold',
     fontSize: 14,
   }

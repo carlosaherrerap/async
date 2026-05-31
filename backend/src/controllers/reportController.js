@@ -86,11 +86,35 @@ const getStats = async (req, res) => {
         
         const data = stats.rows[0];
         const faltas = parseInt(data.total_trabajadores) - parseInt(data.presentes);
+
+        // Asistencia por cargo
+        const asistenciaPorCargo = await db.query(`
+            SELECT c.nombre as cargo, 
+                   COUNT(a.id) as presentes,
+                   (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
+            FROM cargos c
+            LEFT JOIN principal p ON p.cargo_id = c.id
+            LEFT JOIN asistencias a ON a.principal_id = p.id AND a.fecha_hora::date = CURRENT_DATE
+            GROUP BY c.id, c.nombre
+            ORDER BY c.id ASC
+        `);
+
+        // Metas por cargo
+        const metasPorCargo = await db.query(`
+            SELECT c.nombre as cargo,
+                   COALESCE(m.limite_vacantes, 0) as meta,
+                   (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as registrados
+            FROM cargos c
+            LEFT JOIN metas_cargos m ON m.cargo_id = c.id
+            ORDER BY c.id ASC
+        `);
         
         res.json({
             presentes: parseInt(data.presentes),
             faltas: faltas,
-            tardanzas: parseInt(data.tardanzas)
+            tardanzas: parseInt(data.tardanzas),
+            asistenciaPorCargo: asistenciaPorCargo.rows,
+            metasPorCargo: metasPorCargo.rows
         });
     } catch (error) {
         console.error(error);
@@ -98,8 +122,47 @@ const getStats = async (req, res) => {
     }
 };
 
+const getDailyAttendance = async (req, res) => {
+    const { date } = req.query; // Formato YYYY-MM-DD
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    try {
+        const presentesRes = await db.query(`
+            SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
+                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, a.estado, a.fecha_hora
+            FROM asistencias a
+            JOIN principal p ON a.principal_id = p.id
+            JOIN cargos c ON p.cargo_id = c.id
+            WHERE a.fecha_hora::date = $1
+            ORDER BY a.fecha_hora DESC
+        `, [targetDate]);
+
+        const ausentesRes = await db.query(`
+            SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
+                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local
+            FROM principal p
+            JOIN cargos c ON p.cargo_id = c.id
+            WHERE NOT EXISTS (
+                SELECT 1 FROM asistencias a 
+                WHERE a.principal_id = p.id AND a.fecha_hora::date = $1
+            )
+            ORDER BY p.ape_pat, p.ape_mat
+        `, [targetDate]);
+
+        res.json({
+            date: targetDate,
+            presentes: presentesRes.rows,
+            ausentes: ausentesRes.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error al obtener asistencia diaria.' });
+    }
+};
+
 module.exports = {
     exportAttendanceToExcel,
     getAbsentees,
-    getStats
+    getStats,
+    getDailyAttendance
 };

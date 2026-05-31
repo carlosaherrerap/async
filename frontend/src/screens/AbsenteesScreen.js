@@ -38,7 +38,7 @@ const AbsenteesScreen = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator animating={true} color="#ff5252" size="large" />
+        <ActivityIndicator animating={true} color="#B91C1C" size="large" />
       </View>
     );
   }
@@ -60,9 +60,9 @@ const AbsenteesScreen = ({ navigation }) => {
               <List.Item
                 title={`${item.nombres} ${item.apellidos}`}
                 description={`${item.puesto} | ${item.area}`}
-                left={props => <Avatar.Text {...props} label={item.nombres[0]} size={40} style={{ backgroundColor: '#ff5252' }} />}
-                titleStyle={{ color: '#fff', fontWeight: 'bold' }}
-                descriptionStyle={{ color: '#aaa' }}
+                left={props => <Avatar.Text {...props} label={item.nombres[0]} size={40} style={{ backgroundColor: '#B91C1C' }} />}
+                titleStyle={{ color: '#0F172A', fontWeight: 'bold' }}
+                descriptionStyle={{ color: '#64748B' }}
               />
             </Surface>
           )}
@@ -77,14 +77,17 @@ const AbsenteesScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F4F6F8',
     padding: 20,
   },
   header: {
-    color: '#ff5252',
-    fontSize: 22,
+    color: '#B91C1C',
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#B91C1C',
+    paddingLeft: 8,
   },
   center: {
     flex: 1,
@@ -92,13 +95,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#aaa',
-    fontSize: 16,
+    color: '#64748B',
+    fontSize: 14,
     textAlign: 'center',
   },
   itemCard: {
-    backgroundColor: '#1e1e1e',
-    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
   }
 });

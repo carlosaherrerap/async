@@ -12,8 +12,12 @@ router.get('/verify', attendanceController.verifyWorker);
 router.post('/register', attendanceController.registerAttendance);
 
 // Rutas protegidas
+router.post('/register-worker', verifyToken, attendanceController.registerWorker);
+router.get('/workers', verifyToken, attendanceController.getAllWorkers);
+router.put('/workers/:id', verifyToken, attendanceController.updateWorker);
 router.get('/export', [verifyToken, isAdmin], reportController.exportAttendanceToExcel);
 router.get('/absentees', verifyToken, reportController.getAbsentees);
 router.get('/stats', verifyToken, reportController.getStats);
+router.get('/daily', verifyToken, reportController.getDailyAttendance);
 
 module.exports = router;

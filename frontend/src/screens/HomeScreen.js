@@ -63,28 +63,21 @@ const HomeScreen = ({ navigation }) => {
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <LinearGradient
-        colors={[color + '44', color + '22', '#1a1a1a']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
+      <Surface style={styles.menuSurface} elevation={1}>
         <View style={[styles.iconContainer, { backgroundColor: color }]}>
-          <MaterialCommunityIcons name={icon} size={30} color="white" />
+          <MaterialCommunityIcons name={icon} size={28} color="white" />
         </View>
         <Text style={styles.menuTitle}>{title}</Text>
-      </LinearGradient>
+      </Surface>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#121212', '#000000']} style={styles.background} />
-      
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#33d9b2" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#334155" />
         }
       >
         <View style={styles.headerRow}>
@@ -94,7 +87,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <IconButton 
             icon="logout-variant" 
-            iconColor="#ff5252" 
+            iconColor="#B91C1C" 
             size={28} 
             style={styles.logoutButton}
             onPress={handleLogout} 
@@ -102,18 +95,15 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {/* Stats Card */}
-        <Surface style={styles.statsCard} elevation={4}>
-          <LinearGradient
-            colors={['#1e1e1e', '#121212']}
-            style={styles.statsGradient}
-          >
+        <Surface style={styles.statsCard} elevation={1}>
+          <View style={styles.statsContent}>
             <Text style={styles.statsTitle}>Resumen de Hoy</Text>
             {loading ? (
-              <ActivityIndicator animating={true} color="#33d9b2" />
+              <ActivityIndicator animating={true} color="#334155" />
             ) : (
               <View style={styles.statsRow}>
                 <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.presentes}</Text>
+                  <Text style={[styles.statValue, { color: '#15803D' }]}>{stats.presentes}</Text>
                   <Text style={styles.statLabel}>Presentes</Text>
                 </View>
                 <View style={styles.statDivider} />
@@ -121,17 +111,17 @@ const HomeScreen = ({ navigation }) => {
                   style={styles.statItem} 
                   onPress={() => navigation.navigate('Absentees')}
                 >
-                  <Text style={[styles.statValue, { color: '#ff5252' }]}>{stats.faltas}</Text>
+                  <Text style={[styles.statValue, { color: '#B91C1C' }]}>{stats.faltas}</Text>
                   <Text style={styles.statLabel}>Faltas</Text>
                 </TouchableOpacity>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: '#ffb142' }]}>{stats.tardanzas}</Text>
+                  <Text style={[styles.statValue, { color: '#F1C40F' }]}>{stats.tardanzas}</Text>
                   <Text style={styles.statLabel}>Tardanzas</Text>
                 </View>
               </View>
             )}
-          </LinearGradient>
+          </View>
         </Surface>
 
         <Text style={styles.sectionTitle}>Menú Principal</Text>
@@ -140,36 +130,35 @@ const HomeScreen = ({ navigation }) => {
           <MenuButton 
             title="MARCACIÓN" 
             icon="barcode-scan" 
-            color="#33d9b2" 
+            color="#334155" 
             onPress={() => navigation.navigate('Scan')}
             fullWidth
           />
           <MenuButton 
-            title="LISTA PERSONAL" 
+            title="PERSONAL" 
             icon="account-group" 
-            color="#34ace0" 
+            color="#B91C1C" 
             onPress={() => navigation.navigate('PersonalList')}
           />
           <MenuButton 
             title="ASISTENCIA" 
             icon="calendar-check" 
-            color="#ffb142" 
+            color="#15803D" 
             onPress={() => navigation.navigate('AttendanceControl')}
           />
           <MenuButton 
             title="REGLAS" 
             icon="clock-edit-outline" 
-            color="#ff5252" 
+            color="#F1C40F" 
             onPress={() => navigation.navigate('Rules')}
           />
           <MenuButton 
             title="CONFIG" 
             icon="cog-outline" 
-            color="#706fd3" 
+            color="#7DA5CE" 
             onPress={() => navigation.navigate('Config')}
           />
         </View>
-
 
       </ScrollView>
     </View>
@@ -179,10 +168,7 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
-  },
-  background: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F4F6F8',
   },
   scrollContent: {
     padding: 20,
@@ -195,37 +181,40 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   welcomeText: {
-    color: '#888',
-    fontSize: 14,
+    color: '#64748B',
+    fontSize: 13,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    fontWeight: '600',
   },
   userName: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#334155',
+    fontSize: 26,
     fontWeight: 'bold',
   },
   logoutButton: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 6,
   },
   statsCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
     marginBottom: 35,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
   },
-  statsGradient: {
+  statsContent: {
     padding: 20,
   },
   statsTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
-    opacity: 0.8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statsRow: {
     flexDirection: 'row',
@@ -239,24 +228,26 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#333',
+    backgroundColor: '#E2E8F0',
   },
   statValue: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#33d9b2',
   },
   statLabel: {
-    color: '#666',
+    color: '#64748B',
     fontSize: 12,
     marginTop: 4,
+    fontWeight: '500',
   },
   sectionTitle: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#0F172A',
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 20,
-    letterSpacing: 0.5,
+    paddingLeft: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#334155',
   },
   menuGrid: {
     flexDirection: 'row',
@@ -266,60 +257,39 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     width: COLUMN_WIDTH,
-    height: 140,
-    borderRadius: 24,
+    height: 130,
+    borderRadius: 6,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
   },
   fullWidthItem: {
     width: '100%',
-    height: 120,
+    height: 110,
     marginBottom: 5,
   },
-  gradient: {
+  menuSurface: {
     flex: 1,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 15,
   },
   iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
+    width: 48,
+    height: 48,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    marginBottom: 10,
   },
   menuTitle: {
-    color: '#fff',
-    fontSize: 14,
+    color: '#0F172A',
+    fontSize: 13,
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 1,
-  },
-  exportButton: {
-    marginTop: 40,
-    backgroundColor: '#1a1a1a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 18,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-    marginBottom: 30,
-  },
-  exportText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 10,
+    letterSpacing: 0.5,
   }
 });
 
