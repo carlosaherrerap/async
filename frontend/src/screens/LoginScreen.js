@@ -34,7 +34,14 @@ const LoginScreen = ({ navigation }) => {
           });
           if (syncRes.ok) {
             const syncData = await syncRes.json();
-            await global.dbHelper.clearAndPopulate(syncData.cargos, syncData.workers, syncData.asistencias);
+            await global.dbHelper.clearAndPopulate(
+              syncData.cargos,
+              syncData.metas_cargos,
+              syncData.tipo_postulante,
+              syncData.parametros_asistencia,
+              syncData.workers,
+              syncData.asistencias
+            );
           } else {
             console.error('Error in sync-pull during login:', syncRes.status);
           }

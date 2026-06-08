@@ -139,6 +139,12 @@ const HomeScreen = ({ navigation }) => {
             </View>
           </View>
 
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, paddingHorizontal: 5 }}>
+            <Text style={{ fontSize: 10, color: '#64748B', fontWeight: 'bold' }}>METAS: {debugData?.metasCount ?? 0}</Text>
+            <Text style={{ fontSize: 10, color: '#64748B', fontWeight: 'bold' }}>TIPOS: {debugData?.tiposCount ?? 0}</Text>
+            <Text style={{ fontSize: 10, color: '#64748B', fontWeight: 'bold' }}>PARAMS: {debugData?.paramsCount ?? 0}</Text>
+          </View>
+
           {debugData?.queue?.length > 0 && (
             <>
               <Text style={styles.debugSubtitle}>Cola de Operaciones:</Text>
@@ -194,7 +200,14 @@ const HomeScreen = ({ navigation }) => {
                   });
                   if (res.ok) {
                     const syncData = await res.json();
-                    await global.dbHelper.clearAndPopulate(syncData.cargos, syncData.workers, syncData.asistencias);
+                    await global.dbHelper.clearAndPopulate(
+                      syncData.cargos,
+                      syncData.metas_cargos,
+                      syncData.tipo_postulante,
+                      syncData.parametros_asistencia,
+                      syncData.workers,
+                      syncData.asistencias
+                    );
                     await fetchDebugData();
                     fetchStats();
                     Alert.alert('Exito', 'Base de datos SQLite poblada con éxito.');
@@ -222,7 +235,7 @@ const HomeScreen = ({ navigation }) => {
                     text: 'Limpiar',
                     style: 'destructive',
                     onPress: async () => {
-                      await global.dbHelper.clearAndPopulate([], [], []);
+                      await global.dbHelper.clearAndPopulate([], [], [], [], [], []);
                       await fetchDebugData();
                       fetchStats();
                     }

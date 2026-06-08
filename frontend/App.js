@@ -47,10 +47,20 @@ global.dbHelper = {
       await db.execAsync(`
         PRAGMA foreign_keys = ON;
 
+        CREATE TABLE IF NOT EXISTS parametros_asistencia (
+          estado TEXT PRIMARY KEY,
+          descripcion TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS cargos (
           id INTEGER PRIMARY KEY,
-          nombre TEXT UNIQUE NOT NULL,
-          meta INTEGER DEFAULT 0
+          nombre TEXT UNIQUE NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS metas_cargos (
+          cargo_id INTEGER PRIMARY KEY,
+          limite_vacantes INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY(cargo_id) REFERENCES cargos(id) ON DELETE CASCADE ON UPDATE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS tipo_postulante (
@@ -72,8 +82,8 @@ global.dbHelper = {
           cargo_id INTEGER NOT NULL,
           turno TEXT NOT NULL,
           hora_ingreso TEXT NOT NULL,
-          FOREIGN KEY(tipo_postulante_id) REFERENCES tipo_postulante(id),
-          FOREIGN KEY(cargo_id) REFERENCES cargos(id)
+          FOREIGN KEY(tipo_postulante_id) REFERENCES tipo_postulante(id) ON UPDATE CASCADE,
+          FOREIGN KEY(cargo_id) REFERENCES cargos(id) ON UPDATE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS asistencias (
@@ -82,7 +92,8 @@ global.dbHelper = {
           estado TEXT NOT NULL,
           fecha_hora TEXT NOT NULL,
           observaciones TEXT,
-          FOREIGN KEY(principal_id) REFERENCES principal(id) ON DELETE CASCADE
+          FOREIGN KEY(principal_id) REFERENCES principal(id) ON DELETE CASCADE ON UPDATE CASCADE,
+          FOREIGN KEY(estado) REFERENCES parametros_asistencia(estado) ON UPDATE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS sync_queue (
@@ -94,35 +105,51 @@ global.dbHelper = {
       `);
 
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
+      await db.runAsync(`INSERT OR IGNORE INTO parametros_asistencia (estado, descripcion) VALUES ('P', 'Puntual'), ('T', 'Tarde');`);
       console.log('Local SQLite initialized successfully');
     } catch (error) {
       console.error('Error initializing SQLite:', error);
     }
   },
 
-  async clearAndPopulate(cargos, workers, asistencias) {
+  async clearAndPopulate(cargos, metas_cargos, tipo_postulante, parametros_asistencia, workers, asistencias) {
     try {
       if (!db) return;
       await db.withTransactionAsync(async () => {
         await db.runAsync('DELETE FROM asistencias;');
         await db.runAsync('DELETE FROM principal;');
+        await db.runAsync('DELETE FROM tipo_postulante;');
+        await db.runAsync('DELETE FROM metas_cargos;');
         await db.runAsync('DELETE FROM cargos;');
+        await db.runAsync('DELETE FROM parametros_asistencia;');
 
-        for (const c of cargos) {
-          await db.runAsync('INSERT OR REPLACE INTO cargos (id, nombre, meta) VALUES (?, ?, ?)', [c.id, c.nombre, c.meta]);
+        for (const p of parametros_asistencia || []) {
+          await db.runAsync('INSERT OR REPLACE INTO parametros_asistencia (estado, descripcion) VALUES (?, ?)', [p.estado, p.descripcion]);
         }
 
-        for (const w of workers) {
+        for (const c of cargos || []) {
+          await db.runAsync('INSERT OR REPLACE INTO cargos (id, nombre) VALUES (?, ?)', [c.id, c.nombre]);
+        }
+
+        for (const m of metas_cargos || []) {
+          await db.runAsync('INSERT OR REPLACE INTO metas_cargos (cargo_id, limite_vacantes) VALUES (?, ?)', [m.cargo_id, m.limite_vacantes]);
+        }
+
+        for (const tp of tipo_postulante || []) {
+          await db.runAsync('INSERT OR REPLACE INTO tipo_postulante (id, descripcion) VALUES (?, ?)', [tp.id, tp.descripcion]);
+        }
+
+        for (const w of workers || []) {
           await db.runAsync(`
             INSERT OR REPLACE INTO principal (
               id, sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            w.id, w.sede_reg, w.sede_juris, w.dni, w.ape_pat, w.ape_mat, w.nombres, w.area, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
+            w.id, w.sede_reg, w.sede_juris, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
           ]);
         }
 
-        for (const a of asistencias) {
+        for (const a of asistencias || []) {
           await db.runAsync('INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?, ?)', [
             a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones
           ]);
@@ -251,7 +278,14 @@ global.dbHelper = {
         });
         if (res.ok) {
           const syncData = await res.json();
-          await this.clearAndPopulate(syncData.cargos, syncData.workers, syncData.asistencias);
+          await this.clearAndPopulate(
+            syncData.cargos,
+            syncData.metas_cargos,
+            syncData.tipo_postulante,
+            syncData.parametros_asistencia,
+            syncData.workers,
+            syncData.asistencias
+          );
         }
       }
     } catch (e) {
@@ -261,7 +295,12 @@ global.dbHelper = {
 
   async getCargos() {
     if (!db) return [];
-    return await db.getAllAsync('SELECT * FROM cargos ORDER BY id ASC');
+    return await db.getAllAsync(`
+      SELECT c.id, c.nombre, COALESCE(m.limite_vacantes, 0) as meta 
+      FROM cargos c 
+      LEFT JOIN metas_cargos m ON c.id = m.cargo_id
+      ORDER BY c.id ASC
+    `);
   },
 
   async getWorkersOffline(limit, offset, filterTipo) {
@@ -491,7 +530,7 @@ global.dbHelper = {
     let mensajeAlerta = null;
 
     if (finalTipoPostulante === 1) {
-      const cargoRes = await db.getAllAsync('SELECT meta FROM cargos WHERE id = ?', [parseInt(cargo_id)]);
+      const cargoRes = await db.getAllAsync('SELECT limite_vacantes as meta FROM metas_cargos WHERE cargo_id = ?', [parseInt(cargo_id)]);
       const limite = cargoRes[0]?.meta || 0;
       
       const actualesRes = await db.getAllAsync(
@@ -566,7 +605,8 @@ global.dbHelper = {
     const minId = minIdRes[0]?.min_id || 0;
     const tempId = (minId < 0 ? minId : 0) - 1;
 
-    await db.runAsync('INSERT INTO cargos (id, nombre, meta) VALUES (?, ?, ?)', [tempId, nombre, meta || 0]);
+    await db.runAsync('INSERT INTO cargos (id, nombre) VALUES (?, ?)', [tempId, nombre]);
+    await db.runAsync('INSERT OR REPLACE INTO metas_cargos (cargo_id, limite_vacantes) VALUES (?, ?)', [tempId, meta || 0]);
     await this.addPendingAction('CREATE_CARGO', { nombre, meta: meta || 0, tempId });
 
     return { id: tempId, nombre, meta: meta || 0 };
@@ -574,7 +614,7 @@ global.dbHelper = {
 
   async updateMetaOffline(id, meta, nombre) {
     if (!db) throw new Error('Base de datos no inicializada');
-    await db.runAsync('UPDATE cargos SET meta = ? WHERE id = ?', [meta || 0, id]);
+    await db.runAsync('INSERT OR REPLACE INTO metas_cargos (cargo_id, limite_vacantes) VALUES (?, ?)', [id, meta || 0]);
     await this.addPendingAction('UPDATE_META', { id, nombre, meta: meta || 0 });
     return { message: 'Meta actualizada correctamente (Local)' };
   },
@@ -585,11 +625,17 @@ global.dbHelper = {
       const principal = await db.getAllAsync('SELECT COUNT(*) as count FROM principal');
       const asistencias = await db.getAllAsync('SELECT COUNT(*) as count FROM asistencias');
       const cargos = await db.getAllAsync('SELECT COUNT(*) as count FROM cargos');
+      const metas = await db.getAllAsync('SELECT COUNT(*) as count FROM metas_cargos');
+      const tipos = await db.getAllAsync('SELECT COUNT(*) as count FROM tipo_postulante');
+      const params = await db.getAllAsync('SELECT COUNT(*) as count FROM parametros_asistencia');
       const queue = await db.getAllAsync('SELECT * FROM sync_queue ORDER BY id ASC');
       return {
         principalCount: principal[0]?.count || 0,
         asistenciasCount: asistencias[0]?.count || 0,
         cargosCount: cargos[0]?.count || 0,
+        metasCount: metas[0]?.count || 0,
+        tiposCount: tipos[0]?.count || 0,
+        paramsCount: params[0]?.count || 0,
         queue
       };
     } catch (e) {

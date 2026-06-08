@@ -93,12 +93,15 @@ const ConfigScreen = () => {
             if (modalMode === 'create') {
               const resData = await response.json();
               const realId = resData.id;
-              await db.runAsync('INSERT OR REPLACE INTO cargos (id, nombre, meta) VALUES (?, ?, ?)', [
-                realId, nombre, parseInt(meta) || 0
+              await db.runAsync('INSERT OR REPLACE INTO cargos (id, nombre) VALUES (?, ?)', [
+                realId, nombre
+              ]);
+              await db.runAsync('INSERT OR REPLACE INTO metas_cargos (cargo_id, limite_vacantes) VALUES (?, ?)', [
+                realId, parseInt(meta) || 0
               ]);
             } else {
-              await db.runAsync('UPDATE cargos SET meta = ? WHERE id = ?', [
-                parseInt(meta) || 0, selectedCargo.id
+              await db.runAsync('INSERT OR REPLACE INTO metas_cargos (cargo_id, limite_vacantes) VALUES (?, ?)', [
+                selectedCargo.id, parseInt(meta) || 0
               ]);
             }
           }
