@@ -12,9 +12,23 @@ const AbsenteesScreen = ({ navigation }) => {
   }, []);
 
   const fetchAbsentees = async () => {
+    setLoading(true);
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        const localData = await global.dbHelper.getAbsentees();
+        setAbsentees(localData);
+      } catch (e) {
+        console.error('Error fetching local absentees:', e);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('https://backend-a484.onrender.com/api/attendance/absentees', {
+      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/absentees', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -29,7 +43,13 @@ const AbsenteesScreen = ({ navigation }) => {
       const data = await response.json();
       setAbsentees(data);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching online absentees, falling back to SQLite:', error);
+      try {
+        const localData = await global.dbHelper.getAbsentees();
+        setAbsentees(localData);
+      } catch (sqliteErr) {
+        console.error('SQLite fallback error:', sqliteErr);
+      }
     } finally {
       setLoading(false);
     }

@@ -16,7 +16,7 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('https://backend-a484.onrender.com/api/auth/login', {
+      const response = await fetch('https://backend-6oio.onrender.com/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -27,6 +27,21 @@ const LoginScreen = ({ navigation }) => {
       if (response.ok) {
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+        
+        try {
+          const syncRes = await fetch('https://backend-6oio.onrender.com/api/attendance/sync-pull', {
+            headers: { 'Authorization': `Bearer ${data.token}` }
+          });
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            await global.dbHelper.clearAndPopulate(syncData.cargos, syncData.workers, syncData.asistencias);
+          } else {
+            console.error('Error in sync-pull during login:', syncRes.status);
+          }
+        } catch (syncErr) {
+          console.error('Network error during sync-pull:', syncErr);
+        }
+
         navigation.replace('Home');
       } else {
         Alert.alert('Error', data.message || 'Credenciales inválidas');

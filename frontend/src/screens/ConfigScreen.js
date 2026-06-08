@@ -20,8 +20,14 @@ const ConfigScreen = () => {
 
   const fetchCargos = async () => {
     try {
+      const isOnline = global.dbHelper.isOnline();
+      if (!isOnline) {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+        return;
+      }
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
+      const response = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -29,6 +35,12 @@ const ConfigScreen = () => {
       }
     } catch (e) {
       console.error(e);
+      try {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+      } catch (sqliteErr) {
+        console.error('SQLite fallback error:', sqliteErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,31 +52,86 @@ const ConfigScreen = () => {
       return;
     }
 
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        if (modalMode === 'create') {
+          await global.dbHelper.createCargoOffline(nombre, parseInt(meta) || 0);
+        } else {
+          await global.dbHelper.updateMetaOffline(selectedCargo.id, parseInt(meta) || 0, nombre);
+        }
+        setModalVisible(false);
+        fetchCargos();
+        Alert.alert('Exito', 'Configuracion guardada localmente (Modo Offline)');
+      } catch (error) {
+        Alert.alert('Error', error.message || 'No se pudo guardar localmente');
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       let response;
       if (modalMode === 'create') {
-        response = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
+        response = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ nombre, meta: meta || 0 })
+          body: JSON.stringify({ nombre, meta: parseInt(meta) || 0 })
         });
       } else {
-        response = await fetch(`https://backend-a484.onrender.com/api/config/cargos/${selectedCargo.id}`, {
+        response = await fetch(`https://backend-6oio.onrender.com/api/config/cargos/${selectedCargo.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ meta: meta || 0 })
+          body: JSON.stringify({ meta: parseInt(meta) || 0 })
         });
       }
 
       if (response.ok) {
+        try {
+          const db = global.dbHelper.db;
+          if (db) {
+            if (modalMode === 'create') {
+              const resData = await response.json();
+              const realId = resData.id;
+              await db.runAsync('INSERT OR REPLACE INTO cargos (id, nombre, meta) VALUES (?, ?, ?)', [
+                realId, nombre, parseInt(meta) || 0
+              ]);
+            } else {
+              await db.runAsync('UPDATE cargos SET meta = ? WHERE id = ?', [
+                parseInt(meta) || 0, selectedCargo.id
+              ]);
+            }
+          }
+        } catch (dbErr) {
+          console.error('Failed to update local db after online config change:', dbErr);
+        }
+
         setModalVisible(false);
         fetchCargos();
       } else {
         Alert.alert('Error', 'No se pudo guardar la configuración');
       }
     } catch (error) {
-      Alert.alert('Error de conexión');
+      Alert.alert('Error', 'Hubo un problema de conexion. ¿Desea guardar el cambio de forma local/offline?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Guardar Local',
+          onPress: async () => {
+            try {
+              if (modalMode === 'create') {
+                await global.dbHelper.createCargoOffline(nombre, parseInt(meta) || 0);
+              } else {
+                await global.dbHelper.updateMetaOffline(selectedCargo.id, parseInt(meta) || 0, nombre);
+              }
+              setModalVisible(false);
+              fetchCargos();
+              Alert.alert('Exito', 'Configuracion guardada localmente (Modo Offline)');
+            } catch (err) {
+              Alert.alert('Error', err.message || 'No se pudo guardar localmente');
+            }
+          }
+        }
+      ]);
     }
   };
 

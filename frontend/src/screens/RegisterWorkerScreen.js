@@ -45,8 +45,18 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
 
   const fetchCargos = async () => {
     try {
+      const isOnline = global.dbHelper.isOnline();
+      if (!isOnline) {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargosList(localCargos);
+        if (localCargos.length > 0) {
+          setFormData(prev => ({ ...prev, cargo_id: localCargos[0].id.toString() }));
+        }
+        setFetchingCargos(false);
+        return;
+      }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
+      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -58,6 +68,11 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       }
     } catch (e) {
       console.error(e);
+      const localCargos = await global.dbHelper.getCargos();
+      setCargosList(localCargos);
+      if (localCargos.length > 0) {
+        setFormData(prev => ({ ...prev, cargo_id: localCargos[0].id.toString() }));
+      }
     } finally {
       setFetchingCargos(false);
     }
@@ -70,13 +85,34 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
     }
 
     setLoading(true);
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        const payload = {
+          ...formData,
+          hora_ingreso: formData.hora_ingreso + ':00', // Enviar como HH:MM:SS
+        };
+        const data = await global.dbHelper.registerWorkerOffline(payload);
+        if (data.alert) {
+          Alert.alert('Aviso Importante', data.alert, [{ text: 'OK', onPress: () => navigation.navigate('Scan', { dni: formData.dni }) }]);
+        } else {
+          Alert.alert('Exito', 'Postulante registrado correctamente (Modo Offline)', [{ text: 'OK', onPress: () => navigation.navigate('Scan', { dni: formData.dni }) }]);
+        }
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Error al registrar offline');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       const payload = {
         ...formData,
         hora_ingreso: formData.hora_ingreso + ':00', // Enviar como HH:MM:SS
       };
-      const response = await fetch('https://backend-a484.onrender.com/api/attendance/register-worker', {
+      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register-worker', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,6 +124,22 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       const data = await response.json();
 
       if (response.ok) {
+        try {
+          const w = data.worker;
+          const db = global.dbHelper.db;
+          if (db) {
+            await db.runAsync(`
+              INSERT OR REPLACE INTO principal (
+                id, sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              w.id, w.sede_reg, w.sede_juris, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
+            ]);
+          }
+        } catch (dbErr) {
+          console.error('Failed to update local db after online registration:', dbErr);
+        }
+
         if (data.alert) {
           Alert.alert('Aviso Importante', data.alert, [{ text: 'OK', onPress: () => navigation.navigate('Scan', { dni: formData.dni }) }]);
         } else {
@@ -97,7 +149,31 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         Alert.alert('Error', data.message || 'Error al registrar');
       }
     } catch (error) {
-      Alert.alert('Error', 'Hubo un problema de conexion');
+      Alert.alert('Error', 'Hubo un problema de conexion. ¿Desea registrar de forma local/offline?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Registrar Local',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const payload = {
+                ...formData,
+                hora_ingreso: formData.hora_ingreso + ':00',
+              };
+              const data = await global.dbHelper.registerWorkerOffline(payload);
+              if (data.alert) {
+                Alert.alert('Aviso Importante', data.alert, [{ text: 'OK', onPress: () => navigation.navigate('Scan', { dni: formData.dni }) }]);
+              } else {
+                Alert.alert('Exito', 'Postulante registrado correctamente (Modo Offline)', [{ text: 'OK', onPress: () => navigation.navigate('Scan', { dni: formData.dni }) }]);
+              }
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Error al registrar offline');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]);
     } finally {
       setLoading(false);
     }

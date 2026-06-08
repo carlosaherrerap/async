@@ -61,25 +61,45 @@ const ScanScreen = ({ route, navigation }) => {
     if (loading || !dni) return;
     setLoading(true);
 
-    try {
-      const response = await fetch(`https://backend-a484.onrender.com/api/attendance/verify?dni=${dni}`);
-      const data = await response.json();
+    const showNotFoundAlert = () => {
+      Alert.alert(
+        'Postulante no encontrado',
+        'El DNI no está registrado. ¿Desea registrarlo ahora?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: dni }) }
+        ]
+      );
+    };
 
-      if (response.ok) {
+    try {
+      if (global.dbHelper.isOnline()) {
+        try {
+          const response = await fetch(`https://backend-6oio.onrender.com/api/attendance/verify?dni=${dni}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            setWorkerData(data);
+            setShowModal(true);
+            return;
+          } else {
+            showNotFoundAlert();
+            return;
+          }
+        } catch (fetchErr) {
+          console.log('Error verifying worker online, falling back to local SQLite:', fetchErr.message);
+        }
+      }
+
+      const data = await global.dbHelper.verifyWorkerOffline(dni);
+      if (data) {
         setWorkerData(data);
         setShowModal(true);
       } else {
-        Alert.alert(
-          'Postulante no encontrado',
-          'El DNI no está registrado. ¿Desea registrarlo ahora?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: dni }) }
-          ]
-        );
+        showNotFoundAlert();
       }
     } catch (error) {
-      Alert.alert('Error de Conexión', 'No se pudo conectar con el servidor');
+      Alert.alert('Error', 'Ocurrió un error al verificar el postulante.');
     } finally {
       setLoading(false);
       setScanned(false);

@@ -148,7 +148,7 @@ const registerWorker = async (req, res) => {
             (doc_identidad, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *
         `;
-        
+
         const newWorker = await db.query(insertQuery, [
             dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula || 99, cargo_id, finalTipoPostulante,
             turno || 'DIA', hora_ingreso || '08:00:00'
@@ -179,7 +179,7 @@ const getAllWorkers = async (req, res) => {
         `;
         let countQuery = 'SELECT COUNT(*) FROM principal p JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id';
         const params = [];
-        
+
         if (tipo) {
             query += ` WHERE tp.descripcion = $1`;
             countQuery += ` WHERE tp.descripcion = $1`;
@@ -187,10 +187,10 @@ const getAllWorkers = async (req, res) => {
         }
 
         query += ` ORDER BY p.sede_reg, p.sede_juris, p.local, c.nombre, p.ape_pat LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        
+
         const result = await db.query(query, [...params, limit, offset]);
         const countRes = await db.query(countQuery, params);
-        
+
         res.json({
             data: result.rows,
             total: parseInt(countRes.rows[0].count)
@@ -217,7 +217,7 @@ const updateWorker = async (req, res) => {
             WHERE id = $8 RETURNING *
         `;
         const result = await db.query(updateQuery, [sede_reg, sede_juris, local, aula, cargo_id, turno, hora_ingreso, id]);
-        
+
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Postulante no encontrado' });
         }
@@ -226,12 +226,44 @@ const updateWorker = async (req, res) => {
         console.error(error);
         res.status(500).json({ message: 'Error al actualizar postulante.' });
     }
-};
+    const getSyncPull = async (req, res) => {
+        try {
+            const cargosRes = await db.query(`
+            SELECT c.id, c.nombre, COALESCE(m.limite_vacantes, 0) as meta 
+            FROM cargos c 
+            LEFT JOIN metas_cargos m ON c.id = m.cargo_id
+            ORDER BY c.id ASC
+        `);
 
-module.exports = {
-    registerAttendance,
-    verifyWorker,
-    registerWorker,
-    getAllWorkers,
-    updateWorker
-};
+            const workersRes = await db.query(`
+            SELECT id, sede_reg, sede_juris, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
+                   aula, tipo_postulante_id, cargo_id, turno, hora_ingreso 
+            FROM principal
+        `);
+
+            const asistenciasRes = await db.query(`
+            SELECT id, principal_id, estado, fecha_hora, observaciones 
+            FROM asistencias 
+            WHERE fecha_hora::date = CURRENT_DATE
+        `);
+
+            res.json({
+                cargos: cargosRes.rows,
+                workers: workersRes.rows,
+                asistencias: asistenciasRes.rows
+            });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Error al obtener datos de sincronización.' });
+        }
+    };
+
+    module.exports = {
+        registerAttendance,
+        verifyWorker,
+        registerWorker,
+        getAllWorkers,
+        updateWorker,
+        getSyncPull
+    }
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Surface } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AttendanceModal from '../components/AttendanceModal';
 
 const ManualEntryScreen = () => {
@@ -17,23 +18,107 @@ const ManualEntryScreen = () => {
     }
 
     setLoading(true);
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        const result = await global.dbHelper.registerAttendanceOffline(dni, obs);
+        const formattedData = {
+          worker: {
+            dni: dni,
+            nombre: result.worker.nombre,
+            puesto: result.worker.puesto,
+            area: result.worker.area,
+            turno: result.worker.turno,
+            hora_ingreso: result.worker.hora_ingreso
+          },
+          status: 'entered',
+          attendance: result.record
+        };
+        setWorkerData(formattedData);
+        setShowModal(true);
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Error al registrar ingreso offline');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
-      const response = await fetch('https://backend-a484.onrender.com/api/attendance/register', {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify({ dni, observaciones: obs }),
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        setWorkerData(data);
+        try {
+          const db = global.dbHelper.db;
+          if (db && data.record) {
+            const rec = data.record;
+            await db.runAsync(
+              'INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?, ?)',
+              [rec.id, rec.principal_id, rec.estado, rec.fecha_hora, rec.observaciones]
+            );
+          }
+        } catch (dbErr) {
+          console.error('Failed to update local db after online registration:', dbErr);
+        }
+
+        const formattedData = {
+          worker: {
+            dni: dni,
+            nombre: data.worker.nombre,
+            puesto: data.worker.puesto,
+            area: data.worker.area,
+            turno: data.worker.turno,
+            hora_ingreso: data.worker.hora_ingreso
+          },
+          status: 'entered',
+          attendance: data.record
+        };
+        setWorkerData(formattedData);
         setShowModal(true);
       } else {
         Alert.alert('No encontrado', data.message);
       }
     } catch (error) {
-      Alert.alert('Error', 'Hubo un problema con la red');
+      Alert.alert('Error', 'Hubo un problema de conexion. ¿Desea registrar de forma local/offline?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Registrar Local',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const result = await global.dbHelper.registerAttendanceOffline(dni, obs);
+              const formattedData = {
+                worker: {
+                  dni: dni,
+                  nombre: result.worker.nombre,
+                  puesto: result.worker.puesto,
+                  area: result.worker.area,
+                  turno: result.worker.turno,
+                  hora_ingreso: result.worker.hora_ingreso
+                },
+                status: 'entered',
+                attendance: result.record
+              };
+              setWorkerData(formattedData);
+              setShowModal(true);
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Error al registrar ingreso offline');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]);
     } finally {
       setLoading(false);
     }

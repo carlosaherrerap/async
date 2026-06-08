@@ -28,23 +28,50 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   const handleIngreso = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://backend-a484.onrender.com/api/attendance/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dni: worker.dni }),
-      });
+      if (global.dbHelper.isOnline()) {
+        try {
+          const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dni: worker.dni }),
+          });
 
-      const result = await response.json();
+          const result = await response.json();
 
-      if (response.ok) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onClose();
-        if (onRegisterSuccess) onRegisterSuccess(result);
-      } else {
-        alert(result.message || 'Error al registrar ingreso');
+          if (response.ok) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            
+            const db = global.dbHelper.db;
+            if (db && result.record) {
+              const rec = result.record;
+              try {
+                await db.runAsync(
+                  'INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?, ?)',
+                  [rec.id, rec.principal_id, rec.estado, rec.fecha_hora, rec.observaciones]
+                );
+              } catch (dbErr) {
+                console.error('Failed to update local db after online attendance marking:', dbErr);
+              }
+            }
+
+            onClose();
+            if (onRegisterSuccess) onRegisterSuccess(result);
+            return;
+          } else {
+            alert(result.message || 'Error al registrar ingreso');
+            return;
+          }
+        } catch (fetchErr) {
+          console.log('Error registering attendance online, falling back to local SQLite:', fetchErr.message);
+        }
       }
-    } catch (e) {
-      alert('Error de conexion');
+
+      const result = await global.dbHelper.registerAttendanceOffline(worker.dni, null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onClose();
+      if (onRegisterSuccess) onRegisterSuccess(result);
+    } catch (error) {
+      alert(error.message || 'Error al registrar ingreso');
     } finally {
       setLoading(false);
     }

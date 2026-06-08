@@ -15,6 +15,7 @@ router.post('/register', attendanceController.registerAttendance);
 router.post('/register-worker', verifyToken, attendanceController.registerWorker);
 router.get('/workers', verifyToken, attendanceController.getAllWorkers);
 router.put('/workers/:id', verifyToken, attendanceController.updateWorker);
+router.get('/sync-pull', verifyToken, attendanceController.getSyncPull);
 router.get('/export', [verifyToken, isAdmin], reportController.exportAttendanceToExcel);
 router.get('/absentees', verifyToken, reportController.getAbsentees);
 router.get('/stats', verifyToken, reportController.getStats);

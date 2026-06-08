@@ -11,7 +11,8 @@
         {
           "cameraPermission": "Necesitamos acceso a tu cámara para escanear el código del Postulante."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "splash": {
       "image": "./assets/splash.png",

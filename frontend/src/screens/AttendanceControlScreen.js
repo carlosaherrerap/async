@@ -169,13 +169,28 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   const fetchData = async () => {
     setLoading(true);
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        const localStats = await global.dbHelper.getStats();
+        const localDaily = await global.dbHelper.getDailyAttendance(selectedDate);
+        setStats(localStats);
+        setDailyData(localDaily);
+      } catch (e) {
+        console.error('Error fetching data offline:', e);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [statsRes, dailyRes] = await Promise.all([
-        fetch('https://backend-a484.onrender.com/api/attendance/stats', { headers }),
-        fetch(`https://backend-a484.onrender.com/api/attendance/daily?date=${selectedDate}`, { headers })
+        fetch('https://backend-6oio.onrender.com/api/attendance/stats', { headers }),
+        fetch(`https://backend-6oio.onrender.com/api/attendance/daily?date=${selectedDate}`, { headers })
       ]);
 
       if (statsRes.status === 401) {
@@ -188,7 +203,15 @@ const AttendanceControlScreen = ({ navigation }) => {
       if (dailyRes.ok) setDailyData(await dailyRes.json());
 
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching online, falling back to SQLite:', e);
+      try {
+        const localStats = await global.dbHelper.getStats();
+        const localDaily = await global.dbHelper.getDailyAttendance(selectedDate);
+        setStats(localStats);
+        setDailyData(localDaily);
+      } catch (sqliteErr) {
+        console.error('Error in SQLite fallback:', sqliteErr);
+      }
     } finally {
       setLoading(false);
     }

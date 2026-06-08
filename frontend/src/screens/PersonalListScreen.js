@@ -41,20 +41,56 @@ const PersonalListScreen = ({ navigation }) => {
 
   const fetchCargos = async () => {
     try {
+      const isOnline = global.dbHelper.isOnline();
+      if (!isOnline) {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+        return;
+      }
       const token = await AsyncStorage.getItem('userToken');
       const headers = { 'Authorization': `Bearer ${token}` };
-      const res = await fetch('https://backend-a484.onrender.com/api/config/cargos', { headers });
+      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', { headers });
       if (res.ok) setCargos(await res.json());
     } catch (e) {
-      console.error('Error fetching config data:', e);
+      console.error('Error fetching config data online, falling back to local SQLite:', e);
+      try {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+      } catch (sqliteErr) {
+        console.error('SQLite fallback error:', sqliteErr);
+      }
     }
   };
 
   const fetchWorkers = async (currentOffset, reset = false) => {
     if (!hasMore && !reset) return;
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        const filterTipo = filterTitular ? 'Titular' : null;
+        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo);
+        const workersList = data.data || [];
+        if (workersList.length < LIMIT) setHasMore(false);
+        else setHasMore(true);
+
+        if (reset) {
+          setWorkers(workersList);
+        } else {
+          setWorkers([...workers, ...workersList]);
+        }
+        setOffset(currentOffset + LIMIT);
+      } catch (error) {
+        console.error('Error fetching workers offline:', error);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
-      let url = `https://backend-a484.onrender.com/api/attendance/workers?limit=${LIMIT}&offset=${currentOffset}`;
+      let url = `https://backend-6oio.onrender.com/api/attendance/workers?limit=${LIMIT}&offset=${currentOffset}`;
       if (filterTitular) url += '&tipo=Titular';
 
       const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -81,7 +117,23 @@ const PersonalListScreen = ({ navigation }) => {
       }
       setOffset(currentOffset + LIMIT);
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching workers online, falling back to local SQLite:', error);
+      try {
+        const filterTipo = filterTitular ? 'Titular' : null;
+        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo);
+        const workersList = data.data || [];
+        if (workersList.length < LIMIT) setHasMore(false);
+        else setHasMore(true);
+
+        if (reset) {
+          setWorkers(workersList);
+        } else {
+          setWorkers([...workers, ...workersList]);
+        }
+        setOffset(currentOffset + LIMIT);
+      } catch (sqliteErr) {
+        console.error('Error in SQLite fallback:', sqliteErr);
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -111,6 +163,19 @@ const PersonalListScreen = ({ navigation }) => {
   };
 
   const saveEdit = async () => {
+    const isOnline = global.dbHelper.isOnline();
+    if (!isOnline) {
+      try {
+        await global.dbHelper.updateWorkerOffline(selectedWorker.id, editForm, selectedWorker.dni);
+        setEditModal(false);
+        fetchWorkers(0, true);
+        Alert.alert('Exito', 'Datos de postulante actualizados localmente (Modo Offline)');
+      } catch (error) {
+        Alert.alert('Error', error.message || 'No se pudo actualizar localmente');
+      }
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       const bodyData = {
@@ -121,12 +186,28 @@ const PersonalListScreen = ({ navigation }) => {
         aula: editForm.aula ? parseInt(editForm.aula) : 99
       };
 
-      const response = await fetch(`https://backend-a484.onrender.com/api/attendance/workers/${selectedWorker.id}`, {
+      const response = await fetch(`https://backend-6oio.onrender.com/api/attendance/workers/${selectedWorker.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(bodyData)
       });
       if (response.ok) {
+        try {
+          const db = global.dbHelper.db;
+          if (db) {
+            await db.runAsync(`
+              UPDATE principal 
+              SET sede_reg = ?, sede_juris = ?, local = ?, aula = ?, cargo_id = ?, turno = ?, hora_ingreso = ?
+              WHERE id = ?
+            `, [
+              editForm.sede_reg, editForm.sede_juris, editForm.local, editForm.aula ? parseInt(editForm.aula) : 99,
+              editForm.cargo_id ? parseInt(editForm.cargo_id) : null, editForm.turno, editForm.hora_ingreso + ':00', selectedWorker.id
+            ]);
+          }
+        } catch (dbErr) {
+          console.error('Failed to update local db after online edit:', dbErr);
+        }
+
         setEditModal(false);
         fetchWorkers(0, true);
       } else {
@@ -134,7 +215,22 @@ const PersonalListScreen = ({ navigation }) => {
         Alert.alert('Error', err.message || 'No se pudo actualizar');
       }
     } catch (e) {
-      Alert.alert('Error de conexión');
+      Alert.alert('Error', 'Hubo un problema de conexion. ¿Desea guardar el cambio de forma local/offline?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Guardar Local',
+          onPress: async () => {
+            try {
+              await global.dbHelper.updateWorkerOffline(selectedWorker.id, editForm, selectedWorker.dni);
+              setEditModal(false);
+              fetchWorkers(0, true);
+              Alert.alert('Exito', 'Datos de postulante actualizados localmente (Modo Offline)');
+            } catch (error) {
+              Alert.alert('Error', error.message || 'No se pudo actualizar localmente');
+            }
+          }
+        }
+      ]);
     }
   };
 
