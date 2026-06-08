@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { List, Avatar, Surface, ActivityIndicator, Text, Chip, Portal, Modal, TextInput, Button } from 'react-native-paper';
+import { List, Avatar, Surface, ActivityIndicator, Text, Chip, Portal, Modal, TextInput, Button, SegmentedButtons } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const HORARIOS_DIA = ['07:00', '08:00', '09:00', '10:00'];
+const HORARIOS_TARDE = ['12:00', '13:00', '14:00', '15:00', '16:00'];
 
 const PersonalListScreen = ({ navigation }) => {
   const [workers, setWorkers] = useState([]);
@@ -10,40 +14,37 @@ const PersonalListScreen = ({ navigation }) => {
   const [offset, setOffset] = useState(0);
   const LIMIT = 10;
   const [hasMore, setHasMore] = useState(true);
-  
-  const [filterTitular, setFilterTitular] = useState(false);
-  
-  // Lists for dropdown selectors
-  const [cargos, setCargos] = useState([]);
-  const [rules, setRules] = useState([]);
 
-  // Modal Edit
+  const [filterTitular, setFilterTitular] = useState(false);
+
+  // Lista selector de cargos
+  const [cargos, setCargos] = useState([]);
+  const [horarioDropdownOpen, setHorarioDropdownOpen] = useState(false);
+
+  // Modal de edición
   const [editModal, setEditModal] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
-  const [editForm, setEditForm] = useState({ 
-    sede_reg: '', 
-    sede_juris: '', 
-    local: '', 
-    aula: '', 
-    cargo_id: '', 
-    regla_id: null 
+  const [editForm, setEditForm] = useState({
+    sede_reg: '',
+    sede_juris: '',
+    local: '',
+    aula: '',
+    cargo_id: '',
+    turno: 'DIA',
+    hora_ingreso: '08:00'
   });
 
   useEffect(() => {
     fetchWorkers(0, true);
-    fetchCargosAndRules();
+    fetchCargos();
   }, [filterTitular]);
 
-  const fetchCargosAndRules = async () => {
+  const fetchCargos = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [cargosRes, rulesRes] = await Promise.all([
-        fetch('http://192.168.18.9:3001/api/config/cargos', { headers }),
-        fetch('http://192.168.18.9:3001/api/rules', { headers })
-      ]);
-      if (cargosRes.ok) setCargos(await cargosRes.json());
-      if (rulesRes.ok) setRules(await rulesRes.json());
+      const res = await fetch('http://192.168.18.9:3001/api/config/cargos', { headers });
+      if (res.ok) setCargos(await res.json());
     } catch (e) {
       console.error('Error fetching config data:', e);
     }
@@ -63,7 +64,7 @@ const PersonalListScreen = ({ navigation }) => {
         return;
       }
       const data = await response.json();
-      
+
       if (data.data.length < LIMIT) setHasMore(false);
       else setHasMore(true);
 
@@ -96,8 +97,10 @@ const PersonalListScreen = ({ navigation }) => {
       local: worker.local,
       aula: worker.aula?.toString() || '',
       cargo_id: worker.cargo_id?.toString() || '',
-      regla_id: worker.regla_id ? worker.regla_id.toString() : null
+      turno: worker.turno || 'DIA',
+      hora_ingreso: worker.hora_ingreso ? worker.hora_ingreso.substring(0, 5) : '08:00'
     });
+    setHorarioDropdownOpen(false);
     setEditModal(true);
   };
 
@@ -107,10 +110,11 @@ const PersonalListScreen = ({ navigation }) => {
       const bodyData = {
         ...editForm,
         cargo_id: editForm.cargo_id ? parseInt(editForm.cargo_id) : null,
-        regla_id: editForm.regla_id ? parseInt(editForm.regla_id) : null,
+        turno: editForm.turno,
+        hora_ingreso: editForm.hora_ingreso + ':00',
         aula: editForm.aula ? parseInt(editForm.aula) : 99
       };
-      
+
       const response = await fetch(`http://192.168.18.9:3001/api/attendance/workers/${selectedWorker.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -130,21 +134,21 @@ const PersonalListScreen = ({ navigation }) => {
 
   const renderItem = ({ item }) => {
     const isTitular = item.tipo_postulante === 'Titular';
-    const accentColor = isTitular ? '#15803D' : '#B91C1C'; // Éxito HSL(142,70,25) y Error HSL(0,75,45)
-    
+    const accentColor = isTitular ? '#15803D' : '#B91C1C'; // Éxito --> HSL(142,70,25) y Error --> HSL(0,75,45)
+
     return (
       <TouchableOpacity onPress={() => openEdit(item)}>
         <Surface style={styles.itemCard} elevation={0}>
           <List.Item
             title={`${item.nombres} ${item.ape_pat} ${item.ape_mat}`}
-            description={`${item.cargo}\nSede: ${item.sede_reg} > ${item.local} (Aula ${item.aula})\nRegla: ${item.regla_nombre || 'REGLA GENERAL (Predeterminada)'}`}
+            description={`${item.cargo}\nSede: ${item.sede_reg} > ${item.local} (Aula ${item.aula})\nTurno: ${item.turno || 'DIA'} | Ingreso: ${item.hora_ingreso ? item.hora_ingreso.substring(0, 5) : '08:00'}`}
             left={props => <Avatar.Text {...props} label={item.nombres[0]} size={40} style={{ backgroundColor: accentColor }} textColor="#FFFFFF" />}
             right={() => (
-                <View style={styles.badgeContainer}>
-                    <Text style={[styles.badgeText, { color: accentColor }]}>
-                        {item.tipo_postulante.toUpperCase()}
-                    </Text>
-                </View>
+              <View style={styles.badgeContainer}>
+                <Text style={[styles.badgeText, { color: accentColor }]}>
+                  {item.tipo_postulante.toUpperCase()}
+                </Text>
+              </View>
             )}
             titleStyle={{ color: '#0F172A', fontWeight: 'bold', fontSize: 14 }}
             descriptionStyle={{ color: '#64748B', fontSize: 12, marginTop: 4, lineHeight: 16 }}
@@ -158,9 +162,9 @@ const PersonalListScreen = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>PERSONAL</Text>
-        <Chip 
-          icon="account" 
-          mode="outlined" 
+        <Chip
+          icon="account"
+          mode="outlined"
           selected={filterTitular}
           onPress={() => {
             setLoading(true);
@@ -173,11 +177,11 @@ const PersonalListScreen = ({ navigation }) => {
           Solo Titulares
         </Chip>
       </View>
-      
+
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#334155" size="large" /></View>
       ) : workers.length === 0 ? (
-        <View style={styles.center}><Text style={styles.emptyText}>No hay trabajadores</Text></View>
+        <View style={styles.center}><Text style={styles.emptyText}>No hay postulantes</Text></View>
       ) : (
         <FlatList
           data={workers}
@@ -185,21 +189,21 @@ const PersonalListScreen = ({ navigation }) => {
           renderItem={renderItem}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={{margin: 20}} color="#334155"/> : null}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ margin: 20 }} color="#334155" /> : null}
           contentContainerStyle={{ padding: 15, paddingBottom: 40 }}
         />
       )}
 
       <Portal>
         <Modal visible={editModal} onDismiss={() => setEditModal(false)} contentContainerStyle={styles.modalContent}>
-          <Text style={styles.modalTitle}>EDITAR TRABAJADOR</Text>
-          {selectedWorker && <Text style={{color:'#334155', marginBottom: 15, textAlign:'center', fontWeight: 'bold', fontSize: 13}}>{selectedWorker.nombres} {selectedWorker.ape_pat}</Text>}
-          
+          <Text style={styles.modalTitle}>EDITAR Postulante</Text>
+          {selectedWorker && <Text style={{ color: '#334155', marginBottom: 15, textAlign: 'center', fontWeight: 'bold', fontSize: 13 }}>{selectedWorker.nombres} {selectedWorker.ape_pat}</Text>}
+
           <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={true}>
             <TextInput
               label="Sede Regional"
               value={editForm.sede_reg}
-              onChangeText={t => setEditForm({...editForm, sede_reg: t})}
+              onChangeText={t => setEditForm({ ...editForm, sede_reg: t })}
               mode="outlined"
               style={styles.input}
               textColor="#0F172A"
@@ -209,7 +213,7 @@ const PersonalListScreen = ({ navigation }) => {
             <TextInput
               label="Sede Provincial / Jurisdiccional"
               value={editForm.sede_juris}
-              onChangeText={t => setEditForm({...editForm, sede_juris: t})}
+              onChangeText={t => setEditForm({ ...editForm, sede_juris: t })}
               mode="outlined"
               style={styles.input}
               textColor="#0F172A"
@@ -219,7 +223,7 @@ const PersonalListScreen = ({ navigation }) => {
             <TextInput
               label="Local"
               value={editForm.local}
-              onChangeText={t => setEditForm({...editForm, local: t})}
+              onChangeText={t => setEditForm({ ...editForm, local: t })}
               mode="outlined"
               style={styles.input}
               textColor="#0F172A"
@@ -229,7 +233,7 @@ const PersonalListScreen = ({ navigation }) => {
             <TextInput
               label="Aula"
               value={editForm.aula}
-              onChangeText={t => setEditForm({...editForm, aula: t})}
+              onChangeText={t => setEditForm({ ...editForm, aula: t })}
               mode="outlined"
               keyboardType="numeric"
               style={styles.input}
@@ -242,15 +246,15 @@ const PersonalListScreen = ({ navigation }) => {
             <View style={styles.pickerContainer}>
               <ScrollView style={{ maxHeight: 110 }} nestedScrollEnabled>
                 {cargos.map(c => (
-                  <TouchableOpacity 
-                    key={c.id} 
+                  <TouchableOpacity
+                    key={c.id}
                     style={[styles.pickerOption, editForm.cargo_id?.toString() === c.id.toString() && styles.pickerOptionActive]}
                     onPress={() => setEditForm({ ...editForm, cargo_id: c.id.toString() })}
                   >
-                    <Text style={{ 
-                      color: editForm.cargo_id?.toString() === c.id.toString() ? '#FFFFFF' : '#0F172A', 
-                      fontSize: 13, 
-                      fontWeight: editForm.cargo_id?.toString() === c.id.toString() ? 'bold' : 'normal' 
+                    <Text style={{
+                      color: editForm.cargo_id?.toString() === c.id.toString() ? '#FFFFFF' : '#0F172A',
+                      fontSize: 13,
+                      fontWeight: editForm.cargo_id?.toString() === c.id.toString() ? 'bold' : 'normal'
                     }}>
                       {c.nombre}
                     </Text>
@@ -259,37 +263,60 @@ const PersonalListScreen = ({ navigation }) => {
               </ScrollView>
             </View>
 
-            <Text style={styles.pickerLabel}>REGLA DE ASISTENCIA:</Text>
-            <View style={styles.pickerContainer}>
-              <ScrollView style={{ maxHeight: 110 }} nestedScrollEnabled>
-                <TouchableOpacity 
-                  style={[styles.pickerOption, !editForm.regla_id && styles.pickerOptionActive]}
-                  onPress={() => setEditForm({ ...editForm, regla_id: null })}
-                >
-                  <Text style={{ 
-                    color: !editForm.regla_id ? '#FFFFFF' : '#0F172A', 
-                    fontSize: 13, 
-                    fontWeight: !editForm.regla_id ? 'bold' : 'normal' 
-                  }}>
-                    [Predeterminada] - REGLA GENERAL
+            <Text style={styles.pickerLabel}>TURNO:</Text>
+            <SegmentedButtons
+              value={editForm.turno}
+              onValueChange={(val) => {
+                const defaultHora = val === 'DIA' ? '08:00' : '12:00';
+                setEditForm({ ...editForm, turno: val, hora_ingreso: defaultHora });
+              }}
+              buttons={[
+                { label: 'Día', value: 'DIA', icon: 'weather-sunny' },
+                { label: 'Tarde', value: 'TARDE', icon: 'weather-night' },
+              ]}
+              style={{ marginBottom: 10 }}
+              theme={{ colors: { secondaryContainer: '#334155', onSecondaryContainer: '#FFFFFF' } }}
+            />
+
+            <Text style={styles.pickerLabel}>HORA DE INGRESO:</Text>
+            <View style={{ marginBottom: 15 }}>
+              <TouchableOpacity
+                style={styles.dropdownHeader}
+                onPress={() => setHorarioDropdownOpen(!horarioDropdownOpen)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#334155" />
+                  <Text style={[styles.dropdownHeaderText, { fontWeight: 'bold' }]}>
+                    {editForm.hora_ingreso}
                   </Text>
-                </TouchableOpacity>
-                {rules.map(r => (
-                  <TouchableOpacity 
-                    key={r.id} 
-                    style={[styles.pickerOption, editForm.regla_id?.toString() === r.id.toString() && styles.pickerOptionActive]}
-                    onPress={() => setEditForm({ ...editForm, regla_id: r.id.toString() })}
-                  >
-                    <Text style={{ 
-                      color: editForm.regla_id?.toString() === r.id.toString() ? '#FFFFFF' : '#0F172A', 
-                      fontSize: 13, 
-                      fontWeight: editForm.regla_id?.toString() === r.id.toString() ? 'bold' : 'normal' 
-                    }}>
-                      REGLA {r.nombre} ({r.hora_ingreso.substring(0,5)} - {r.hora_salida.substring(0,5)})
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                </View>
+                <MaterialCommunityIcons name={horarioDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#334155" />
+              </TouchableOpacity>
+
+              {horarioDropdownOpen && (
+                <Surface style={styles.dropdownList} elevation={1}>
+                  {(editForm.turno === 'DIA' ? HORARIOS_DIA : HORARIOS_TARDE).map(h => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[
+                        styles.dropdownOption,
+                        editForm.hora_ingreso === h && styles.dropdownOptionActive
+                      ]}
+                      onPress={() => {
+                        setEditForm({ ...editForm, hora_ingreso: h });
+                        setHorarioDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={{
+                        color: editForm.hora_ingreso === h ? '#FFFFFF' : '#0F172A',
+                        fontWeight: editForm.hora_ingreso === h ? 'bold' : 'normal'
+                      }}>
+                        {h}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </Surface>
+              )}
             </View>
           </ScrollView>
 
@@ -400,6 +427,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginTop: 10,
     gap: 10,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    backgroundColor: '#F9FAFB',
+    height: 50,
+  },
+  dropdownHeaderText: {
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  dropdownList: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    marginTop: 5,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  dropdownOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownOptionActive: {
+    backgroundColor: '#334155',
   }
 });
 

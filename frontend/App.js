@@ -13,7 +13,6 @@ import ManualEntryScreen from './src/screens/ManualEntryScreen';
 import AbsenteesScreen from './src/screens/AbsenteesScreen';
 import PersonalListScreen from './src/screens/PersonalListScreen';
 import AttendanceControlScreen from './src/screens/AttendanceControlScreen';
-import RulesScreen from './src/screens/RulesScreen';
 import ConfigScreen from './src/screens/ConfigScreen';
 import RegisterWorkerScreen from './src/screens/RegisterWorkerScreen';
 
@@ -23,11 +22,11 @@ const theme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#334155', // HSL(215, 25%, 27%) - Azul corporativo opaco
-    accent: '#B91C1C',  // HSL(0, 75%, 45%) - Rojo desaturado
-    background: '#F4F6F8', // HSL(210, 20%, 98%) - Blanco frío
+    primary: '#334155',
+    accent: '#B91C1C',
+    background: '#F4F6F8',
     surface: '#FFFFFF',
-    text: '#0F172A', // HSL(222, 47%, 11%) - Azul noche profundo
+    text: '#0F172A',
   },
 };
 
@@ -73,16 +72,16 @@ export default function App() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#F4F6F8', justifyContent: 'center', alignItems: 'center' }}>
-        <Animated.Image 
-          source={require('./assets/ENLA.png')} 
-          style={{ 
-            width: 160, 
-            height: 160, 
+        <Animated.Image
+          source={require('./assets/icon.png')}
+          style={{
+            width: 160,
+            height: 160,
             marginBottom: 20,
             opacity: logoOpacity,
             transform: [{ scale: logoScale }]
-          }} 
-          resizeMode="contain" 
+          }}
+          resizeMode="contain"
         />
         <ActivityIndicator size="small" color="#334155" />
       </View>
@@ -92,7 +91,7 @@ export default function App() {
   return (
     <PaperProvider theme={theme}>
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName={userToken ? "Home" : "Login"}
           screenOptions={{
             headerStyle: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', elevation: 0, shadowOpacity: 0 },
@@ -109,7 +108,6 @@ export default function App() {
           <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'Faltas de Hoy' }} />
           <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'Personal' }} />
           <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'Control de Asistencia' }} />
-          <Stack.Screen name="Rules" component={RulesScreen} options={{ title: 'Reglas de Asistencia' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'Configuración' }} />
         </Stack.Navigator>
       </NavigationContainer>

@@ -8,7 +8,7 @@ const verifyToken = (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'clave_secreta_provisional');
+        const decoded = jwt.verify(token.split(' ')[1], process.env.JWT_SECRET || 'enla_clave_secreta_prov');
         req.user = decoded;
     } catch (err) {
         return res.status(401).json({ message: 'Token inválido' });

@@ -31,19 +31,31 @@ const CustomAnimatedChart = ({ data }) => {
   }, [data]);
 
   const softColors = [
-    '#7DA5CE', // Soft Blue
-    '#7DCEB1', // Soft Mint
-    '#CE9E7D', // Soft Salmon
-    '#9E7DCE', // Soft Lavender
-    '#67A9C2', // Soft Teal
-    '#CE7D99', // Soft Rose
+    '#7DA5CE',
+    '#7DCEB1',
+    '#CE9E7D',
+    '#9E7DCE',
+    '#67A9C2',
+    '#CE7D99',
   ];
+
+  const maxVal = data.length > 0 ? Math.max(...data.map(d => d.value)) : 100;
+  let scaleMax = 100;
+  let gridLines = [100, 75, 50, 25, 0];
+
+  if (maxVal > 100 && maxVal <= 150) {
+    scaleMax = 150;
+    gridLines = [150, 100, 50, 0];
+  } else if (maxVal > 150) {
+    scaleMax = Math.ceil(maxVal / 50) * 50;
+    gridLines = [scaleMax, Math.round(scaleMax * 0.75), Math.round(scaleMax * 0.5), Math.round(scaleMax * 0.25), 0];
+  }
 
   return (
     <View style={styles.chartContainer}>
       {/* Líneas de cuadrícula traseras */}
       <View style={styles.gridLinesContainer}>
-        {[100, 75, 50, 25, 0].map((val) => (
+        {gridLines.map((val) => (
           <View key={val} style={styles.gridLineRow}>
             <Text style={styles.gridLineLabel}>{val}%</Text>
             <View style={styles.gridLine} />
@@ -55,11 +67,26 @@ const CustomAnimatedChart = ({ data }) => {
       <View style={styles.barsContainer}>
         {data.map((item, idx) => {
           const anim = animations[idx];
-          const barHeight = anim 
+
+          const totalValue = item.value;
+          const baseValue = Math.min(totalValue, 100);
+          const overflowValue = Math.max(0, totalValue - 100);
+
+          const basePercentage = (baseValue / scaleMax) * 100;
+          const overflowPercentage = (overflowValue / scaleMax) * 100;
+
+          const baseHeight = anim
             ? anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', `${Math.min(item.value, 100)}%`],
-              })
+              inputRange: [0, 1],
+              outputRange: ['0%', `${basePercentage}%`],
+            })
+            : '0%';
+
+          const overflowHeight = anim
+            ? anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', `${overflowPercentage}%`],
+            })
             : '0%';
 
           const color = softColors[idx % softColors.length];
@@ -68,14 +95,26 @@ const CustomAnimatedChart = ({ data }) => {
             <View key={idx} style={styles.barColumn}>
               <Text style={styles.barValue}>{item.value.toFixed(1)}%</Text>
               <View style={styles.barTrack}>
-                <Animated.View 
+                {overflowValue > 0 && (
+                  <Animated.View
+                    style={[
+                      styles.barFill,
+                      {
+                        height: overflowHeight,
+                        backgroundColor: color,
+                        opacity: 0.45 // Opacidad para la parte superior (más opaco / translúcido)
+                      }
+                    ]}
+                  />
+                )}
+                <Animated.View
                   style={[
-                    styles.barFill, 
-                    { 
-                      height: barHeight, 
-                      backgroundColor: color 
+                    styles.barFill,
+                    {
+                      height: baseHeight,
+                      backgroundColor: color
                     }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.barLabel} numberOfLines={1}>{item.label}</Text>
@@ -91,17 +130,17 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [dailyData, setDailyData] = useState({ presentes: [], ausentes: [] });
-  
+
   const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | ASISTENCIA
   const [attendanceTab, setAttendanceTab] = useState('PRESENTES'); // PRESENTES | AUSENTES
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Calendar states
+  // Calendario de estados
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
 
-  // Highcharts-like loading animations
+  // Animaciones de carga tipo Highcharts
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(25)).current;
 
@@ -147,7 +186,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
       if (statsRes.ok) setStats(await statsRes.json());
       if (dailyRes.ok) setDailyData(await dailyRes.json());
-      
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -156,19 +195,19 @@ const AttendanceControlScreen = ({ navigation }) => {
   };
 
   const getBarChartData = () => {
-    if (!stats || !stats.asistenciaPorCargo) return [];
-    
-    return stats.asistenciaPorCargo.map(c => {
-      let shortName = c.cargo.substring(0, 5);
-      if (c.cargo === 'Monitor Nacional') shortName = 'Monit';
-      if (c.cargo === 'Supervisor Nacional') shortName = 'Super';
-      if (c.cargo === 'Coordinador Regional') shortName = 'CoReg';
-      if (c.cargo === 'Coordinador Administrativo Regional') shortName = 'CoAdm';
-      if (c.cargo === 'Tecnico Administrativo Provincial') shortName = 'TecAd';
+    if (!stats || !stats.metasPorCargo) return [];
 
-      const total = parseInt(c.total_cargo);
-      const presentes = parseInt(c.presentes);
-      const percentage = total > 0 ? (presentes / total) * 100 : 0;
+    return stats.metasPorCargo.map(m => {
+      let shortName = m.cargo.substring(0, 5);
+      if (m.cargo === 'Monitor Nacional') shortName = 'Monit';
+      if (m.cargo === 'Supervisor Nacional') shortName = 'Super';
+      if (m.cargo === 'Coordinador Regional') shortName = 'CoReg';
+      if (m.cargo === 'Coordinador Administrativo Regional') shortName = 'CoAdm';
+      if (m.cargo === 'Tecnico Administrativo Provincial') shortName = 'TecAd';
+
+      const limitVal = parseInt(m.meta || 0);
+      const registered = parseInt(m.registrados || 0);
+      const percentage = limitVal > 0 ? (registered / limitVal) * 100 : 0;
       return {
         label: shortName,
         value: parseFloat(percentage.toFixed(1))
@@ -178,13 +217,13 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   const renderTabs = () => (
     <View style={styles.tabContainer}>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.tabButton, activeTab === 'RESUMEN' && styles.tabActive]}
         onPress={() => setActiveTab('RESUMEN')}
       >
         <Text style={[styles.tabText, activeTab === 'RESUMEN' && styles.tabTextActive]}>RESUMEN & METAS</Text>
       </TouchableOpacity>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.tabButton, activeTab === 'ASISTENCIA' && styles.tabActive]}
         onPress={() => setActiveTab('ASISTENCIA')}
       >
@@ -261,21 +300,21 @@ const AttendanceControlScreen = ({ navigation }) => {
 
           <View style={styles.daysGrid}>
             {cells.map((cell, idx) => {
-              const isSelected = !cell.empty && 
-                selectedDate === `${pickerYear}-${(pickerMonth+1).toString().padStart(2,'0')}-${cell.val.toString().padStart(2,'0')}`;
+              const isSelected = !cell.empty &&
+                selectedDate === `${pickerYear}-${(pickerMonth + 1).toString().padStart(2, '0')}-${cell.val.toString().padStart(2, '0')}`;
               return (
-                <TouchableOpacity 
-                  key={idx} 
+                <TouchableOpacity
+                  key={idx}
                   style={[
-                    styles.dayCell, 
+                    styles.dayCell,
                     cell.empty && styles.emptyCell,
                     isSelected && styles.selectedDayCell
                   ]}
                   onPress={() => !cell.empty && selectDay(cell.val)}
                   disabled={cell.empty}
                 >
-                  <Text style={{ 
-                    color: isSelected ? '#FFFFFF' : (cell.empty ? 'transparent' : '#0F172A'), 
+                  <Text style={{
+                    color: isSelected ? '#FFFFFF' : (cell.empty ? 'transparent' : '#0F172A'),
                     fontWeight: isSelected ? 'bold' : 'normal',
                     fontSize: 13
                   }}>
@@ -300,21 +339,21 @@ const AttendanceControlScreen = ({ navigation }) => {
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <View style={styles.kpiContainer}>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, {color:'#15803D'}]}>{stats.presentes}</Text>
+            <Text style={[styles.kpiValue, { color: '#15803D' }]}>{stats.presentes}</Text>
             <Text style={styles.kpiLabel}>ASISTENCIAS</Text>
           </Surface>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, {color:'#B91C1C'}]}>{stats.faltas}</Text>
+            <Text style={[styles.kpiValue, { color: '#B91C1C' }]}>{stats.faltas}</Text>
             <Text style={styles.kpiLabel}>FALTAS / NO REG</Text>
           </Surface>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, {color:'#F1C40F'}]}>{stats.tardanzas}</Text>
+            <Text style={[styles.kpiValue, { color: '#F1C40F' }]}>{stats.tardanzas}</Text>
             <Text style={styles.kpiLabel}>TARDANZAS</Text>
           </Surface>
         </View>
 
         <Surface style={styles.chartCard} elevation={0}>
-          <Text style={styles.chartTitle}>% ASISTENCIA POR CARGO</Text>
+          <Text style={styles.chartTitle}>% POSTULANTES REGISTRADOS vs META</Text>
           <CustomAnimatedChart data={getBarChartData()} />
         </Surface>
 
@@ -325,15 +364,15 @@ const AttendanceControlScreen = ({ navigation }) => {
             const limitVal = parseInt(m.meta || 0);
             const perc = limitVal > 0 ? (registeredCount / limitVal) * 100 : 0;
             const isMetOrExceeded = perc >= 100;
-            const barColor = isMetOrExceeded ? '#15803D' : '#334155'; // Exito HSL(142,70,25) y Accent sutil HSL(215,25,27)
-            
+            const barColor = isMetOrExceeded ? '#15803D' : '#334155';
+
             return (
               <View key={m.cargo} style={styles.metaRow}>
-                <View style={{flexDirection:'row', justifyContent:'space-between'}}>
-                  <Text style={{color:'#0F172A', fontSize:12, fontWeight:'bold', flex: 1}}>{m.cargo}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: 'bold', flex: 1 }}>{m.cargo}</Text>
                   <Text style={{
-                    color: isMetOrExceeded ? '#15803D' : '#64748B', 
-                    fontSize:12, 
+                    color: isMetOrExceeded ? '#15803D' : '#64748B',
+                    fontSize: 12,
                     fontWeight: isMetOrExceeded ? 'bold' : 'normal'
                   }}>
                     {registeredCount}/{limitVal} ({perc.toFixed(1)}%)
@@ -341,8 +380,8 @@ const AttendanceControlScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.progressBarBg}>
                   <View style={[
-                    styles.progressBarFill, 
-                    { 
+                    styles.progressBarFill,
+                    {
                       width: `${Math.min(perc, 100)}%`,
                       backgroundColor: barColor
                     }
@@ -371,17 +410,17 @@ const AttendanceControlScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.subTabContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
             onPress={() => setAttendanceTab('PRESENTES')}
           >
             <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>PRESENTES ({dailyData.presentes.length})</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
             onPress={() => setAttendanceTab('AUSENTES')}
           >
-            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && {color:'#B91C1C'}]}>AUSENTES ({dailyData.ausentes.length})</Text>
+            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>AUSENTES ({dailyData.ausentes.length})</Text>
           </TouchableOpacity>
         </View>
 
@@ -397,25 +436,25 @@ const AttendanceControlScreen = ({ navigation }) => {
   const renderPersonItem = (item) => {
     const isPresent = attendanceTab === 'PRESENTES';
     const statusColor = item.estado === 'P' ? '#15803D' : (item.estado === 'T' ? '#F1C40F' : '#B91C1C');
-    
+
     return (
       <Surface key={item.id} style={styles.personCard} elevation={0}>
         <List.Item
           title={`${item.nombres} ${item.ape_pat}`}
           description={`${item.cargo} | ${item.sede_reg}`}
           left={props => (
-            <Avatar.Text 
-              {...props} 
-              label={item.nombres[0]} 
-              size={40} 
-              style={{ backgroundColor: isPresent ? statusColor : '#B91C1C' }} 
+            <Avatar.Text
+              {...props}
+              label={item.nombres[0]}
+              size={40}
+              style={{ backgroundColor: isPresent ? statusColor : '#B91C1C' }}
               textColor="#FFFFFF"
             />
           )}
           right={() => isPresent && (
-            <View style={{justifyContent:'center', alignItems:'flex-end'}}>
-              <Text style={{color: statusColor, fontWeight:'bold'}}>{item.estado === 'P' ? 'PUNTUAL' : 'TARDE'}</Text>
-              <Text style={{color:'#64748B', fontSize:10}}>{new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            <View style={{ justifyContent: 'center', alignItems: 'flex-end' }}>
+              <Text style={{ color: statusColor, fontWeight: 'bold' }}>{item.estado === 'P' ? 'PUNTUAL' : 'TARDE'}</Text>
+              <Text style={{ color: '#64748B', fontSize: 10 }}>{new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
           )}
           titleStyle={{ color: '#0F172A', fontSize: 14, fontWeight: 'bold' }}
@@ -490,7 +529,7 @@ const styles = StyleSheet.create({
   metaRow: { marginBottom: 12 },
   progressBarBg: { height: 8, backgroundColor: '#E2E8F0', borderRadius: 4, marginTop: 5 },
   progressBarFill: { height: 8, borderRadius: 4 },
-  
+
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -516,7 +555,7 @@ const styles = StyleSheet.create({
   subTabActive: { backgroundColor: '#F4F6F8', borderColor: '#E2E8F0' },
   subTabText: { color: '#64748B', fontWeight: 'bold', fontSize: 12 },
   subTabTextActive: { color: '#15803D' },
-  
+
   personCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 6,

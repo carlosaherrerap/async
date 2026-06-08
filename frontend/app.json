@@ -9,7 +9,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Necesitamos acceso a tu cámara para escanear el código del trabajador."
+          "cameraPermission": "Necesitamos acceso a tu cámara para escanear el código del Postulante."
         }
       ]
     ],

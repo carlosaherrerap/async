@@ -5,19 +5,17 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
+// Middlewaress
 app.use(cors());
 app.use(express.json());
 
 // Routes
 const attendanceRoutes = require('./routes/attendance');
 const authRoutes = require('./routes/auth');
-const rulesRoutes = require('./routes/rules');
 const configRoutes = require('./routes/config');
 
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/rules', rulesRoutes);
 app.use('/api/config', configRoutes);
 
 app.get('/', (req, res) => {
@@ -62,11 +60,11 @@ const initDb = async (retries = 5) => {
                     'INSERT INTO usuarios (username, password, nombre, rol) VALUES ($1, $2, $3, $4)',
                     ['admin', hashedPw, 'Administrador', 'admin']
                 );
-                console.log('--- Usuario admin creado (admin/admin123) ---');
+                console.log('--- Usuario admin creado--> (admin/admin123) ---');
             } else {
                 // Actualizamos la contraseña por si acaso era diferente
                 await db.query('UPDATE usuarios SET password = $1 WHERE username = $2', [hashedPw, 'admin']);
-                console.log('--- Password de admin reseteado a admin123 ---');
+                console.log('--- contraseña de admin cambiado a admin123 ---');
             }
             break;
         } catch (err) {
@@ -79,9 +77,9 @@ const initDb = async (retries = 5) => {
 };
 initDb().then(() => {
     app.listen(PORT, () => {
-        console.log(`✅ Servidor corriendo en puerto ${PORT}`);
-        console.log(`🚀 Sistema listo para login`);
+        console.log(`Servidor corriendo en el puerto ${PORT}`);
+        console.log(`Sistema listo para login`);
     });
 }).catch(err => {
-    console.error('❌ Error crítico al iniciar:', err);
+    console.error('Error al inciiar:', err);
 });

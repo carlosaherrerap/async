@@ -45,14 +45,13 @@ const LoginScreen = ({ navigation }) => {
     >
       <View style={styles.content}>
         <Image 
-          source={require('../../assets/ENLA.png')} 
+          source={require('../../assets/icon.png')} 
           style={styles.logo} 
           resizeMode="contain" 
         />
         <Text style={styles.title}>Evaluación Nacional de Logros de Aprendizaje de Estudiantes (ENLA-2026)</Text>
         
         <Surface style={styles.card} elevation={1}>
-          <Text style={styles.subtitle}>SCA - Acceso al Sistema</Text>
 
           <TextInput
             label="Usuario"

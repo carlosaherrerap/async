@@ -1,6 +1,5 @@
 const db = require('../config/db');
 const XLSX = require('xlsx');
-const path = require('path');
 
 const exportAttendanceToExcel = async (req, res) => {
     try {
@@ -18,6 +17,8 @@ const exportAttendanceToExcel = async (req, res) => {
                 p.aula as "num_aula",
                 tp.descripcion as "tipo_postulante_id",
                 c.nombre as "CARGO",
+                p.turno as "TURNO",
+                p.hora_ingreso::text as "HORA_PROGRAMADA",
                 to_char(asist.fecha_hora, 'YYYY-MM-DD') as "FECHA_REGISTRO",
                 to_char(asist.fecha_hora, 'HH24:MI:SS') as "HORA_REGISTRO",
                 asist.estado as "ESTADO_ASISTENCIA",
@@ -35,12 +36,10 @@ const exportAttendanceToExcel = async (req, res) => {
             return res.status(404).json({ message: 'No hay datos para exportar' });
         }
 
-        // Crear libro y hoja de trabajo
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(result.rows);
         XLSX.utils.book_append_sheet(wb, ws, "Asistencias");
 
-        // Generar buffer
         const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
         res.setHeader('Content-Disposition', 'attachment; filename=reporte_asistencia.xlsx');
@@ -57,7 +56,7 @@ const getAbsentees = async (req, res) => {
     try {
         const query = `
             SELECT p.doc_identidad as dni, p.nombres, p.ape_pat || ' ' || p.ape_mat as apellidos, 
-                   p.local as area, c.nombre as puesto
+                   p.local as area, c.nombre as puesto, p.turno, p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
             WHERE NOT EXISTS (
@@ -79,15 +78,14 @@ const getStats = async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT 
-                (SELECT COUNT(*) FROM principal) as total_trabajadores,
+                (SELECT COUNT(*) FROM principal) as total_postulantes,
                 (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
                 (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas
         `);
         
         const data = stats.rows[0];
-        const faltas = parseInt(data.total_trabajadores) - parseInt(data.presentes);
+        const faltas = parseInt(data.total_postulantes) - parseInt(data.presentes);
 
-        // Asistencia por cargo
         const asistenciaPorCargo = await db.query(`
             SELECT c.nombre as cargo, 
                    COUNT(a.id) as presentes,
@@ -99,7 +97,6 @@ const getStats = async (req, res) => {
             ORDER BY c.id ASC
         `);
 
-        // Metas por cargo
         const metasPorCargo = await db.query(`
             SELECT c.nombre as cargo,
                    COALESCE(m.limite_vacantes, 0) as meta,
@@ -118,18 +115,19 @@ const getStats = async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error al obtener estadísticas' });
+        res.status(500).json({ message: 'Error al obtener estadisticas' });
     }
 };
 
 const getDailyAttendance = async (req, res) => {
-    const { date } = req.query; // Formato YYYY-MM-DD
+    const { date } = req.query;
     const targetDate = date || new Date().toISOString().split('T')[0];
 
     try {
         const presentesRes = await db.query(`
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, a.estado, a.fecha_hora
+                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+                   p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
@@ -139,7 +137,8 @@ const getDailyAttendance = async (req, res) => {
 
         const ausentesRes = await db.query(`
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local
+                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+                   p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
             WHERE NOT EXISTS (

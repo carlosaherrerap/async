@@ -8,7 +8,7 @@ import AttendanceModal from '../components/AttendanceModal';
 
 const { width, height } = Dimensions.get('window');
 
-const ScanScreen = ({ navigation }) => {
+const ScanScreen = ({ route, navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,17 +16,25 @@ const ScanScreen = ({ navigation }) => {
   const [showModal, setShowModal] = useState(false);
   const [dniType, setDniType] = useState('DNI'); // 'DNI' or 'DNIE'
   const [manualDni, setManualDni] = useState('');
-  
+
   const frameY = useRef(new Animated.Value(height * 0.3)).current;
   const frameX = useRef(new Animated.Value(width * 0.5)).current;
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (route.params?.dni) {
+      const targetDni = route.params.dni;
+      navigation.setParams({ dni: undefined });
+      handleDniReceived(targetDni);
+    }
+  }, [route.params?.dni]);
+
+  useEffect(() => {
     if (!permission || !permission.granted) {
       requestPermission();
     }
-    
-    // Animation for scan line
+
+    // Animacion de linea escaneadora
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
@@ -36,14 +44,14 @@ const ScanScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    // Move frame based on DNI type (Vertical orientation on the right side)
+    // Mueve el escaneador segun el tipo de DNI (Horizontal derecha)
     Animated.parallel([
       Animated.spring(frameY, {
         toValue: dniType === 'DNI' ? height * 0.35 : height * 0.2,
         useNativeDriver: false,
       }),
       Animated.spring(frameX, {
-        toValue: width * 0.6, // Always to the right
+        toValue: width * 0.6, //siempre a la derecha
         useNativeDriver: false,
       })
     ]).start();
@@ -52,17 +60,17 @@ const ScanScreen = ({ navigation }) => {
   const handleDniReceived = async (dni) => {
     if (loading || !dni) return;
     setLoading(true);
-    
+
     try {
       const response = await fetch(`http://192.168.18.9:3001/api/attendance/verify?dni=${dni}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setWorkerData(data);
         setShowModal(true);
       } else {
         Alert.alert(
-          'No encontrado', 
+          'Postulante no encontrado',
           'El DNI no está registrado. ¿Desea registrarlo ahora?',
           [
             { text: 'Cancelar', style: 'cancel' },
@@ -85,7 +93,7 @@ const ScanScreen = ({ navigation }) => {
   };
 
   if (!permission) return <View style={styles.container}><ActivityIndicator color="#33d9b2" /></View>;
-  
+
   if (!permission.granted) {
     return (
       <View style={styles.container}>
@@ -108,7 +116,7 @@ const ScanScreen = ({ navigation }) => {
           barcodeTypes: ["code128", "code39"],
         }}
       />
-      
+
       <View style={styles.overlay}>
         <View style={styles.topOverlay}>
           <View style={styles.header}>
@@ -118,14 +126,14 @@ const ScanScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.toggleContainer}>
-            <TouchableOpacity 
-              style={[styles.toggleButton, dniType === 'DNI' && styles.toggleActive]} 
+            <TouchableOpacity
+              style={[styles.toggleButton, dniType === 'DNI' && styles.toggleActive]}
               onPress={() => setDniType('DNI')}
             >
               <Text style={[styles.toggleText, dniType === 'DNI' && styles.toggleTextActive]}>DNI AZUL</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleButton, dniType === 'DNIE' && styles.toggleActive]} 
+            <TouchableOpacity
+              style={[styles.toggleButton, dniType === 'DNIE' && styles.toggleActive]}
               onPress={() => setDniType('DNIE')}
             >
               <Text style={[styles.toggleText, dniType === 'DNIE' && styles.toggleTextActive]}>DNIe (ELECTRÓNICO)</Text>
@@ -134,49 +142,49 @@ const ScanScreen = ({ navigation }) => {
         </View>
 
         <Animated.View style={[styles.scannerFrame, { top: frameY, left: frameX }]}>
-           <View style={styles.cornerTopLeft} />
-           <View style={styles.cornerTopRight} />
-           <View style={styles.cornerBottomLeft} />
-           <View style={styles.cornerBottomRight} />
-           <Animated.View 
-              style={[
-                styles.scanLine, 
-                { 
-                  transform: [{ 
-                    translateX: scanLineAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-30, 30]
-                    }) 
-                  }] 
-                }
-              ]} 
-           />
-           <Text style={styles.guideText}>Gire el documento para escanear la barra vertical</Text>
+          <View style={styles.cornerTopLeft} />
+          <View style={styles.cornerTopRight} />
+          <View style={styles.cornerBottomLeft} />
+          <View style={styles.cornerBottomRight} />
+          <Animated.View
+            style={[
+              styles.scanLine,
+              {
+                transform: [{
+                  translateX: scanLineAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-30, 30]
+                  })
+                }]
+              }
+            ]}
+          />
+          <Text style={styles.guideText}>Escanear la barra vertical</Text>
         </Animated.View>
 
         <View style={styles.bottomOverlay}>
-           <Surface style={styles.manualPanel} elevation={3}>
-              <Text style={styles.manualLabel}>Ingreso manual de DNI:</Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: 71234567"
-                  placeholderTextColor="#64748B"
-                  keyboardType="numeric"
-                  maxLength={8}
-                  value={manualDni}
-                  onChangeText={setManualDni}
-                />
-                <TouchableOpacity 
-                  style={styles.searchButton}
-                  onPress={() => handleDniReceived(manualDni)}
-                >
-                  <View style={styles.searchButtonContent}>
-                    <MaterialCommunityIcons name="magnify" size={24} color="white" />
-                  </View>
-                </TouchableOpacity>
-              </View>
-           </Surface>
+          <Surface style={styles.manualPanel} elevation={3}>
+            <Text style={styles.manualLabel}>Ingreso manual de DNI:</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: 71234567"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                maxLength={8}
+                value={manualDni}
+                onChangeText={setManualDni}
+              />
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => handleDniReceived(manualDni)}
+              >
+                <View style={styles.searchButtonContent}>
+                  <MaterialCommunityIcons name="magnify" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </Surface>
         </View>
       </View>
 
@@ -187,10 +195,10 @@ const ScanScreen = ({ navigation }) => {
         </View>
       )}
 
-      <AttendanceModal 
-        visible={showModal} 
-        data={workerData} 
-        onClose={() => setShowModal(false)} 
+      <AttendanceModal
+        visible={showModal}
+        data={workerData}
+        onClose={() => setShowModal(false)}
       />
     </View>
   );

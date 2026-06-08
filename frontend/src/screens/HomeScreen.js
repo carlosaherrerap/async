@@ -147,12 +147,6 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('AttendanceControl')}
           />
           <MenuButton 
-            title="REGLAS" 
-            icon="clock-edit-outline" 
-            color="#F1C40F" 
-            onPress={() => navigation.navigate('Rules')}
-          />
-          <MenuButton 
             title="CONFIG" 
             icon="cog-outline" 
             color="#7DA5CE" 
