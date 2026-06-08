@@ -65,13 +65,19 @@ const PersonalListScreen = ({ navigation }) => {
       }
       const data = await response.json();
 
-      if (data.data.length < LIMIT) setHasMore(false);
+      if (!response.ok) {
+        Alert.alert('Error', data.message || 'No se pudo obtener el personal');
+        return;
+      }
+
+      const workersList = data.data || [];
+      if (workersList.length < LIMIT) setHasMore(false);
       else setHasMore(true);
 
       if (reset) {
-        setWorkers(data.data);
+        setWorkers(workersList);
       } else {
-        setWorkers([...workers, ...data.data]);
+        setWorkers([...workers, ...workersList]);
       }
       setOffset(currentOffset + LIMIT);
     } catch (error) {
