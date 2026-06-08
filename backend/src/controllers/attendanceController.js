@@ -225,6 +225,7 @@ const updateWorker = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error al actualizar postulante.' });
+    }
 };
 
 const getSyncPull = async (req, res) => {
@@ -233,7 +234,7 @@ const getSyncPull = async (req, res) => {
         const metasCargosRes = await db.query('SELECT cargo_id, limite_vacantes FROM metas_cargos');
         const tipoPostulanteRes = await db.query('SELECT id, descripcion FROM tipo_postulante');
         const parametrosAsistenciaRes = await db.query('SELECT estado, descripcion FROM parametros_asistencia');
-        
+
         const workersRes = await db.query(`
             SELECT id, sede_reg, sede_juris, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
                    aula, tipo_postulante_id, cargo_id, turno, hora_ingreso 
