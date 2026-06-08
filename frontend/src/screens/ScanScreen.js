@@ -62,7 +62,7 @@ const ScanScreen = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`http://192.168.18.9:3001/api/attendance/verify?dni=${dni}`);
+      const response = await fetch(`https://backend-a484.onrender.com/api/attendance/verify?dni=${dni}`);
       const data = await response.json();
 
       if (response.ok) {

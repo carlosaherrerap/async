@@ -46,7 +46,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   const fetchCargos = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('http://192.168.18.9:3001/api/config/cargos', {
+      const res = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -76,7 +76,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         ...formData,
         hora_ingreso: formData.hora_ingreso + ':00', // Enviar como HH:MM:SS
       };
-      const response = await fetch('http://192.168.18.9:3001/api/attendance/register-worker', {
+      const response = await fetch('https://backend-a484.onrender.com/api/attendance/register-worker', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

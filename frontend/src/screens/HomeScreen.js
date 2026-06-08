@@ -22,7 +22,7 @@ const HomeScreen = ({ navigation }) => {
       if (userData) setUserName(JSON.parse(userData).nombre);
 
       // Backend simulation or real fetch
-      const response = await fetch('http://192.168.18.9:3001/api/attendance/stats', {
+      const response = await fetch('https://backend-a484.onrender.com/api/attendance/stats', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       

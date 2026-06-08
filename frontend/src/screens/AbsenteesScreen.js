@@ -14,7 +14,7 @@ const AbsenteesScreen = ({ navigation }) => {
   const fetchAbsentees = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('http://192.168.18.9:3001/api/attendance/absentees', {
+      const response = await fetch('https://backend-a484.onrender.com/api/attendance/absentees', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

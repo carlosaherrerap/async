@@ -21,7 +21,7 @@ const ConfigScreen = () => {
   const fetchCargos = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('http://192.168.18.9:3001/api/config/cargos', {
+      const response = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -44,13 +44,13 @@ const ConfigScreen = () => {
       const token = await AsyncStorage.getItem('userToken');
       let response;
       if (modalMode === 'create') {
-        response = await fetch('http://192.168.18.9:3001/api/config/cargos', {
+        response = await fetch('https://backend-a484.onrender.com/api/config/cargos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ nombre, meta: meta || 0 })
         });
       } else {
-        response = await fetch(`http://192.168.18.9:3001/api/config/cargos/${selectedCargo.id}`, {
+        response = await fetch(`https://backend-a484.onrender.com/api/config/cargos/${selectedCargo.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ meta: meta || 0 })

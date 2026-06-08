@@ -174,8 +174,8 @@ const AttendanceControlScreen = ({ navigation }) => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [statsRes, dailyRes] = await Promise.all([
-        fetch('http://192.168.18.9:3001/api/attendance/stats', { headers }),
-        fetch(`http://192.168.18.9:3001/api/attendance/daily?date=${selectedDate}`, { headers })
+        fetch('https://backend-a484.onrender.com/api/attendance/stats', { headers }),
+        fetch(`https://backend-a484.onrender.com/api/attendance/daily?date=${selectedDate}`, { headers })
       ]);
 
       if (statsRes.status === 401) {

@@ -43,7 +43,7 @@ const PersonalListScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const headers = { 'Authorization': `Bearer ${token}` };
-      const res = await fetch('http://192.168.18.9:3001/api/config/cargos', { headers });
+      const res = await fetch('https://backend-a484.onrender.com/api/config/cargos', { headers });
       if (res.ok) setCargos(await res.json());
     } catch (e) {
       console.error('Error fetching config data:', e);
@@ -54,7 +54,7 @@ const PersonalListScreen = ({ navigation }) => {
     if (!hasMore && !reset) return;
     try {
       const token = await AsyncStorage.getItem('userToken');
-      let url = `http://192.168.18.9:3001/api/attendance/workers?limit=${LIMIT}&offset=${currentOffset}`;
+      let url = `https://backend-a484.onrender.com/api/attendance/workers?limit=${LIMIT}&offset=${currentOffset}`;
       if (filterTitular) url += '&tipo=Titular';
 
       const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -115,7 +115,7 @@ const PersonalListScreen = ({ navigation }) => {
         aula: editForm.aula ? parseInt(editForm.aula) : 99
       };
 
-      const response = await fetch(`http://192.168.18.9:3001/api/attendance/workers/${selectedWorker.id}`, {
+      const response = await fetch(`https://backend-a484.onrender.com/api/attendance/workers/${selectedWorker.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(bodyData)

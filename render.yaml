@@ -1,7 +1,5 @@
 databases:
   - name: asistencia_db
-    databaseName: asistencia_db
-    user: postgres
     plan: free
 
 services:

@@ -16,7 +16,7 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.18.9:3001/api/auth/login', {
+      const response = await fetch('https://backend-a484.onrender.com/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
