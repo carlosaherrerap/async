@@ -75,7 +75,11 @@ const ScanScreen = ({ route, navigation }) => {
     try {
       if (global.dbHelper.isOnline()) {
         try {
-          const response = await fetch(`https://backend-6oio.onrender.com/api/attendance/verify?dni=${dni}`);
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const token = await AsyncStorage.getItem('userToken');
+          const response = await fetch(`https://backend-6oio.onrender.com/api/attendance/verify?dni=${dni}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
           const data = await response.json();
 
           if (response.ok) {

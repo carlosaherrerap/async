@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { List, Avatar, Surface, ActivityIndicator, Text, Chip, Portal, Modal, TextInput, Button, SegmentedButtons } from 'react-native-paper';
+import { List, Avatar, Surface, ActivityIndicator, Text, Portal, Modal, TextInput, Button, SegmentedButtons } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -16,7 +16,7 @@ const PersonalListScreen = ({ navigation }) => {
   const [hasMore, setHasMore] = useState(true);
 
   // Filtros
-  const [filterTitular, setFilterTitular] = useState(false);
+  const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
   const [filterCargo, setFilterCargo] = useState('TODOS');
   const [sortOrder, setSortOrder] = useState('ASC'); // ASC | DESC
 
@@ -41,7 +41,7 @@ const PersonalListScreen = ({ navigation }) => {
   useEffect(() => {
     fetchWorkers(0, true);
     fetchCargos();
-  }, [filterTitular, filterCargo, sortOrder]);
+  }, [filterTipo, filterCargo, sortOrder]);
 
   const fetchCargos = async () => {
     try {
@@ -71,8 +71,8 @@ const PersonalListScreen = ({ navigation }) => {
     const isOnline = global.dbHelper.isOnline();
     if (!isOnline) {
       try {
-        const filterTipo = filterTitular ? 'Titular' : null;
-        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo);
+        const filterTipo4Offline = filterTipo === 'TODOS' ? null : filterTipo;
+        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo4Offline);
         let workersList = data.data || [];
 
         // Filter by cargo offline
@@ -108,7 +108,7 @@ const PersonalListScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       let url = `https://backend-6oio.onrender.com/api/attendance/workers?limit=${LIMIT}&offset=${currentOffset}`;
-      if (filterTitular) url += '&tipo=Titular';
+      if (filterTipo !== 'TODOS') url += `&tipo=${encodeURIComponent(filterTipo)}`;
 
       const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       if (response.status === 401 || response.status === 403) {
@@ -149,8 +149,8 @@ const PersonalListScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Error fetching workers online, falling back to local SQLite:', error);
       try {
-        const filterTipo = filterTitular ? 'Titular' : null;
-        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo);
+        const filterTipo4Offline = filterTipo === 'TODOS' ? null : filterTipo;
+        const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo4Offline);
         const workersList = data.data || [];
         if (workersList.length < LIMIT) setHasMore(false);
         else setHasMore(true);
@@ -295,34 +295,44 @@ const PersonalListScreen = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>PERSONAL</Text>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
-          <Chip
-            icon="account"
-            mode="outlined"
-            selected={filterTitular}
-            onPress={() => {
-              setLoading(true);
-              setFilterTitular(!filterTitular);
-            }}
-            style={filterTitular ? styles.chipActive : styles.chip}
-            selectedColor="#FFFFFF"
-            textStyle={{ color: filterTitular ? '#FFFFFF' : '#64748B', fontSize: 11 }}
-          >
-            Titulares
-          </Chip>
-          <Chip
-            icon={sortOrder === 'ASC' ? 'sort-alphabetical-ascending' : 'sort-alphabetical-descending'}
-            mode="outlined"
-            onPress={() => {
-              setSortOrder(s => s === 'ASC' ? 'DESC' : 'ASC');
-              setLoading(true);
-            }}
-            style={styles.chip}
-            textStyle={{ color: '#64748B', fontSize: 11 }}
-          >
-            {sortOrder === 'ASC' ? 'A→Z' : 'Z→A'}
-          </Chip>
-        </View>
+        <TouchableOpacity
+          style={styles.sortButton}
+          onPress={() => {
+            setSortOrder(s => s === 'ASC' ? 'DESC' : 'ASC');
+            setLoading(true);
+          }}
+        >
+          <MaterialCommunityIcons
+            name={sortOrder === 'ASC' ? 'sort-alphabetical-ascending' : 'sort-alphabetical-descending'}
+            size={18} color="#334155"
+          />
+          <Text style={styles.sortButtonText}>{sortOrder === 'ASC' ? 'A→Z' : 'Z→A'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Switch TODOS / TITULAR / RESERVA */}
+      <View style={styles.tipoSwitch}>
+        {['TODOS', 'Titular', 'Reserva'].map(tipo => {
+          const isActive = filterTipo === tipo;
+          const color = tipo === 'Reserva' ? '#C2410C' : tipo === 'Titular' ? '#15803D' : '#334155';
+          return (
+            <TouchableOpacity
+              key={tipo}
+              style={[
+                styles.tipoSwitchBtn,
+                isActive && { backgroundColor: color, borderColor: color }
+              ]}
+              onPress={() => { setFilterTipo(tipo); setLoading(true); }}
+            >
+              <Text style={[
+                styles.tipoSwitchText,
+                { color: isActive ? '#FFFFFF' : '#64748B' }
+              ]}>
+                {tipo.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Cargo filter dropdown */}
@@ -537,15 +547,44 @@ const styles = StyleSheet.create({
     borderLeftColor: '#334155',
     paddingLeft: 8,
   },
-  chip: {
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#F4F6F8',
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 30,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  chipActive: {
-    backgroundColor: '#334155',
-    borderColor: '#334155',
-    height: 30,
+  sortButtonText: {
+    color: '#334155',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  tipoSwitch: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  tipoSwitchBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F4F6F8',
+    alignItems: 'center',
+  },
+  tipoSwitchText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
   cargoFilterContainer: {
     backgroundColor: '#FFFFFF',

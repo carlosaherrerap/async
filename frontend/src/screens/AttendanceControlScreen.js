@@ -139,6 +139,7 @@ const AttendanceControlScreen = ({ navigation }) => {
   // Filtros Asistencia Diaria
   const [filterCargo, setFilterCargo] = useState('TODOS');
   const [filterTurno, setFilterTurno] = useState('TODOS');
+  const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
   const [cargoDropdownOpen, setCargoDropdownOpen] = useState(false);
   const [turnoDropdownOpen, setTurnoDropdownOpen] = useState(false);
 
@@ -454,12 +455,14 @@ const AttendanceControlScreen = ({ navigation }) => {
       presentes: dailyData.presentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
         const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
-        return matchCargo && matchTurno;
+        const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
+        return matchCargo && matchTurno && matchTipo;
       }),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
         const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
-        return matchCargo && matchTurno;
+        const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
+        return matchCargo && matchTurno && matchTipo;
       }),
     };
 
@@ -475,6 +478,25 @@ const AttendanceControlScreen = ({ navigation }) => {
           </View>
           <MaterialCommunityIcons name="chevron-down" size={24} color="#334155" />
         </TouchableOpacity>
+
+        {/* Switch TODOS / TITULAR / RESERVA */}
+        <View style={styles.tipoSwitchRow}>
+          {['TODOS', 'Titular', 'Reserva'].map(tipo => {
+            const isActive = filterTipo === tipo;
+            const color = tipo === 'Reserva' ? '#C2410C' : tipo === 'Titular' ? '#15803D' : '#334155';
+            return (
+              <TouchableOpacity
+                key={tipo}
+                style={[styles.tipoSwitchBtn2, isActive && { backgroundColor: color, borderColor: color }]}
+                onPress={() => setFilterTipo(tipo)}
+              >
+                <Text style={[styles.tipoSwitchText2, { color: isActive ? '#FFFFFF' : '#64748B' }]}>
+                  {tipo.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         {/* Filtros Cargo y Turno */}
         <View style={styles.filterRow}>
@@ -752,6 +774,26 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   emptyText: { color: '#64748B', textAlign: 'center', marginTop: 20 },
+
+  tipoSwitchRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 8,
+  },
+  tipoSwitchBtn2: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F4F6F8',
+    alignItems: 'center',
+  },
+  tipoSwitchText2: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
+  },
 
   // Custom Animated Chart styles
   chartContainer: {
