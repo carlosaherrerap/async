@@ -102,6 +102,9 @@ const verifyWorker = async (req, res) => {
                 nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
                 puesto: worker.cargo,
                 area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                sede_reg: worker.sede_reg,
+                sede_juris: worker.sede_juris,
+                tipo_postulante: worker.tipo_postulante,
                 turno: worker.turno,
                 hora_ingreso: worker.hora_ingreso
             },

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Animated } from 'react-native';
-import { Modal, Portal, Surface, Avatar, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, Text, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { Modal, Portal, Surface, Avatar, ActivityIndicator, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [aulaReserva, setAulaReserva] = useState('');
+  const [aulaError, setAulaError] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -16,6 +18,8 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
         useNativeDriver: true,
       }).start();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setAulaReserva('');
+      setAulaError(false);
     } else {
       fadeAnim.setValue(0);
     }
@@ -25,15 +29,31 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
 
   const { worker, status, attendance } = data;
 
+  const isReserva = worker.tipo_postulante === 'Reserva';
+  const turnoDisplay = worker.turno === 'DIA' ? 'DIURNO' : (worker.turno || '');
+
   const handleIngreso = async () => {
+    // Validacion de aula para Reserva
+    if (isReserva && status === 'none') {
+      if (!aulaReserva || aulaReserva.trim() === '') {
+        setAulaError(true);
+        return;
+      }
+      setAulaError(false);
+    }
+
     setLoading(true);
     try {
       if (global.dbHelper.isOnline()) {
         try {
+          const body = { dni: worker.dni };
+          // Si es reserva, incluir el aula
+          if (isReserva && aulaReserva) body.aula = parseInt(aulaReserva);
+
           const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dni: worker.dni }),
+            body: JSON.stringify(body),
           });
 
           const result = await response.json();
@@ -49,6 +69,10 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                   'INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?, ?)',
                   [rec.id, rec.principal_id, rec.estado, rec.fecha_hora, rec.observaciones]
                 );
+                // Actualizar aula en local si es Reserva
+                if (isReserva && aulaReserva) {
+                  await db.runAsync('UPDATE principal SET aula = ? WHERE doc_identidad = ?', [parseInt(aulaReserva), worker.dni]);
+                }
               } catch (dbErr) {
                 console.error('Failed to update local db after online attendance marking:', dbErr);
               }
@@ -77,15 +101,19 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
     }
   };
 
+  const tipoColor = isReserva ? '#C2410C' : '#15803D';
+  const tipoBg = isReserva ? '#FFF7ED' : '#F0FDF4';
+  const tipoBorder = isReserva ? '#FED7AA' : '#DCFCE7';
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onClose} contentContainerStyle={styles.container}>
         <Animated.View style={{ opacity: fadeAnim, width: '100%', alignItems: 'center' }}>
           <Surface style={styles.card} elevation={3}>
-            <View style={styles.cardContent}>
+            <ScrollView contentContainerStyle={styles.cardContent} showsVerticalScrollIndicator={false}>
               <View style={styles.header}>
                 <Avatar.Icon 
-                  size={80} 
+                  size={76} 
                   icon="account" 
                   style={{ backgroundColor: status === 'entered' ? '#15803D' : '#334155' }} 
                 />
@@ -98,6 +126,31 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
 
               <Text style={styles.name}>{worker.nombre}</Text>
               <Text style={styles.role}>{worker.puesto}</Text>
+
+              {/* Tipo Postulante Badge */}
+              <View style={[styles.tipoBadge, { backgroundColor: tipoBg, borderColor: tipoBorder }]}>
+                <MaterialCommunityIcons 
+                  name={isReserva ? 'account-clock-outline' : 'account-check-outline'} 
+                  size={14} 
+                  color={tipoColor} 
+                />
+                <Text style={[styles.tipoText, { color: tipoColor }]}>
+                  {worker.tipo_postulante ? worker.tipo_postulante.toUpperCase() : ''}
+                </Text>
+              </View>
+
+              {/* Info rows */}
+              <View style={styles.infoGrid}>
+                <View style={styles.infoGridItem}>
+                  <Text style={styles.infoGridLabel}>SEDE REGIONAL</Text>
+                  <Text style={styles.infoGridValue} numberOfLines={1}>{worker.sede_reg || '-'}</Text>
+                </View>
+                <View style={styles.infoGridItem}>
+                  <Text style={styles.infoGridLabel}>SEDE JURISDICCIONAL</Text>
+                  <Text style={styles.infoGridValue} numberOfLines={1}>{worker.sede_juris || '-'}</Text>
+                </View>
+              </View>
+
               <Text style={styles.area}>{worker.area}</Text>
 
               {worker.turno && (
@@ -108,7 +161,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                       size={16} 
                       color="#334155" 
                     />
-                    <Text style={styles.turnoText}>Turno {worker.turno}</Text>
+                    <Text style={styles.turnoText}>Turno {turnoDisplay}</Text>
                   </View>
                   <View style={styles.turnoChip}>
                     <MaterialCommunityIcons name="clock-outline" size={16} color="#334155" />
@@ -127,6 +180,34 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                      {' - '}
                      {attendance.estado === 'P' ? 'PUNTUAL' : 'TARDE'}
                    </Text>
+                </View>
+              )}
+
+              {/* Aula field for Reserva when not yet marked */}
+              {isReserva && status === 'none' && (
+                <View style={styles.aulaContainer}>
+                  <View style={[styles.aulaAlert, { borderColor: aulaError ? '#B91C1C' : '#FED7AA' }]}>
+                    <MaterialCommunityIcons name="information-outline" size={16} color="#C2410C" />
+                    <Text style={styles.aulaAlertText}>
+                      Postulante RESERVA: Asignar aula antes de marcar ingreso
+                    </Text>
+                  </View>
+                  <TextInput
+                    label="Aula asignada *"
+                    value={aulaReserva}
+                    onChangeText={(t) => { setAulaReserva(t); setAulaError(false); }}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    maxLength={4}
+                    style={styles.aulaInput}
+                    textColor="#0F172A"
+                    outlineColor={aulaError ? '#B91C1C' : '#E2E8F0'}
+                    activeOutlineColor={aulaError ? '#B91C1C' : '#C2410C'}
+                    error={aulaError}
+                  />
+                  {aulaError && (
+                    <Text style={styles.aulaErrorText}>El aula es obligatoria para postulantes Reserva</Text>
+                  )}
                 </View>
               )}
 
@@ -158,7 +239,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                   <Text style={styles.cancelText}>CERRAR</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           </Surface>
         </Animated.View>
       </Modal>
@@ -178,13 +259,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
+    maxHeight: '90%',
   },
   cardContent: {
-    padding: 25,
+    padding: 22,
     alignItems: 'center',
   },
   header: {
-    marginBottom: 15,
+    marginBottom: 14,
     alignItems: 'center',
   },
   statusBadge: {
@@ -203,21 +285,64 @@ const styles = StyleSheet.create({
   },
   name: {
     color: '#0F172A',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 10,
   },
   role: {
     color: '#64748B',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginTop: 5,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  tipoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  tipoText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 8,
+    marginBottom: 8,
+  },
+  infoGridItem: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoGridLabel: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  infoGridValue: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '600',
   },
   area: {
     color: '#64748B',
     fontSize: 12,
     marginTop: 2,
+    marginBottom: 2,
     textAlign: 'center',
   },
   turnoRow: {
@@ -245,7 +370,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 1,
     backgroundColor: '#E2E8F0',
-    marginVertical: 20,
+    marginVertical: 16,
   },
   infoRow: {
     flexDirection: 'row',
@@ -263,6 +388,37 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginLeft: 10,
     fontWeight: '600',
+  },
+  aulaContainer: {
+    width: '100%',
+    marginBottom: 4,
+  },
+  aulaAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  aulaAlertText: {
+    color: '#C2410C',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  aulaInput: {
+    backgroundColor: '#F9FAFB',
+    height: 44,
+    marginBottom: 2,
+  },
+  aulaErrorText: {
+    color: '#B91C1C',
+    fontSize: 11,
+    marginBottom: 8,
+    marginTop: 2,
   },
   actions: {
     width: '100%',

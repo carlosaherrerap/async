@@ -80,7 +80,8 @@ const getStats = async (req, res) => {
             SELECT 
                 (SELECT COUNT(*) FROM principal) as total_postulantes,
                 (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas
+                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas,
+                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'P') as temprano
         `);
         
         const data = stats.rows[0];
@@ -110,6 +111,7 @@ const getStats = async (req, res) => {
             presentes: parseInt(data.presentes),
             faltas: faltas,
             tardanzas: parseInt(data.tardanzas),
+            temprano: parseInt(data.temprano),
             asistenciaPorCargo: asistenciaPorCargo.rows,
             metasPorCargo: metasPorCargo.rows
         });
@@ -126,21 +128,25 @@ const getDailyAttendance = async (req, res) => {
     try {
         const presentesRes = await db.query(`
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+                   c.nombre as cargo, tp.descripcion as tipo_postulante,
+                   p.sede_reg, p.sede_juris, p.local, p.turno,
                    p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
+            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             WHERE a.fecha_hora::date = $1
             ORDER BY a.fecha_hora DESC
         `, [targetDate]);
 
         const ausentesRes = await db.query(`
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+                   c.nombre as cargo, tp.descripcion as tipo_postulante,
+                   p.sede_reg, p.sede_juris, p.local, p.turno,
                    p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
+            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias a 
                 WHERE a.principal_id = p.id AND a.fecha_hora::date = $1

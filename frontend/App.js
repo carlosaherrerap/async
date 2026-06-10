@@ -344,6 +344,9 @@ global.dbHelper = {
       const tardanzasRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'T'");
       const tardanzas = tardanzasRes[0]?.count || 0;
 
+      const tempranoRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'P'");
+      const temprano = tempranoRes[0]?.count || 0;
+
       const faltas = total - presentes;
 
       const metasPorCargo = await db.getAllAsync(`
@@ -369,12 +372,13 @@ global.dbHelper = {
         presentes, 
         faltas: faltas < 0 ? 0 : faltas, 
         tardanzas,
+        temprano,
         metasPorCargo,
         asistenciaPorCargo
       };
     } catch (e) {
       console.error('Error in getStats:', e);
-      return { presentes: 0, faltas: 0, tardanzas: 0, asistenciaPorCargo: [], metasPorCargo: [] };
+      return { presentes: 0, faltas: 0, tardanzas: 0, temprano: 0, asistenciaPorCargo: [], metasPorCargo: [] };
     }
   },
 
@@ -385,21 +389,25 @@ global.dbHelper = {
 
       const presentes = await db.getAllAsync(`
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-               c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+               c.nombre as cargo, tp.descripcion as tipo_postulante,
+               p.sede_reg, p.sede_juris, p.local, p.turno,
                p.hora_ingreso, a.estado, a.fecha_hora
         FROM asistencias a
         JOIN principal p ON a.principal_id = p.id
         JOIN cargos c ON p.cargo_id = c.id
+        JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         WHERE date(a.fecha_hora) = date(?)
         ORDER BY a.fecha_hora DESC
       `, [targetDate]);
 
       const ausentes = await db.getAllAsync(`
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-               c.nombre as cargo, p.sede_reg, p.sede_juris, p.local, p.turno,
+               c.nombre as cargo, tp.descripcion as tipo_postulante,
+               p.sede_reg, p.sede_juris, p.local, p.turno,
                p.hora_ingreso
         FROM principal p
         JOIN cargos c ON p.cargo_id = c.id
+        JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         WHERE NOT EXISTS (
           SELECT 1 FROM asistencias a 
           WHERE a.principal_id = p.id AND date(a.fecha_hora) = date(?)
@@ -455,6 +463,9 @@ global.dbHelper = {
         nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
         puesto: worker.cargo,
         area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+        sede_reg: worker.sede_reg,
+        sede_juris: worker.sede_juris,
+        tipo_postulante: worker.tipo_postulante,
         turno: worker.turno,
         hora_ingreso: worker.hora_ingreso
       },

@@ -15,10 +15,14 @@ const PersonalListScreen = ({ navigation }) => {
   const LIMIT = 10;
   const [hasMore, setHasMore] = useState(true);
 
+  // Filtros
   const [filterTitular, setFilterTitular] = useState(false);
+  const [filterCargo, setFilterCargo] = useState('TODOS');
+  const [sortOrder, setSortOrder] = useState('ASC'); // ASC | DESC
 
   // Lista selector de cargos
   const [cargos, setCargos] = useState([]);
+  const [cargoDropdownOpen, setCargoDropdownOpen] = useState(false);
   const [horarioDropdownOpen, setHorarioDropdownOpen] = useState(false);
 
   // Modal de edición
@@ -37,7 +41,7 @@ const PersonalListScreen = ({ navigation }) => {
   useEffect(() => {
     fetchWorkers(0, true);
     fetchCargos();
-  }, [filterTitular]);
+  }, [filterTitular, filterCargo, sortOrder]);
 
   const fetchCargos = async () => {
     try {
@@ -69,7 +73,20 @@ const PersonalListScreen = ({ navigation }) => {
       try {
         const filterTipo = filterTitular ? 'Titular' : null;
         const data = await global.dbHelper.getWorkersOffline(LIMIT, currentOffset, filterTipo);
-        const workersList = data.data || [];
+        let workersList = data.data || [];
+
+        // Filter by cargo offline
+        if (filterCargo !== 'TODOS') {
+          workersList = workersList.filter(w => w.cargo === filterCargo);
+        }
+
+        // Sort by apellido
+        workersList.sort((a, b) => {
+          const nameA = `${a.ape_pat} ${a.ape_mat}`.toUpperCase();
+          const nameB = `${b.ape_pat} ${b.ape_mat}`.toUpperCase();
+          return sortOrder === 'ASC' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+        });
+
         if (workersList.length < LIMIT) setHasMore(false);
         else setHasMore(true);
 
@@ -106,7 +123,20 @@ const PersonalListScreen = ({ navigation }) => {
         return;
       }
 
-      const workersList = data.data || [];
+      let workersList = data.data || [];
+
+      // Filter by cargo online (client-side since API doesn't support cargo filter yet)
+      if (filterCargo !== 'TODOS') {
+        workersList = workersList.filter(w => w.cargo === filterCargo);
+      }
+
+      // Sort by apellido
+      workersList.sort((a, b) => {
+        const nameA = `${a.ape_pat} ${a.ape_mat}`.toUpperCase();
+        const nameB = `${b.ape_pat} ${b.ape_mat}`.toUpperCase();
+        return sortOrder === 'ASC' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+
       if (workersList.length < LIMIT) setHasMore(false);
       else setHasMore(true);
 
@@ -152,7 +182,7 @@ const PersonalListScreen = ({ navigation }) => {
     setEditForm({
       sede_reg: worker.sede_reg,
       sede_juris: worker.sede_juris,
-      local: worker.local,
+      local: worker.local || worker.area,
       aula: worker.aula?.toString() || '',
       cargo_id: worker.cargo_id?.toString() || '',
       turno: worker.turno || 'DIA',
@@ -236,24 +266,25 @@ const PersonalListScreen = ({ navigation }) => {
 
   const renderItem = ({ item }) => {
     const isTitular = item.tipo_postulante === 'Titular';
-    const accentColor = isTitular ? '#15803D' : '#B91C1C'; // Éxito --> HSL(142,70,25) y Error --> HSL(0,75,45)
+    const accentColor = isTitular ? '#15803D' : '#C2410C'; // Verde Titular, Naranja Reserva
+    const localDisplay = item.local || item.area || '-';
 
     return (
       <TouchableOpacity onPress={() => openEdit(item)}>
         <Surface style={styles.itemCard} elevation={0}>
           <List.Item
             title={`${item.nombres} ${item.ape_pat} ${item.ape_mat}`}
-            description={`${item.cargo}\nSede: ${item.sede_reg} > ${item.local} (Aula ${item.aula})\nTurno: ${item.turno || 'DIA'} | Ingreso: ${item.hora_ingreso ? item.hora_ingreso.substring(0, 5) : '08:00'}`}
-            left={props => <Avatar.Text {...props} label={item.nombres[0]} size={40} style={{ backgroundColor: accentColor }} textColor="#FFFFFF" />}
+            description={`DNI: ${item.dni || '-'}\n${item.cargo}\nSede: ${item.sede_reg || '-'} > ${localDisplay} (Aula ${item.aula || '-'})\nTurno: ${item.turno === 'DIA' ? 'DIURNO' : (item.turno || '-')} | Ingreso: ${item.hora_ingreso ? item.hora_ingreso.substring(0, 5) : '08:00'}`}
+            left={props => <Avatar.Text {...props} label={item.nombres ? item.nombres[0] : '?'} size={40} style={{ backgroundColor: accentColor }} textColor="#FFFFFF" />}
             right={() => (
               <View style={styles.badgeContainer}>
                 <Text style={[styles.badgeText, { color: accentColor }]}>
-                  {item.tipo_postulante.toUpperCase()}
+                  {item.tipo_postulante ? item.tipo_postulante.toUpperCase() : ''}
                 </Text>
               </View>
             )}
             titleStyle={{ color: '#0F172A', fontWeight: 'bold', fontSize: 14 }}
-            descriptionStyle={{ color: '#64748B', fontSize: 12, marginTop: 4, lineHeight: 16 }}
+            descriptionStyle={{ color: '#64748B', fontSize: 11, marginTop: 4, lineHeight: 16 }}
           />
         </Surface>
       </TouchableOpacity>
@@ -264,20 +295,73 @@ const PersonalListScreen = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>PERSONAL</Text>
-        <Chip
-          icon="account"
-          mode="outlined"
-          selected={filterTitular}
-          onPress={() => {
-            setLoading(true);
-            setFilterTitular(!filterTitular);
-          }}
-          style={filterTitular ? styles.chipActive : styles.chip}
-          selectedColor="#FFFFFF"
-          textStyle={{ color: filterTitular ? '#FFFFFF' : '#64748B', fontSize: 12 }}
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end' }}>
+          <Chip
+            icon="account"
+            mode="outlined"
+            selected={filterTitular}
+            onPress={() => {
+              setLoading(true);
+              setFilterTitular(!filterTitular);
+            }}
+            style={filterTitular ? styles.chipActive : styles.chip}
+            selectedColor="#FFFFFF"
+            textStyle={{ color: filterTitular ? '#FFFFFF' : '#64748B', fontSize: 11 }}
+          >
+            Titulares
+          </Chip>
+          <Chip
+            icon={sortOrder === 'ASC' ? 'sort-alphabetical-ascending' : 'sort-alphabetical-descending'}
+            mode="outlined"
+            onPress={() => {
+              setSortOrder(s => s === 'ASC' ? 'DESC' : 'ASC');
+              setLoading(true);
+            }}
+            style={styles.chip}
+            textStyle={{ color: '#64748B', fontSize: 11 }}
+          >
+            {sortOrder === 'ASC' ? 'A→Z' : 'Z→A'}
+          </Chip>
+        </View>
+      </View>
+
+      {/* Cargo filter dropdown */}
+      <View style={styles.cargoFilterContainer}>
+        <TouchableOpacity
+          style={styles.cargoDropdownHeader}
+          onPress={() => setCargoDropdownOpen(!cargoDropdownOpen)}
         >
-          Solo Titulares
-        </Chip>
+          <MaterialCommunityIcons name="briefcase-outline" size={16} color="#334155" />
+          <Text style={styles.cargoDropdownText} numberOfLines={1}>
+            {filterCargo === 'TODOS' ? 'Todos los Cargos' : filterCargo}
+          </Text>
+          <MaterialCommunityIcons name={cargoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color="#334155" />
+        </TouchableOpacity>
+        {cargoDropdownOpen && (
+          <Surface style={styles.cargoDropdownList} elevation={3}>
+            <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+              {[{ id: 0, nombre: 'TODOS' }, ...cargos].map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.cargoDropdownOption, filterCargo === c.nombre && styles.cargoDropdownOptionActive]}
+                  onPress={() => {
+                    setFilterCargo(c.nombre);
+                    setCargoDropdownOpen(false);
+                    setLoading(true);
+                  }}
+                >
+                  <Text style={{
+                    color: filterCargo === c.nombre ? '#FFFFFF' : '#0F172A',
+                    fontSize: 13,
+                    fontWeight: filterCargo === c.nombre ? 'bold' : 'normal'
+                  }}>
+                    {c.nombre}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Surface>
+        )}
       </View>
 
       {loading ? (
@@ -287,7 +371,7 @@ const PersonalListScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={workers}
-          keyExtractor={(item) => item.dni}
+          keyExtractor={(item) => (item.dni || item.id?.toString() || Math.random().toString())}
           renderItem={renderItem}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
@@ -373,7 +457,7 @@ const PersonalListScreen = ({ navigation }) => {
                 setEditForm({ ...editForm, turno: val, hora_ingreso: defaultHora });
               }}
               buttons={[
-                { label: 'Día', value: 'DIA', icon: 'weather-sunny' },
+                { label: 'Diurno', value: 'DIA', icon: 'weather-sunny' },
                 { label: 'Tarde', value: 'TARDE', icon: 'weather-night' },
               ]}
               style={{ marginBottom: 10 }}
@@ -435,7 +519,7 @@ const PersonalListScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
   header: {
-    padding: 15,
+    padding: 12,
     paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -443,6 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    gap: 8,
   },
   title: {
     color: '#0F172A',
@@ -455,12 +540,53 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: '#F4F6F8',
     borderColor: '#E2E8F0',
-    height: 32,
+    height: 30,
   },
   chipActive: {
     backgroundColor: '#334155',
     borderColor: '#334155',
-    height: 32,
+    height: 30,
+  },
+  cargoFilterContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    zIndex: 10,
+  },
+  cargoDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F4F6F8',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cargoDropdownText: {
+    flex: 1,
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cargoDropdownList: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  cargoDropdownOption: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  cargoDropdownOptionActive: {
+    backgroundColor: '#334155',
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#64748B', fontSize: 13 },

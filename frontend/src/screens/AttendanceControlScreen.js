@@ -130,10 +130,17 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [dailyData, setDailyData] = useState({ presentes: [], ausentes: [] });
+  const [cargos, setCargos] = useState([]);
 
   const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | ASISTENCIA
   const [attendanceTab, setAttendanceTab] = useState('PRESENTES'); // PRESENTES | AUSENTES
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Filtros Asistencia Diaria
+  const [filterCargo, setFilterCargo] = useState('TODOS');
+  const [filterTurno, setFilterTurno] = useState('TODOS');
+  const [cargoDropdownOpen, setCargoDropdownOpen] = useState(false);
+  const [turnoDropdownOpen, setTurnoDropdownOpen] = useState(false);
 
   // Calendario de estados
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -146,6 +153,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchData();
+    fetchCargos();
   }, [selectedDate]);
 
   useEffect(() => {
@@ -214,6 +222,25 @@ const AttendanceControlScreen = ({ navigation }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCargos = async () => {
+    try {
+      const isOnline = global.dbHelper.isOnline();
+      if (!isOnline) {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+        return;
+      }
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setCargos(await res.json());
+    } catch (e) {
+      try {
+        const localCargos = await global.dbHelper.getCargos();
+        setCargos(localCargos);
+      } catch (sqliteErr) { console.error('Error fetching cargos:', sqliteErr); }
     }
   };
 
@@ -373,6 +400,10 @@ const AttendanceControlScreen = ({ navigation }) => {
             <Text style={[styles.kpiValue, { color: '#F1C40F' }]}>{stats.tardanzas}</Text>
             <Text style={styles.kpiLabel}>TARDANZAS</Text>
           </Surface>
+          <Surface style={styles.kpiCard} elevation={0}>
+            <Text style={[styles.kpiValue, { color: '#2563EB' }]}>{stats.temprano ?? 0}</Text>
+            <Text style={styles.kpiLabel}>TEMPRANO</Text>
+          </Surface>
         </View>
 
         <Surface style={styles.chartCard} elevation={0}>
@@ -419,6 +450,19 @@ const AttendanceControlScreen = ({ navigation }) => {
   };
 
   const renderAsistencia = () => {
+    const filteredData = {
+      presentes: dailyData.presentes.filter(item => {
+        const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
+        const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
+        return matchCargo && matchTurno;
+      }),
+      ausentes: dailyData.ausentes.filter(item => {
+        const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
+        const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
+        return matchCargo && matchTurno;
+      }),
+    };
+
     return (
       <View style={{ flex: 1 }}>
         <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
@@ -432,25 +476,86 @@ const AttendanceControlScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="chevron-down" size={24} color="#334155" />
         </TouchableOpacity>
 
+        {/* Filtros Cargo y Turno */}
+        <View style={styles.filterRow}>
+          {/* Cargo filter */}
+          <View style={styles.filterDropdown}>
+            <TouchableOpacity
+              style={styles.filterDropdownHeader}
+              onPress={() => { setCargoDropdownOpen(!cargoDropdownOpen); setTurnoDropdownOpen(false); }}
+            >
+              <Text style={styles.filterDropdownText} numberOfLines={1}>
+                {filterCargo === 'TODOS' ? 'Todos los Cargos' : filterCargo}
+              </Text>
+              <MaterialCommunityIcons name={cargoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#334155" />
+            </TouchableOpacity>
+            {cargoDropdownOpen && (
+              <Surface style={styles.filterDropdownList} elevation={4}>
+                <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
+                  {[{ id: 0, nombre: 'TODOS' }, ...cargos].map(c => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.filterDropdownOption, filterCargo === c.nombre && styles.filterDropdownOptionActive]}
+                      onPress={() => { setFilterCargo(c.nombre); setCargoDropdownOpen(false); }}
+                    >
+                      <Text style={{ color: filterCargo === c.nombre ? '#FFFFFF' : '#0F172A', fontSize: 12, fontWeight: filterCargo === c.nombre ? 'bold' : 'normal' }}>
+                        {c.nombre}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </Surface>
+            )}
+          </View>
+
+          {/* Turno filter */}
+          <View style={styles.filterDropdown}>
+            <TouchableOpacity
+              style={styles.filterDropdownHeader}
+              onPress={() => { setTurnoDropdownOpen(!turnoDropdownOpen); setCargoDropdownOpen(false); }}
+            >
+              <Text style={styles.filterDropdownText} numberOfLines={1}>
+                {filterTurno === 'TODOS' ? 'Todos los Turnos' : (filterTurno === 'DIA' ? 'DIURNO' : filterTurno)}
+              </Text>
+              <MaterialCommunityIcons name={turnoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#334155" />
+            </TouchableOpacity>
+            {turnoDropdownOpen && (
+              <Surface style={styles.filterDropdownList} elevation={4}>
+                {['TODOS', 'DIA', 'TARDE'].map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.filterDropdownOption, filterTurno === t && styles.filterDropdownOptionActive]}
+                    onPress={() => { setFilterTurno(t); setTurnoDropdownOpen(false); }}
+                  >
+                    <Text style={{ color: filterTurno === t ? '#FFFFFF' : '#0F172A', fontSize: 12, fontWeight: filterTurno === t ? 'bold' : 'normal' }}>
+                      {t === 'DIA' ? 'DIURNO' : t === 'TODOS' ? 'Todos los Turnos' : 'TARDE'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </Surface>
+            )}
+          </View>
+        </View>
+
         <View style={styles.subTabContainer}>
           <TouchableOpacity
             style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
             onPress={() => setAttendanceTab('PRESENTES')}
           >
-            <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>PRESENTES ({dailyData.presentes.length})</Text>
+            <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>PRESENTES ({filteredData.presentes.length})</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
             onPress={() => setAttendanceTab('AUSENTES')}
           >
-            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>AUSENTES ({dailyData.ausentes.length})</Text>
+            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>AUSENTES ({filteredData.ausentes.length})</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ marginTop: 10 }}>
-          {attendanceTab === 'PRESENTES' ? dailyData.presentes.map(renderPersonItem) : dailyData.ausentes.map(renderPersonItem)}
-          {attendanceTab === 'PRESENTES' && dailyData.presentes.length === 0 && <Text style={styles.emptyText}>No hay registros para este día.</Text>}
-          {attendanceTab === 'AUSENTES' && dailyData.ausentes.length === 0 && <Text style={styles.emptyText}>Todos asistieron o no hay personal.</Text>}
+          {attendanceTab === 'PRESENTES' ? filteredData.presentes.map(renderPersonItem) : filteredData.ausentes.map(renderPersonItem)}
+          {attendanceTab === 'PRESENTES' && filteredData.presentes.length === 0 && <Text style={styles.emptyText}>No hay registros para este día.</Text>}
+          {attendanceTab === 'AUSENTES' && filteredData.ausentes.length === 0 && <Text style={styles.emptyText}>Todos asistieron o no hay personal.</Text>}
         </View>
       </View>
     );
@@ -458,30 +563,43 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   const renderPersonItem = (item) => {
     const isPresent = attendanceTab === 'PRESENTES';
-    const statusColor = item.estado === 'P' ? '#15803D' : (item.estado === 'T' ? '#F1C40F' : '#B91C1C');
+    const statusColor = item.estado === 'P' ? '#2563EB' : (item.estado === 'T' ? '#F1C40F' : '#B91C1C');
+    const isTitular = item.tipo_postulante === 'Titular';
+    const tipoColor = isTitular ? '#15803D' : '#C2410C';
 
     return (
-      <Surface key={item.id} style={styles.personCard} elevation={0}>
+      <Surface key={`${item.id}-${item.dni}`} style={styles.personCard} elevation={0}>
         <List.Item
-          title={`${item.nombres} ${item.ape_pat}`}
-          description={`${item.cargo} | ${item.sede_reg}`}
+          title={`${item.nombres} ${item.ape_pat} ${item.ape_mat}`}
+          description={`DNI: ${item.dni || '-'} | ${item.cargo}`}
           left={props => (
             <Avatar.Text
               {...props}
-              label={item.nombres[0]}
+              label={item.nombres ? item.nombres[0] : '?'}
               size={40}
               style={{ backgroundColor: isPresent ? statusColor : '#B91C1C' }}
               textColor="#FFFFFF"
             />
           )}
-          right={() => isPresent && (
-            <View style={{ justifyContent: 'center', alignItems: 'flex-end' }}>
-              <Text style={{ color: statusColor, fontWeight: 'bold' }}>{item.estado === 'P' ? 'PUNTUAL' : 'TARDE'}</Text>
-              <Text style={{ color: '#64748B', fontSize: 10 }}>{new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          right={() => (
+            <View style={{ justifyContent: 'center', alignItems: 'flex-end', paddingRight: 4 }}>
+              {isPresent && (
+                <>
+                  <Text style={{ color: statusColor, fontWeight: 'bold', fontSize: 11 }}>
+                    {item.estado === 'P' ? 'TEMPRANO' : 'TARDE'}
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 10 }}>
+                    {new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </>
+              )}
+              <Text style={{ color: tipoColor, fontWeight: 'bold', fontSize: 10, marginTop: 2 }}>
+                {item.tipo_postulante ? item.tipo_postulante.toUpperCase() : ''}
+              </Text>
             </View>
           )}
-          titleStyle={{ color: '#0F172A', fontSize: 14, fontWeight: 'bold' }}
-          descriptionStyle={{ color: '#64748B', fontSize: 12 }}
+          titleStyle={{ color: '#0F172A', fontSize: 13, fontWeight: 'bold' }}
+          descriptionStyle={{ color: '#64748B', fontSize: 11 }}
         />
       </Surface>
     );
@@ -560,9 +678,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 12,
     borderRadius: 6,
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    zIndex: 10,
+  },
+  filterDropdown: {
+    flex: 1,
+    position: 'relative',
+  },
+  filterDropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  filterDropdownText: {
+    color: '#334155',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  filterDropdownList: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    zIndex: 20,
+    overflow: 'hidden',
+  },
+  filterDropdownOption: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  filterDropdownOptionActive: {
+    backgroundColor: '#334155',
   },
   subTabContainer: { flexDirection: 'row', marginBottom: 12 },
   subTabButton: {

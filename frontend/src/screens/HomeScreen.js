@@ -10,7 +10,7 @@ const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = (width - 60) / 2;
 
 const HomeScreen = ({ navigation }) => {
-  const [stats, setStats] = useState({ presentes: 0, faltas: 0, tardanzas: 0 });
+  const [stats, setStats] = useState({ presentes: 0, faltas: 0, tardanzas: 0, temprano: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('');
@@ -334,6 +334,11 @@ const HomeScreen = ({ navigation }) => {
                   <Text style={[styles.statValue, { color: '#F1C40F' }]}>{stats.tardanzas}</Text>
                   <Text style={styles.statLabel}>Tardanzas</Text>
                 </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={[styles.statValue, { color: '#2563EB' }]}>{stats.temprano ?? 0}</Text>
+                  <Text style={styles.statLabel}>Temprano</Text>
+                </View>
               </View>
             )}
           </View>
@@ -360,12 +365,6 @@ const HomeScreen = ({ navigation }) => {
             icon="cog-outline" 
             color="#334155" 
             onPress={() => navigation.navigate('Config')}
-          />
-          <MenuButton 
-            title="MANUAL" 
-            icon="keyboard-outline" 
-            color="#334155" 
-            onPress={() => navigation.navigate('Manual')}
           />
           <MenuButton 
             title="CONTROL" 
