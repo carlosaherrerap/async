@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Surface, Text, TextInput, Button, ActivityIndicator, IconButton, Portal, Modal } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS } from '../theme/colors';
 
 const ConfigScreen = () => {
   const [cargos, setCargos] = useState([]);
@@ -191,7 +193,7 @@ const ConfigScreen = () => {
           </Text>
           
           <TextInput
-            label="Nombre del Cargo"
+            label="NOMBRE DEL CARGO"
             value={nombre}
             onChangeText={setNombre}
             mode="outlined"
@@ -200,10 +202,11 @@ const ConfigScreen = () => {
             disabled={modalMode === 'edit'}
             activeOutlineColor="#334155"
             outlineColor="#E2E8F0"
+            theme={{ colors: { outlineVariant: '#E2E8F0' } }}
           />
 
           <TextInput
-            label="Límite Máximo de Personas (Meta)"
+            label="LIMITE MAXIMO DE PERSONAS (META)"
             value={meta}
             onChangeText={setMeta}
             mode="outlined"
@@ -212,11 +215,17 @@ const ConfigScreen = () => {
             textColor="#0F172A"
             activeOutlineColor="#334155"
             outlineColor="#E2E8F0"
+            theme={{ colors: { outlineVariant: '#E2E8F0' } }}
           />
 
           <View style={styles.modalActions}>
-            <Button textColor="#64748B" onPress={() => setModalVisible(false)}>CANCELAR</Button>
-            <Button buttonColor="#334155" mode="contained" onPress={handleSave}>GUARDAR</Button>
+            <Button textColor="#64748B" labelStyle={{ fontWeight: '900' }} onPress={() => setModalVisible(false)}>CANCELAR</Button>
+            <TouchableOpacity 
+              onPress={handleSave}
+              style={{ borderWidth: 2.5, borderColor: COLORS.blue, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#FFF' }}
+            >
+              <Text style={{ color: COLORS.blue, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>GUARDAR</Text>
+            </TouchableOpacity>
           </View>
         </Modal>
       </Portal>
@@ -245,12 +254,17 @@ const styles = StyleSheet.create({
   cargoCard: {
     backgroundColor: '#FFFFFF',
     padding: 15,
-    borderRadius: 6,
+    borderRadius: 12,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderLeftWidth: 6,
+    borderLeftColor: COLORS.blue,
+    elevation: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2.5,
   },
   cargoName: {
     color: '#0F172A',

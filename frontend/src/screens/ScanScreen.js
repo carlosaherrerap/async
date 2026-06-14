@@ -5,6 +5,7 @@ import { ActivityIndicator, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AttendanceModal from '../components/AttendanceModal';
+import { COLORS } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -64,7 +65,7 @@ const ScanScreen = ({ route, navigation }) => {
     const showNotFoundAlert = () => {
       Alert.alert(
         'Postulante no encontrado',
-        'El DNI no está registrado. ¿Desea registrarlo ahora?',
+        'El DNI no esta registrado. ¿Desea registrarlo ahora?',
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: dni }) }
@@ -103,7 +104,7 @@ const ScanScreen = ({ route, navigation }) => {
         showNotFoundAlert();
       }
     } catch (error) {
-      Alert.alert('Error', 'Ocurrió un error al verificar el postulante.');
+      Alert.alert('Error', 'Ocurrio un error al verificar el postulante.');
     } finally {
       setLoading(false);
       setScanned(false);
@@ -121,9 +122,9 @@ const ScanScreen = ({ route, navigation }) => {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={['#1a1a1a', '#000']} style={styles.background} />
+        <View style={[styles.background, { backgroundColor: '#1a1a1a' }]} />
         <MaterialCommunityIcons name="camera-off" size={80} color="#666" />
-        <Text style={styles.permissionText}>Se requiere acceso a la cámara</Text>
+        <Text style={styles.permissionText}>Se requiere acceso a la camara</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Solicitar Permiso</Text>
         </TouchableOpacity>
@@ -145,7 +146,7 @@ const ScanScreen = ({ route, navigation }) => {
         <View style={styles.topOverlay}>
           <View style={styles.header}>
             <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
-            <Text style={styles.headerTitle}>Escaneo Vertical de Barras</Text>
+            <Text style={styles.headerTitle}>ESCANEO VERTICAL DE BARRAS</Text>
             <View style={{ width: 40 }} />
           </View>
 
@@ -160,7 +161,7 @@ const ScanScreen = ({ route, navigation }) => {
               style={[styles.toggleButton, dniType === 'DNIE' && styles.toggleActive]}
               onPress={() => setDniType('DNIE')}
             >
-              <Text style={[styles.toggleText, dniType === 'DNIE' && styles.toggleTextActive]}>DNIe (ELECTRÓNICO)</Text>
+              <Text style={[styles.toggleText, dniType === 'DNIE' && styles.toggleTextActive]}>DNIE (ELECTRONICO)</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -183,12 +184,12 @@ const ScanScreen = ({ route, navigation }) => {
               }
             ]}
           />
-          <Text style={styles.guideText}>Escanear la barra vertical</Text>
+          <Text style={styles.guideText}>ESCANEAR LA BARRA VERTICAL</Text>
         </Animated.View>
 
         <View style={styles.bottomOverlay}>
           <Surface style={styles.manualPanel} elevation={3}>
-            <Text style={styles.manualLabel}>Ingreso manual de DNI:</Text>
+            <Text style={styles.manualLabel}>INGRESO MANUAL DE DNI:</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -200,12 +201,10 @@ const ScanScreen = ({ route, navigation }) => {
                 onChangeText={setManualDni}
               />
               <TouchableOpacity
-                style={styles.searchButton}
                 onPress={() => handleDniReceived(manualDni)}
+                style={{ width: 50, height: 50, borderRadius: 8, borderWidth: 2.5, borderColor: COLORS.blue, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' }}
               >
-                <View style={styles.searchButtonContent}>
-                  <MaterialCommunityIcons name="magnify" size={24} color="white" />
-                </View>
+                <MaterialCommunityIcons name="magnify" size={26} color={COLORS.blue} />
               </TouchableOpacity>
             </View>
           </Surface>
@@ -215,7 +214,7 @@ const ScanScreen = ({ route, navigation }) => {
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator animating={true} color="#334155" size="large" />
-          <Text style={styles.loadingText}>Verificando...</Text>
+          <Text style={styles.loadingText}>VERIFICANDO...</Text>
         </View>
       )}
 
@@ -257,7 +256,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#0F172A',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   toggleContainer: {
@@ -265,7 +264,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F6F8',
     borderRadius: 6,
     padding: 4,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
   },
   toggleButton: {
@@ -279,11 +278,12 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     color: '#64748B',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 11,
   },
   toggleTextActive: {
     color: '#FFFFFF',
+    fontWeight: '900',
   },
   scannerFrame: {
     position: 'absolute',
@@ -292,12 +292,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cornerTopLeft: { position: 'absolute', top: 0, left: 0, width: 20, height: 20, borderTopWidth: 3, borderLeftWidth: 3, borderColor: '#334155', borderTopLeftRadius: 4 },
-  cornerTopRight: { position: 'absolute', top: 0, right: 0, width: 20, height: 20, borderTopWidth: 3, borderRightWidth: 3, borderColor: '#334155', borderTopRightRadius: 4 },
-  cornerBottomLeft: { position: 'absolute', bottom: 0, left: 0, width: 20, height: 20, borderBottomWidth: 3, borderLeftWidth: 3, borderColor: '#334155', borderBottomLeftRadius: 4 },
-  cornerBottomRight: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderBottomWidth: 3, borderRightWidth: 3, borderColor: '#334155', borderBottomRightRadius: 4 },
+  cornerTopLeft: { position: 'absolute', top: 0, left: 0, width: 20, height: 20, borderTopWidth: 4.5, borderLeftWidth: 4.5, borderColor: '#334155', borderTopLeftRadius: 4 },
+  cornerTopRight: { position: 'absolute', top: 0, right: 0, width: 20, height: 20, borderTopWidth: 4.5, borderRightWidth: 4.5, borderColor: '#334155', borderTopRightRadius: 4 },
+  cornerBottomLeft: { position: 'absolute', bottom: 0, left: 0, width: 20, height: 20, borderBottomWidth: 4.5, borderLeftWidth: 4.5, borderColor: '#334155', borderBottomLeftRadius: 4 },
+  cornerBottomRight: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderBottomWidth: 4.5, borderRightWidth: 4.5, borderColor: '#334155', borderBottomRightRadius: 4 },
   scanLine: {
-    width: 2,
+    width: 2.5,
     height: '80%',
     backgroundColor: '#B91C1C',
     shadowColor: '#B91C1C',
@@ -313,11 +313,12 @@ const styles = StyleSheet.create({
     width: 150,
     position: 'absolute',
     bottom: -40,
-    backgroundColor: 'rgba(51, 65, 85, 0.85)',
+    backgroundColor: 'rgba(51, 65, 85, 0.95)',
     padding: 6,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#334155',
+    fontWeight: '900',
   },
   bottomOverlay: {
     padding: 20,
@@ -326,16 +327,16 @@ const styles = StyleSheet.create({
   },
   manualPanel: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 20,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
   },
   manualLabel: {
     color: '#64748B',
     fontSize: 12,
     marginBottom: 10,
-    fontWeight: '600',
+    fontWeight: '900',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -349,8 +350,9 @@ const styles = StyleSheet.create({
     height: 55,
     color: '#0F172A',
     fontSize: 18,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
+    fontWeight: '800',
   },
   searchButton: {
     width: 55,
@@ -375,7 +377,7 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginTop: 15,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '900',
   }
 });
 

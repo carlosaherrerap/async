@@ -1,8 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Animated } from 'react-native';
-import { Text, Surface, ActivityIndicator, List, Avatar, Portal, Modal, Button } from 'react-native-paper';
+import { Text, Surface, ActivityIndicator, Portal, Modal, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS, TIPO_CONFIG } from '../theme/colors';
+import DropdownModal from '../components/DropdownModal';
+
+const { width } = Dimensions.get('window');
+
+// ─── Mini avatar con inicial ─────────────────────────────────────────────────
+const WorkerAvatar = ({ worker }) => {
+  const tipo = worker.tipo_postulante;
+  const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
+  const initial = (worker.nombres || worker.nombre || '?')[0].toUpperCase();
+  return (
+    <View style={[styles.avatarCircle, { backgroundColor: cfg.avatar }]}>
+      <Text style={styles.avatarText}>{initial}</Text>
+    </View>
+  );
+};
+
+// ─── Badge de tipo ────────────────────────────────────────────────────────────
+const TipoBadge = ({ tipo }) => {
+  const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
+  return (
+    <View style={[styles.tipoBadge, { backgroundColor: cfg.bg, borderColor: cfg.border, borderWidth: 2 }]}>
+      <MaterialCommunityIcons name={cfg.icon} size={15} color={cfg.text} />
+      <Text style={[styles.tipoBadgeText, { color: cfg.text }]}>
+        {(tipo || 'SIN TIPO').toUpperCase()}
+      </Text>
+    </View>
+  );
+};
+
+// ─── Info pill (sede) ─────────────────────────────────────────────────────────
+const SedePill = ({ icon, label, value }) => (
+  value && value.trim() ? (
+    <View style={styles.sedePill}>
+      <MaterialCommunityIcons name={icon} size={14} color={COLORS.blue} />
+      <Text style={styles.sedePillText} numberOfLines={1}>{value.toUpperCase()}</Text>
+    </View>
+  ) : null
+);
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -22,7 +61,7 @@ const CustomAnimatedChart = ({ data }) => {
       return Animated.timing(anim, {
         toValue: 1,
         duration: 900,
-        delay: idx * 100, // Efecto staggered de Highcharts
+        delay: idx * 100, // Efecto staggered
         useNativeDriver: false,
       });
     });
@@ -51,76 +90,107 @@ const CustomAnimatedChart = ({ data }) => {
     gridLines = [scaleMax, Math.round(scaleMax * 0.75), Math.round(scaleMax * 0.5), Math.round(scaleMax * 0.25), 0];
   }
 
+  const PLOT_HEIGHT = 160;
+  const HEADER_HEIGHT = 25;
+  const TOTAL_HEIGHT = PLOT_HEIGHT + HEADER_HEIGHT; // 185px
+
   return (
     <View style={styles.chartContainer}>
-      {/* Líneas de cuadrícula traseras */}
-      <View style={styles.gridLinesContainer}>
-        {gridLines.map((val) => (
-          <View key={val} style={styles.gridLineRow}>
-            <Text style={styles.gridLineLabel}>{val}%</Text>
-            <View style={styles.gridLine} />
-          </View>
-        ))}
-      </View>
+      {/* Plot Area and Grid Lines Wrapper */}
+      <View style={{ height: TOTAL_HEIGHT, position: 'relative', width: '100%' }}>
+        {/* Líneas de cuadrícula traseras */}
+        <View style={[styles.gridLinesContainer, { top: HEADER_HEIGHT, height: PLOT_HEIGHT }]}>
+          {gridLines.map((val) => {
+            const bottomPercent = (val / scaleMax) * 100;
+            return (
+              <View 
+                key={val} 
+                style={[
+                  styles.gridLineRow, 
+                  { 
+                    position: 'absolute', 
+                    left: 0, 
+                    right: 0, 
+                    bottom: `${bottomPercent}%`, 
+                    transform: [{ translateY: 10 }] // Centrar la línea horizontal con la etiqueta de 20px de alto
+                  }
+                ]}
+              >
+                <Text style={styles.gridLineLabel}>{val}%</Text>
+                <View style={styles.gridLine} />
+              </View>
+            );
+          })}
+        </View>
 
-      {/* Columnas con Barras */}
-      <View style={styles.barsContainer}>
-        {data.map((item, idx) => {
-          const anim = animations[idx];
+        {/* Columnas con Barras */}
+        <View style={[styles.barsContainer, { height: TOTAL_HEIGHT }]}>
+          {data.map((item, idx) => {
+            const anim = animations[idx];
 
-          const totalValue = item.value;
-          const baseValue = Math.min(totalValue, 100);
-          const overflowValue = Math.max(0, totalValue - 100);
+            const totalValue = item.value;
+            const baseValue = Math.min(totalValue, 100);
+            const overflowValue = Math.max(0, totalValue - 100);
 
-          const basePercentage = (baseValue / scaleMax) * 100;
-          const overflowPercentage = (overflowValue / scaleMax) * 100;
+            const basePercentage = (baseValue / scaleMax) * 100;
+            const overflowPercentage = (overflowValue / scaleMax) * 100;
 
-          const baseHeight = anim
-            ? anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', `${basePercentage}%`],
-            })
-            : '0%';
+            const baseHeight = anim
+              ? anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', `${basePercentage}%`],
+              })
+              : '0%';
 
-          const overflowHeight = anim
-            ? anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', `${overflowPercentage}%`],
-            })
-            : '0%';
+            const overflowHeight = anim
+              ? anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', `${overflowPercentage}%`],
+              })
+              : '0%';
 
-          const color = softColors[idx % softColors.length];
+            const color = softColors[idx % softColors.length];
 
-          return (
-            <View key={idx} style={styles.barColumn}>
-              <Text style={styles.barValue}>{item.value.toFixed(1)}%</Text>
-              <View style={styles.barTrack}>
-                {overflowValue > 0 && (
+            return (
+              <View key={idx} style={[styles.barColumn, { height: TOTAL_HEIGHT }]}>
+                {/* Posicionar el texto arriba de la barra en el área del HEADER */}
+                <Text style={styles.barValue}>{item.value.toFixed(1)}%</Text>
+                <View style={[styles.barTrack, { height: PLOT_HEIGHT }]}>
+                  {overflowValue > 0 && (
+                    <Animated.View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: overflowHeight,
+                          backgroundColor: color,
+                          opacity: 0.45
+                        }
+                      ]}
+                    />
+                  )}
                   <Animated.View
                     style={[
                       styles.barFill,
                       {
-                        height: overflowHeight,
-                        backgroundColor: color,
-                        opacity: 0.45 // Opacidad para la parte superior (más opaco / translúcido)
+                        height: baseHeight,
+                        backgroundColor: color
                       }
                     ]}
                   />
-                )}
-                <Animated.View
-                  style={[
-                    styles.barFill,
-                    {
-                      height: baseHeight,
-                      backgroundColor: color
-                    }
-                  ]}
-                />
+                </View>
               </View>
-              <Text style={styles.barLabel} numberOfLines={1}>{item.label}</Text>
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Etiquetas del eje X abajo del plot area */}
+      <View style={styles.labelsContainer}>
+        {data.map((item, idx) => (
+          <View key={idx} style={styles.labelColumn}>
+            <Text style={styles.barLabel} numberOfLines={1}>{item.label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -140,8 +210,6 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [filterCargo, setFilterCargo] = useState('TODOS');
   const [filterTurno, setFilterTurno] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
-  const [cargoDropdownOpen, setCargoDropdownOpen] = useState(false);
-  const [turnoDropdownOpen, setTurnoDropdownOpen] = useState(false);
 
   // Calendario de estados
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -498,64 +566,33 @@ const AttendanceControlScreen = ({ navigation }) => {
           })}
         </View>
 
-        {/* Filtros Cargo y Turno */}
+        {/* Filtros Cargo y Turno — using DropdownModal for proper scroll support */}
         <View style={styles.filterRow}>
-          {/* Cargo filter */}
-          <View style={styles.filterDropdown}>
-            <TouchableOpacity
+          <View style={{ flex: 1 }}>
+            <DropdownModal
+              label="Cargo"
+              value={filterCargo}
+              displayText={filterCargo === 'TODOS' ? 'Todos los Cargos' : filterCargo}
+              options={[{ value: 'TODOS', label: 'Todos los Cargos' }, ...cargos.map(c => ({ value: c.nombre, label: c.nombre }))]}
+              onSelect={(val) => setFilterCargo(val)}
+              activeColor="#334155"
               style={styles.filterDropdownHeader}
-              onPress={() => { setCargoDropdownOpen(!cargoDropdownOpen); setTurnoDropdownOpen(false); }}
-            >
-              <Text style={styles.filterDropdownText} numberOfLines={1}>
-                {filterCargo === 'TODOS' ? 'Todos los Cargos' : filterCargo}
-              </Text>
-              <MaterialCommunityIcons name={cargoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#334155" />
-            </TouchableOpacity>
-            {cargoDropdownOpen && (
-              <Surface style={styles.filterDropdownList} elevation={4}>
-                <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
-                  {[{ id: 0, nombre: 'TODOS' }, ...cargos].map(c => (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[styles.filterDropdownOption, filterCargo === c.nombre && styles.filterDropdownOptionActive]}
-                      onPress={() => { setFilterCargo(c.nombre); setCargoDropdownOpen(false); }}
-                    >
-                      <Text style={{ color: filterCargo === c.nombre ? '#FFFFFF' : '#0F172A', fontSize: 12, fontWeight: filterCargo === c.nombre ? 'bold' : 'normal' }}>
-                        {c.nombre}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </Surface>
-            )}
+            />
           </View>
-
-          {/* Turno filter */}
-          <View style={styles.filterDropdown}>
-            <TouchableOpacity
+          <View style={{ flex: 1 }}>
+            <DropdownModal
+              label="Turno"
+              value={filterTurno}
+              displayText={filterTurno === 'TODOS' ? 'Todos los Turnos' : (filterTurno === 'DIA' ? 'DIURNO' : 'TARDE')}
+              options={[
+                { value: 'TODOS', label: 'Todos los Turnos' },
+                { value: 'DIA', label: 'DIURNO', icon: 'weather-sunny' },
+                { value: 'TARDE', label: 'TARDE', icon: 'weather-night' },
+              ]}
+              onSelect={(val) => setFilterTurno(val)}
+              activeColor="#334155"
               style={styles.filterDropdownHeader}
-              onPress={() => { setTurnoDropdownOpen(!turnoDropdownOpen); setCargoDropdownOpen(false); }}
-            >
-              <Text style={styles.filterDropdownText} numberOfLines={1}>
-                {filterTurno === 'TODOS' ? 'Todos los Turnos' : (filterTurno === 'DIA' ? 'DIURNO' : filterTurno)}
-              </Text>
-              <MaterialCommunityIcons name={turnoDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#334155" />
-            </TouchableOpacity>
-            {turnoDropdownOpen && (
-              <Surface style={styles.filterDropdownList} elevation={4}>
-                {['TODOS', 'DIA', 'TARDE'].map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.filterDropdownOption, filterTurno === t && styles.filterDropdownOptionActive]}
-                    onPress={() => { setFilterTurno(t); setTurnoDropdownOpen(false); }}
-                  >
-                    <Text style={{ color: filterTurno === t ? '#FFFFFF' : '#0F172A', fontSize: 12, fontWeight: filterTurno === t ? 'bold' : 'normal' }}>
-                      {t === 'DIA' ? 'DIURNO' : t === 'TODOS' ? 'Todos los Turnos' : 'TARDE'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </Surface>
-            )}
+            />
           </View>
         </View>
 
@@ -586,43 +623,94 @@ const AttendanceControlScreen = ({ navigation }) => {
   const renderPersonItem = (item) => {
     const isPresent = attendanceTab === 'PRESENTES';
     const statusColor = item.estado === 'P' ? '#2563EB' : (item.estado === 'T' ? '#F1C40F' : '#B91C1C');
-    const isTitular = item.tipo_postulante === 'Titular';
-    const tipoColor = isTitular ? '#15803D' : '#C2410C';
+    const statusLabel = item.estado === 'P' ? 'TEMPRANO' : 'TARDE';
+
+    const tipo = item.tipo_postulante;
+    const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
+    const fullName = item.nombre || `${item.nombres || ''} ${item.ape_pat || ''} ${item.ape_mat || ''}`.trim();
+    const turnoLabel = item.turno === 'DIA' ? 'DIURNO' : item.turno === 'TARDE' ? 'TARDE' : item.turno;
 
     return (
-      <Surface key={`${item.id}-${item.dni}`} style={styles.personCard} elevation={0}>
-        <List.Item
-          title={`${item.nombres} ${item.ape_pat} ${item.ape_mat}`}
-          description={`DNI: ${item.dni || '-'} | ${item.cargo}`}
-          left={props => (
-            <Avatar.Text
-              {...props}
-              label={item.nombres ? item.nombres[0] : '?'}
-              size={40}
-              style={{ backgroundColor: isPresent ? statusColor : '#B91C1C' }}
-              textColor="#FFFFFF"
-            />
-          )}
-          right={() => (
-            <View style={{ justifyContent: 'center', alignItems: 'flex-end', paddingRight: 4 }}>
-              {isPresent && (
-                <>
-                  <Text style={{ color: statusColor, fontWeight: 'bold', fontSize: 11 }}>
-                    {item.estado === 'P' ? 'TEMPRANO' : 'TARDE'}
-                  </Text>
-                  <Text style={{ color: '#64748B', fontSize: 10 }}>
-                    {new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </>
-              )}
-              <Text style={{ color: tipoColor, fontWeight: 'bold', fontSize: 10, marginTop: 2 }}>
-                {item.tipo_postulante ? item.tipo_postulante.toUpperCase() : ''}
-              </Text>
+      <Surface key={`${item.id}-${item.dni}`} style={[styles.card, { borderLeftColor: cfg.avatar }]} elevation={1}>
+        {/* Header row */}
+        <View style={styles.cardHeader}>
+          <WorkerAvatar worker={item} />
+          <View style={styles.cardHeaderInfo}>
+            <Text style={styles.cardName} numberOfLines={1}>{fullName.toUpperCase()}</Text>
+            <Text style={styles.cardCargo} numberOfLines={1}>
+              {(item.cargo || '—').toUpperCase()}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <TipoBadge tipo={tipo} />
+            {isPresent && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: statusColor + '15', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <MaterialCommunityIcons name={item.estado === 'P' ? 'clock-check' : 'clock-alert'} size={12} color={statusColor} />
+                <Text style={{ color: statusColor, fontWeight: 'bold', fontSize: 10 }}>
+                  {statusLabel}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.cardDivider} />
+
+        {/* DNI + Turno row */}
+        <View style={styles.cardMeta}>
+          <View style={styles.cardMetaItem}>
+            <MaterialCommunityIcons name="card-account-details" size={18} color={COLORS.blue} />
+            <Text style={styles.cardMetaText}>{item.dni || item.doc_identidad || '—'}</Text>
+          </View>
+          {item.turno ? (
+            <View style={styles.cardMetaItem}>
+              <MaterialCommunityIcons
+                name={item.turno === 'DIA' ? 'weather-sunny' : 'weather-night'}
+                size={18} color={COLORS.orange}
+              />
+              <Text style={styles.cardMetaText}>{turnoLabel.toUpperCase()}</Text>
             </View>
+          ) : null}
+          {item.hora_ingreso ? (
+            <View style={styles.cardMetaItem}>
+              <MaterialCommunityIcons name="clock-fast" size={18} color={COLORS.muted} />
+              <Text style={styles.cardMetaText}>{item.hora_ingreso?.substring(0, 5)}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Sede Regional + Jurisdiccional row */}
+        {(item.sede_reg || item.sede_juris) ? (
+          <View style={styles.sedeRow}>
+            <SedePill icon="map-marker" label="REGIONAL" value={item.sede_reg} />
+            {item.sede_reg && item.sede_juris ? (
+              <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.subtle} />
+            ) : null}
+            <SedePill icon="map-marker-radius" label="JURIS." value={item.sede_juris} />
+          </View>
+        ) : null}
+
+        {/* Aula + Local / Marca */}
+        <View style={styles.cardFooter}>
+          <MaterialCommunityIcons name="office-building-marker" size={16} color={COLORS.muted} />
+          <Text style={styles.cardFooterText} numberOfLines={1}>
+            {[
+              item.local || item.area,
+              item.aula ? `AULA ${item.aula}` : 'AULA NO ASIGNADA'
+            ].filter(Boolean).join(' · ').toUpperCase()}
+          </Text>
+          <View style={{ width: 1.5, height: 12, backgroundColor: COLORS.border, marginHorizontal: 6 }} />
+          <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.muted} />
+          {isPresent ? (
+            <Text style={styles.cardFooterText}>
+              MARCA: {item.fecha_hora ? new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+            </Text>
+          ) : (
+            <Text style={styles.cardFooterText}>
+              HORA LIMITE: {item.hora_ingreso?.substring(0, 5) || '—'}
+            </Text>
           )}
-          titleStyle={{ color: '#0F172A', fontSize: 13, fontWeight: 'bold' }}
-          descriptionStyle={{ color: '#64748B', fontSize: 11 }}
-        />
+        </View>
       </Surface>
     );
   };
@@ -708,11 +796,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 10,
-    zIndex: 10,
+    zIndex: 999,
+    elevation: 999,
   },
   filterDropdown: {
     flex: 1,
     position: 'relative',
+    zIndex: 999,
+    elevation: 999,
   },
   filterDropdownHeader: {
     flexDirection: 'row',
@@ -797,15 +888,17 @@ const styles = StyleSheet.create({
 
   // Custom Animated Chart styles
   chartContainer: {
-    height: 220,
-    position: 'relative',
+    height: 235,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
     marginTop: 10,
     marginBottom: 5,
   },
   gridLinesContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-    paddingBottom: 20, // offset de etiquetas de eje X
+    position: 'absolute',
+    left: 0,
+    right: 0,
     paddingLeft: 35,
   },
   gridLineRow: {
@@ -818,39 +911,41 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 10,
     textAlign: 'right',
-    paddingRight: 5,
+    paddingRight: 8,
+    fontWeight: 'bold',
   },
   gridLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E2E8F0',
+    height: 1.5,
+    backgroundColor: '#F1F5F9',
   },
   barsContainer: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    paddingLeft: 35,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
-    paddingLeft: 35,
-    paddingBottom: 20,
   },
   barColumn: {
     alignItems: 'center',
     flex: 1,
-    maxHeight: '100%',
   },
   barValue: {
     fontSize: 9,
-    fontWeight: 'bold',
-    color: '#334155',
+    fontWeight: '900',
+    color: '#1E293B',
+    height: 15,
+    textAlign: 'center',
     marginBottom: 4,
   },
   barTrack: {
-    width: 24,
-    height: 120,
+    width: 20,
     backgroundColor: '#F8FAFC',
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
@@ -858,11 +953,22 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 2,
   },
+  labelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingLeft: 35,
+    height: 25,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  labelColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
   barLabel: {
     fontSize: 10,
     color: '#64748B',
-    marginTop: 5,
-    fontWeight: 'bold',
+    fontWeight: '900',
     textAlign: 'center',
   },
 
@@ -929,7 +1035,71 @@ const styles = StyleSheet.create({
   },
   selectedDayCell: {
     backgroundColor: '#334155',
-  }
+  },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderLeftWidth: 6,
+    borderLeftColor: COLORS.blue,
+    overflow: 'hidden',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 8,
+  },
+  cardHeaderInfo: { flex: 1 },
+  cardName: {
+    color: COLORS.ink, fontSize: 14, fontWeight: '900',
+    letterSpacing: 0.1,
+  },
+  cardCargo: {
+    color: COLORS.muted, fontSize: 11, fontWeight: '800',
+    marginTop: 2, letterSpacing: 0.2,
+  },
+  cardDivider: { backgroundColor: COLORS.surface, marginBottom: 8, height: 1.5 },
+  cardMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginBottom: 6 },
+  cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardMetaText: { color: COLORS.inkLight, fontSize: 12, fontWeight: '800' },
+
+  sedeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginBottom: 6, flexWrap: 'wrap',
+  },
+  sedePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: COLORS.blueSoft,
+    borderWidth: 2, borderColor: COLORS.blueBorder,
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+    maxWidth: width * 0.42,
+  },
+  sedePillText: {
+    color: COLORS.blue, fontSize: 10, fontWeight: '800',
+    letterSpacing: 0.2, flexShrink: 1,
+  },
+
+  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cardFooterText: { color: COLORS.muted, fontSize: 11, fontWeight: '800' },
+
+  tipoBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 20, borderWidth: 2.5, alignSelf: 'flex-start',
+  },
+  tipoBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+
+  avatarCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarText: { color: '#FFF', fontSize: 18, fontWeight: '900' },
 });
 
 export default AttendanceControlScreen;

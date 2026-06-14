@@ -761,19 +761,19 @@ export default function App() {
           screenOptions={{
             headerStyle: { backgroundColor: '#1565C0', elevation: 0, shadowOpacity: 0 },
             headerTintColor: '#FFFFFF',
-            headerTitleStyle: { fontWeight: '800', fontSize: 15, color: '#FFFFFF', letterSpacing: 0.5 },
+            headerTitleStyle: { fontWeight: '900', fontSize: 16, color: '#FFFFFF', letterSpacing: 0.8 },
             cardStyle: { backgroundColor: '#F1F5F9' }
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'Marcación DNI' }} />
-          <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'Registrar Personal' }} />
-          <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'Ingreso Manual' }} />
-          <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'Faltas de Hoy' }} />
-          <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'Personal' }} />
-          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'Control de Asistencia' }} />
-          <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'Configuración' }} />
+          <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'MARCACION DNI' }} />
+          <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'REGISTRAR PERSONAL' }} />
+          <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'INGRESO MANUAL' }} />
+          <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'FALTAS DE HOY' }} />
+          <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'PERSONAL' }} />
+          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'CONTROL DE ASISTENCIA' }} />
+          <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>

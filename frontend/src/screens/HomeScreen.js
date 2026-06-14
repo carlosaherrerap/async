@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, Text, TouchableOpacity,
-  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar,
+  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar, Image,
 } from 'react-native';
 import { Surface, ActivityIndicator, IconButton, Portal, Modal, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,10 +25,10 @@ const StatCard = ({ value, label, color, icon, onPress }) => {
       <TouchableOpacity onPress={onPress} onPressIn={handleIn} onPressOut={handleOut} activeOpacity={0.9}>
         <View style={[styles.statCard, { borderTopColor: color }]}>
           <View style={[styles.statIconWrap, { backgroundColor: color + '18' }]}>
-            <MaterialCommunityIcons name={icon} size={22} color={color} />
+            <MaterialCommunityIcons name={icon} size={28} color={color} />
           </View>
           <Text style={[styles.statValue, { color }]}>{value ?? 0}</Text>
-          <Text style={styles.statLabel}>{label}</Text>
+          <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -36,37 +36,52 @@ const StatCard = ({ value, label, color, icon, onPress }) => {
 };
 
 // ── Menu button ───────────────────────────────────────────────────────────────
-const MenuBtn = ({ title, icon, gradientColors, onPress, fullWidth = false }) => {
+const MenuBtn = ({ title, icon, themeColor, onPress, fullWidth = false, solid = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const handleIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
   const handleOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
 
+  if (solid) {
+    return (
+      <Animated.View style={[
+        { transform: [{ scale: scaleAnim }] },
+        styles.marcacionWrapper
+      ]}>
+        <TouchableOpacity
+          onPress={onPress}
+          onPressIn={handleIn}
+          onPressOut={handleOut}
+          activeOpacity={0.9}
+          style={styles.menuBtnMarcacion}
+        >
+          <View style={styles.menuInnerMarcacion}>
+            <MaterialCommunityIcons name={icon} size={36} color="#FFFFFF" />
+            <Text style={styles.menuTitleMarcacion}>{title.toUpperCase()}</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View style={[
       { transform: [{ scale: scaleAnim }] },
-      fullWidth ? { width: '100%' } : { width: COL },
+      fullWidth ? { width: '100%', marginBottom: 4 } : { width: COL },
     ]}>
       <TouchableOpacity
         onPress={onPress}
         onPressIn={handleIn}
         onPressOut={handleOut}
         activeOpacity={0.9}
-        style={fullWidth ? styles.menuBtnFull : styles.menuBtn}
+        style={[styles.menuBtnGrid, { borderColor: themeColor, width: '100%' }]}
       >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={fullWidth ? styles.menuGradientFull : styles.menuGradient}
-        >
-          <View style={styles.menuIconWrap}>
-            <MaterialCommunityIcons name={icon} size={fullWidth ? 34 : 30} color="#FFFFFF" />
-          </View>
-          <Text style={styles.menuTitle}>{title}</Text>
-          {fullWidth && (
-            <MaterialCommunityIcons name="chevron-right" size={22} color="rgba(255,255,255,0.6)" />
-          )}
-        </LinearGradient>
+        <View style={styles.watermarkIconWrap}>
+          <MaterialCommunityIcons name={icon} size={85} color={themeColor} />
+        </View>
+        <View style={styles.menuInnerGrid}>
+          <MaterialCommunityIcons name={icon} size={36} color={themeColor} />
+          <Text style={[styles.menuTitleGrid, { color: themeColor }]}>{title.toUpperCase()}</Text>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -184,18 +199,18 @@ const HomeScreen = ({ navigation }) => {
     <Portal>
       <Modal visible={debugVisible} onDismiss={() => setDebugVisible(false)} contentContainerStyle={styles.debugModal}>
         <View style={styles.debugHeader}>
-          <MaterialCommunityIcons name="database-sync" size={20} color={COLORS.blue} />
-          <Text style={styles.debugTitle}>Diagnóstico & Sincronización</Text>
+          <MaterialCommunityIcons name="database-sync" size={28} color={COLORS.blue} />
+          <Text style={styles.debugTitle}>DIAGNOSTICO & SINCRONIZACION</Text>
         </View>
 
         <View style={[styles.debugStatusPill, { backgroundColor: isOnline ? COLORS.successSoft : COLORS.dangerSoft, borderColor: isOnline ? COLORS.successBorder : COLORS.dangerBorder }]}>
-          <MaterialCommunityIcons name={isOnline ? 'wifi-check' : 'wifi-off'} size={18} color={isOnline ? COLORS.success : COLORS.danger} />
+          <MaterialCommunityIcons name={isOnline ? 'wifi-check' : 'wifi-off'} size={24} color={isOnline ? COLORS.success : COLORS.danger} />
           <Text style={[styles.debugStatusText, { color: isOnline ? COLORS.success : COLORS.danger }]}>
-            {isOnline ? 'CONECTADO — Modo Online' : 'SIN CONEXIÓN — Modo Offline'}
+            {isOnline ? 'CONECTADO - MODO ONLINE' : 'SIN CONEXION - MODO OFFLINE'}
           </Text>
         </View>
 
-        <Text style={styles.debugSubtitle}>SQLite Local</Text>
+        <Text style={styles.debugSubtitle}>SQLITE LOCAL</Text>
         <View style={styles.debugGrid}>
           {[
             { label: 'Postulantes', value: debugData?.principalCount, color: COLORS.blue },
@@ -205,20 +220,20 @@ const HomeScreen = ({ navigation }) => {
           ].map(s => (
             <View key={s.label} style={[styles.debugStat, { borderTopColor: s.color }]}>
               <Text style={[styles.debugStatNum, { color: s.color }]}>{s.value ?? '-'}</Text>
-              <Text style={styles.debugStatLabel}>{s.label}</Text>
+              <Text style={styles.debugStatLabel}>{s.label.toUpperCase()}</Text>
             </View>
           ))}
         </View>
 
         {(debugData?.queue?.length ?? 0) > 0 && (
           <>
-            <Text style={styles.debugSubtitle}>Cola Pendiente</Text>
+            <Text style={styles.debugSubtitle}>COLA PENDIENTE</Text>
             <ScrollView style={{ maxHeight: 100 }} nestedScrollEnabled>
               {debugData.queue.map(item => {
                 let p = {}; try { p = JSON.parse(item.payload); } catch { }
                 return (
                   <View key={item.id} style={styles.queueRow}>
-                    <MaterialCommunityIcons name="clock-alert-outline" size={13} color={COLORS.warning} />
+                    <MaterialCommunityIcons name="clock-alert-outline" size={16} color={COLORS.warning} />
                     <Text style={styles.queueType}>{item.action_type}</Text>
                     <Text style={styles.queueDetail}>{p.dni || p.nombre || `Tmp:${p.tempId}`}</Text>
                   </View>
@@ -229,20 +244,20 @@ const HomeScreen = ({ navigation }) => {
         )}
 
         <View style={{ gap: 8, marginTop: 12 }}>
-          <Button mode="contained" buttonColor={COLORS.blue} icon="sync" onPress={handleSyncQueue} disabled={!isOnline}>
-            Procesar Cola
+          <Button mode="contained" buttonColor={COLORS.blue} icon="sync" labelStyle={{ fontWeight: '800' }} onPress={handleSyncQueue} disabled={!isOnline}>
+            PROCESAR COLA
           </Button>
-          <Button mode="outlined" textColor={COLORS.blue} icon="cloud-download" onPress={handleDownloadData} disabled={!isOnline}>
-            Descargar Datos
+          <Button mode="outlined" textColor={COLORS.blue} icon="cloud-download" labelStyle={{ fontWeight: '800' }} onPress={handleDownloadData} disabled={!isOnline}>
+            DESCARGAR DATOS
           </Button>
-          <Button mode="contained-tonal" buttonColor={COLORS.dangerSoft} textColor={COLORS.danger} icon="delete-sweep"
-            onPress={() => Alert.alert('¿Limpiar DB?', 'Se borrará toda la base de datos local.', [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Limpiar', style: 'destructive', onPress: async () => { await global.dbHelper.clearAndPopulate([], [], [], [], [], []); await fetchDebugData(); fetchStats(); } }
+          <Button mode="contained-tonal" buttonColor={COLORS.dangerSoft} textColor={COLORS.danger} icon="delete-sweep" labelStyle={{ fontWeight: '800' }}
+            onPress={() => Alert.alert('¿LIMPIAR DB?', 'Se borrara toda la base de datos local.', [
+              { text: 'CANCELAR', style: 'cancel' },
+              { text: 'LIMPIAR', style: 'destructive', onPress: async () => { await global.dbHelper.clearAndPopulate([], [], [], [], [], []); await fetchDebugData(); fetchStats(); } }
             ])}>
-            Limpiar DB Local
+            LIMPIAR DB LOCAL
           </Button>
-          <Button textColor={COLORS.muted} onPress={() => setDebugVisible(false)}>Cerrar</Button>
+          <Button textColor={COLORS.muted} labelStyle={{ fontWeight: '800' }} onPress={() => setDebugVisible(false)}>CERRAR</Button>
         </View>
       </Modal>
     </Portal>
@@ -254,36 +269,34 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.blue} />
 
       {/* ── Top header gradient ─────────────────────────────── */}
-      <LinearGradient
-        colors={[COLORS.blue, COLORS.blueLight]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={styles.topHeader}
+      <View
+        style={[styles.topHeader, { backgroundColor: COLORS.blue }]}
       >
         <View style={styles.topHeaderInner}>
           <View>
-            <Text style={styles.welcomeLabel}>Bienvenido de nuevo,</Text>
-            <Text style={styles.userName} numberOfLines={1}>{userName || 'Administrador'}</Text>
+            <Text style={styles.welcomeLabel}>BIENVENIDO DE NUEVO,</Text>
+            <Text style={styles.userName} numberOfLines={1}>{(userName || 'Administrador').toUpperCase()}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.headerBtn, { backgroundColor: isOnline ? COLORS.successSoft : COLORS.dangerSoft }]}
-              onPress={() => Alert.alert('Estado', isOnline ? 'Online — Conectado al servidor' : 'Offline — Modo SQLite local')}
+              onPress={() => Alert.alert('Estado', isOnline ? 'Online - Conectado al servidor' : 'Offline - Modo SQLite local')}
             >
               <MaterialCommunityIcons
                 name={isOnline ? 'wifi-check' : 'wifi-off'}
-                size={18}
+                size={24}
                 color={isOnline ? COLORS.success : COLORS.danger}
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerBtn} onPress={handleOpenDebug}>
-              <MaterialCommunityIcons name="database-sync-outline" size={18} color={COLORS.orange} />
+              <MaterialCommunityIcons name="database-sync-outline" size={24} color={COLORS.orange} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerBtn} onPress={handleLogout}>
-              <MaterialCommunityIcons name="logout-variant" size={18} color={COLORS.danger} />
+              <MaterialCommunityIcons name="logout-variant" size={24} color={COLORS.danger} />
             </TouchableOpacity>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -292,7 +305,7 @@ const HomeScreen = ({ navigation }) => {
       >
         {/* ── Stats strip ──────────────────────────────────────── */}
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-          <Text style={styles.sectionLabel}>Resumen de Hoy</Text>
+          <Text style={styles.sectionLabel}>RESUMEN DE HOY</Text>
           {loading ? (
             <ActivityIndicator animating color={COLORS.blue} style={{ marginVertical: 20 }} />
           ) : (
@@ -306,40 +319,45 @@ const HomeScreen = ({ navigation }) => {
         </Animated.View>
 
         {/* ── Menu ─────────────────────────────────────────────── */}
-        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>Módulos</Text>
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>MODULOS</Text>
         <View style={styles.menuGrid}>
           {/* Full-width MARCACION */}
           <MenuBtn
-            title="MARCACIÓN DE ASISTENCIA"
+            title="MARCACION"
             icon="line-scan"
-            gradientColors={[COLORS.blue, COLORS.blueLight]}
+            themeColor={COLORS.blue}
             onPress={() => navigation.navigate('Scan')}
-            fullWidth
+            solid
           />
           <MenuBtn
             title="PERSONAL"
             icon="account-group"
-            gradientColors={['#7B1FA2', '#AB47BC']}
+            themeColor={COLORS.purple}
             onPress={() => navigation.navigate('PersonalList')}
           />
           <MenuBtn
             title="CONTROL"
             icon="chart-bar"
-            gradientColors={[COLORS.orangeDark, COLORS.orange]}
+            themeColor={COLORS.orange}
             onPress={() => navigation.navigate('AttendanceControl')}
           />
           <MenuBtn
             title="CONFIG."
             icon="tune-vertical"
-            gradientColors={[COLORS.magentaDark, COLORS.magenta]}
+            themeColor={COLORS.magenta}
             onPress={() => navigation.navigate('Config')}
+            fullWidth
           />
-          <MenuBtn
-            title="AUSENTES"
-            icon="account-alert"
-            gradientColors={[COLORS.danger, '#FF5252']}
-            onPress={() => navigation.navigate('Absentees')}
+        </View>
+
+        {/* Footer Watermark */}
+        <View style={styles.footerContainer}>
+          <Image 
+            source={require('../../assets/icon.png')} 
+            style={styles.footerLogo} 
+            resizeMode="contain"
           />
+          <Text style={styles.footerText}>PROYECTO ENLA - ASISTENCIA 2026</Text>
         </View>
       </ScrollView>
 
@@ -364,11 +382,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  welcomeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '600' },
-  userName: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', maxWidth: width * 0.55 },
+  welcomeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '800' },
+  userName: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', maxWidth: width * 0.55 },
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
@@ -376,7 +394,7 @@ const styles = StyleSheet.create({
   // ── Scroll ─────────────────────────────────────────────────
   scroll: { padding: 16, paddingBottom: 40 },
   sectionLabel: {
-    color: COLORS.inkMid, fontSize: 13, fontWeight: '800',
+    color: COLORS.inkMid, fontSize: 13, fontWeight: '900',
     letterSpacing: 1, textTransform: 'uppercase',
     marginBottom: 12,
     paddingLeft: 4,
@@ -386,17 +404,21 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   statCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 12, borderTopWidth: 3,
+    borderRadius: 12, borderTopWidth: 5,
     padding: 12, alignItems: 'center',
-    elevation: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   statIconWrap: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 46, height: 46, borderRadius: 23,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 6,
   },
-  statValue: { fontSize: 26, fontWeight: '800' },
-  statLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  statValue: { fontSize: 28, fontWeight: '900' },
+  statLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '800', marginTop: 2, textAlign: 'center' },
 
   // ── Menu ───────────────────────────────────────────────────
   menuGrid: {
@@ -404,48 +426,89 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
-  menuBtn: {
-    width: COL,
-    height: 120,
-    borderRadius: 14,
-    overflow: 'hidden',
-    elevation: 3,
-  },
-  menuBtnFull: {
+  marcacionWrapper: {
     width: '100%',
-    height: 80,
-    borderRadius: 14,
-    overflow: 'hidden',
-    elevation: 3,
-    marginBottom: 4,
+    marginVertical: 6,
   },
-  menuGradient: {
+  menuBtnMarcacion: {
+    width: '100%',
+    height: 110,
+    backgroundColor: COLORS.blue,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  menuInnerMarcacion: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 10,
+  },
+  menuTitleMarcacion: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 1,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  menuBtnGrid: {
+    width: COL,
+    height: 130,
+    borderRadius: 16,
+    borderWidth: 2.5,
+    backgroundColor: COLORS.white,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  menuInnerGrid: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    zIndex: 2,
+  },
+  menuTitleGrid: {
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  watermarkIconWrap: {
+    position: 'absolute',
+    bottom: -22,
+    right: -22,
+    zIndex: 1,
+    opacity: 0.08,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+    marginBottom: 20,
     gap: 8,
   },
-  menuGradientFull: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    gap: 14,
+  footerLogo: {
+    width: 60,
+    height: 60,
+    opacity: 0.25,
+    tintColor: '#94A3B8',
   },
-  menuIconWrap: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  menuTitle: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
+  footerText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '900',
     letterSpacing: 0.5,
     textAlign: 'center',
-    flex: 1,
   },
 
   // ── Debug modal ────────────────────────────────────────────
@@ -453,37 +516,37 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     padding: 20, margin: 16,
     borderRadius: 16,
-    borderTopWidth: 4, borderTopColor: COLORS.blue,
+    borderTopWidth: 5, borderTopColor: COLORS.blue,
   },
   debugHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14,
   },
-  debugTitle: { color: COLORS.ink, fontSize: 15, fontWeight: '800' },
+  debugTitle: { color: COLORS.ink, fontSize: 15, fontWeight: '900' },
   debugStatusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 8, borderWidth: 1, padding: 10, marginBottom: 14,
+    borderRadius: 8, borderWidth: 1.5, padding: 10, marginBottom: 14,
   },
-  debugStatusText: { fontSize: 12, fontWeight: '700' },
+  debugStatusText: { fontSize: 12, fontWeight: '800' },
   debugSubtitle: {
-    color: COLORS.muted, fontSize: 10, fontWeight: '800',
+    color: COLORS.muted, fontSize: 10, fontWeight: '900',
     letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8,
   },
   debugGrid: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   debugStat: {
     flex: 1, backgroundColor: COLORS.surface,
     borderRadius: 8, padding: 10, alignItems: 'center',
-    borderTopWidth: 2,
+    borderTopWidth: 3,
   },
-  debugStatNum: { fontSize: 18, fontWeight: '800' },
-  debugStatLabel: { color: COLORS.muted, fontSize: 9, marginTop: 2, textAlign: 'center', fontWeight: '600' },
+  debugStatNum: { fontSize: 18, fontWeight: '900' },
+  debugStatLabel: { color: COLORS.muted, fontSize: 9, marginTop: 2, textAlign: 'center', fontWeight: '800' },
   queueRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: COLORS.warningSoft,
     borderRadius: 6, padding: 8, marginBottom: 4,
-    borderWidth: 1, borderColor: COLORS.warningBorder,
+    borderWidth: 1.5, borderColor: COLORS.warningBorder,
   },
-  queueType: { color: COLORS.warning, fontSize: 10, fontWeight: '800' },
-  queueDetail: { color: COLORS.inkLight, fontSize: 10, flex: 1 },
+  queueType: { color: COLORS.warning, fontSize: 10, fontWeight: '900' },
+  queueDetail: { color: COLORS.inkLight, fontSize: 10, flex: 1, fontWeight: '700' },
 });
 
 export default HomeScreen;

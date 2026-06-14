@@ -121,10 +121,15 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    borderLeftWidth: 6,
+    borderLeftColor: '#DC2626', // Red color for absentees/danger
     overflow: 'hidden',
+    elevation: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2.5,
   }
 });
 

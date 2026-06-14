@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Surface } from 'react-native-paper';
+import { View, StyleSheet, Text, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { TextInput, Surface } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AttendanceModal from '../components/AttendanceModal';
+import { COLORS } from '../theme/colors';
 
 const ManualEntryScreen = () => {
   const [dni, setDni] = useState('');
@@ -13,7 +15,7 @@ const ManualEntryScreen = () => {
 
   const handleConsultar = async () => {
     if (dni.length < 8) {
-      Alert.alert('Error', 'Ingresa un DNI válido');
+      Alert.alert('Error', 'Ingresa un DNI valido');
       return;
     }
 
@@ -130,10 +132,10 @@ const ManualEntryScreen = () => {
       style={styles.container}
     >
       <Surface style={styles.card} elevation={1}>
-        <Text style={styles.title}>Registro Manual</Text>
+        <Text style={styles.title}>REGISTRO MANUAL</Text>
         
         <TextInput
-          label="Número de DNI"
+          label="NUMERO DE DNI"
           value={dni}
           onChangeText={setDni}
           mode="outlined"
@@ -142,10 +144,11 @@ const ManualEntryScreen = () => {
           outlineColor="#E2E8F0"
           activeOutlineColor="#334155"
           textColor="#0F172A"
+          theme={{ colors: { outlineVariant: '#E2E8F0' } }}
         />
 
         <TextInput
-          label="Observaciones (Opcional)"
+          label="OBSERVACIONES (OPCIONAL)"
           value={obs}
           onChangeText={setObs}
           mode="outlined"
@@ -155,18 +158,16 @@ const ManualEntryScreen = () => {
           outlineColor="#E2E8F0"
           activeOutlineColor="#334155"
           textColor="#0F172A"
+          theme={{ colors: { outlineVariant: '#E2E8F0' } }}
         />
 
-        <Button 
-          mode="contained" 
+        <TouchableOpacity 
+          style={{ width: '100%', marginTop: 10, borderWidth: 2.5, borderColor: COLORS.blue, borderRadius: 24, height: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' }} 
           onPress={handleConsultar} 
-          loading={loading}
           disabled={loading}
-          style={styles.button}
-          buttonColor="#334155"
         >
-          Consultar y Marcar
-        </Button>
+          <Text style={{ color: COLORS.blue, fontWeight: '900', fontSize: 14 }}>CONSULTAR Y MARCAR</Text>
+        </TouchableOpacity>
       </Surface>
 
       <AttendanceModal 
@@ -188,14 +189,14 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     padding: 25,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 2.5,
     borderColor: '#E2E8F0',
   },
   title: {
     color: '#0F172A',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
     marginBottom: 20,
     textAlign: 'center',
   },

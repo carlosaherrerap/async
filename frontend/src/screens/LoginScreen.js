@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, Surface } from 'react-native-paper';
+import { View, StyleSheet, Image, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { TextInput, Text, Surface } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { COLORS } from '../theme/colors';
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
@@ -10,7 +12,7 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
+      Alert.alert('Error', 'Por favor ingresa usuario y contrasena');
       return;
     }
 
@@ -51,10 +53,10 @@ const LoginScreen = ({ navigation }) => {
 
         navigation.replace('Home');
       } else {
-        Alert.alert('Error', data.message || 'Credenciales inválidas');
+        Alert.alert('Error', data.message || 'Credenciales invalidas');
       }
     } catch (error) {
-      Alert.alert('Error de Conexión', 'No se pudo conectar con el servidor');
+      Alert.alert('Error de Conexion', 'No se pudo conectar con el servidor');
     } finally {
       setLoading(false);
     }
@@ -71,12 +73,12 @@ const LoginScreen = ({ navigation }) => {
           style={styles.logo} 
           resizeMode="contain" 
         />
-        <Text style={styles.title}>Evaluación Nacional de Logros de Aprendizaje de Estudiantes (ENLA-2026)</Text>
+        <Text style={styles.title}>Evaluacion Nacional de Logros de Aprendizaje de Estudiantes (ENLA-2026)</Text>
         
         <Surface style={styles.card} elevation={1}>
 
           <TextInput
-            label="Usuario"
+            label="USUARIO"
             value={username}
             onChangeText={setUsername}
             mode="outlined"
@@ -85,10 +87,11 @@ const LoginScreen = ({ navigation }) => {
             textColor="#0F172A"
             outlineColor="#E2E8F0"
             activeOutlineColor="#334155"
+            theme={{ colors: { outlineVariant: '#E2E8F0' } }}
           />
 
           <TextInput
-            label="Contraseña"
+            label="CONTRASENA"
             value={password}
             onChangeText={setPassword}
             mode="outlined"
@@ -97,18 +100,16 @@ const LoginScreen = ({ navigation }) => {
             textColor="#0F172A"
             outlineColor="#E2E8F0"
             activeOutlineColor="#334155"
+            theme={{ colors: { outlineVariant: '#E2E8F0' } }}
           />
 
-          <Button 
-            mode="contained" 
+          <TouchableOpacity 
+            style={{ width: '100%', marginTop: 15, borderWidth: 2.5, borderColor: COLORS.blue, borderRadius: 24, height: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' }} 
             onPress={handleLogin} 
-            loading={loading}
             disabled={loading}
-            style={styles.button}
-            buttonColor="#334155"
           >
-            Iniciar Sesión
-          </Button>
+            <Text style={{ color: COLORS.blue, fontWeight: '900', fontSize: 14 }}>INICIAR SESION</Text>
+          </TouchableOpacity>
         </Surface>
       </View>
     </KeyboardAvoidingView>
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#0F172A',
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '900',
     marginBottom: 30,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -142,19 +143,19 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: 30,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
-    borderWidth: 1,
+    borderWidth: 2.5,
     borderColor: '#E2E8F0',
   },
   subtitle: {
     color: '#64748B',
     marginBottom: 25,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '900',
     textTransform: 'uppercase',
   },
   input: {

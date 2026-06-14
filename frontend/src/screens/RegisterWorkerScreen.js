@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Surface, Text, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DropdownModal from '../components/DropdownModal';
 
-const HORARIOS_DIA = ['07:00', '08:00', '09:00', '10:00'];
+const HORARIOS_DIA   = ['07:00', '08:00', '09:00', '10:00'];
 const HORARIOS_TARDE = ['12:00', '13:00', '14:00', '15:00', '16:00'];
 
 const RegisterWorkerScreen = ({ route, navigation }) => {
@@ -26,8 +26,6 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   });
 
   const [cargosList, setCargosList] = useState([]);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [horarioDropdownOpen, setHorarioDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingCargos, setFetchingCargos] = useState(true);
 
@@ -90,7 +88,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       try {
         const payload = {
           ...formData,
-          hora_ingreso: formData.hora_ingreso + ':00', // Enviar como HH:MM:SS
+          hora_ingreso: formData.hora_ingreso + ':00',
         };
         const data = await global.dbHelper.registerWorkerOffline(payload);
         if (data.alert) {
@@ -110,7 +108,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       const token = await AsyncStorage.getItem('userToken');
       const payload = {
         ...formData,
-        hora_ingreso: formData.hora_ingreso + ':00', // Enviar como HH:MM:SS
+        hora_ingreso: formData.hora_ingreso + ':00',
       };
       const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register-worker', {
         method: 'POST',
@@ -178,6 +176,21 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       setLoading(false);
     }
   };
+
+  // Build dropdown options from cargo list
+  const cargoOptions = cargosList.map(c => ({
+    value: c.id.toString(),
+    label: c.nombre,
+  }));
+
+  const cargoSelected = cargosList.find(c => c.id.toString() === formData.cargo_id.toString());
+
+  // Build horario options
+  const horarioOptions = horariosDisponibles.map(h => ({
+    value: h,
+    label: h,
+    icon: 'clock-outline',
+  }));
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -277,53 +290,24 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             />
           </View>
 
-          {/* Cargo dropdown */}
-          <Text style={styles.label}>Cargo:</Text>
+          {/* Cargo dropdown via Modal */}
+          <Text style={styles.label}>CARGO:</Text>
           {fetchingCargos ? (
             <ActivityIndicator color="#334155" size="small" style={{ marginVertical: 10 }} />
           ) : (
-            <View style={{ marginBottom: 15 }}>
-              <TouchableOpacity
-                style={styles.dropdownHeader}
-                onPress={() => { setDropdownOpen(!dropdownOpen); setHorarioDropdownOpen(false); }}
-              >
-                <Text style={styles.dropdownHeaderText}>
-                  {cargosList.find(c => c.id.toString() === formData.cargo_id.toString())?.nombre || 'Seleccione Cargo'}
-                </Text>
-                <MaterialCommunityIcons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#334155" />
-              </TouchableOpacity>
-
-              {dropdownOpen && (
-                <Surface style={styles.dropdownList} elevation={1}>
-                  <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
-                    {cargosList.map(c => (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={[
-                          styles.dropdownOption,
-                          formData.cargo_id.toString() === c.id.toString() && styles.dropdownOptionActive
-                        ]}
-                        onPress={() => {
-                          setFormData({ ...formData, cargo_id: c.id.toString() });
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        <Text style={{
-                          color: formData.cargo_id.toString() === c.id.toString() ? '#FFFFFF' : '#0F172A',
-                          fontWeight: formData.cargo_id.toString() === c.id.toString() ? 'bold' : 'normal'
-                        }}>
-                          {c.nombre}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </Surface>
-              )}
-            </View>
+            <DropdownModal
+              label="Cargo"
+              value={formData.cargo_id}
+              displayText={cargoSelected?.nombre || 'Seleccione Cargo'}
+              options={cargoOptions}
+              onSelect={(val) => setFormData({ ...formData, cargo_id: val })}
+              activeColor="#334155"
+              style={styles.dropdownTrigger}
+            />
           )}
 
           {/* Tipo de Postulante */}
-          <Text style={styles.label}>Tipo de Postulante:</Text>
+          <Text style={styles.label}>TIPO DE POSTULANTE:</Text>
           <SegmentedButtons
             value={formData.tipo_postulante_id}
             onValueChange={(val) => setFormData({ ...formData, tipo_postulante_id: val })}
@@ -336,7 +320,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           />
 
           {/* Turno */}
-          <Text style={styles.label}>Turno:</Text>
+          <Text style={styles.label}>TURNO:</Text>
           <SegmentedButtons
             value={formData.turno}
             onValueChange={(val) => setFormData({ ...formData, turno: val })}
@@ -348,47 +332,17 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             theme={{ colors: { secondaryContainer: '#334155', onSecondaryContainer: '#FFFFFF' } }}
           />
 
-          {/* Hora de Ingreso dropdown */}
-          <Text style={styles.label}>Hora de Ingreso Programada:</Text>
-          <View style={{ marginBottom: 15 }}>
-            <TouchableOpacity
-              style={styles.dropdownHeader}
-              onPress={() => { setHorarioDropdownOpen(!horarioDropdownOpen); setDropdownOpen(false); }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <MaterialCommunityIcons name="clock-outline" size={18} color="#334155" />
-                <Text style={[styles.dropdownHeaderText, { fontWeight: 'bold' }]}>
-                  {formData.hora_ingreso}
-                </Text>
-              </View>
-              <MaterialCommunityIcons name={horarioDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#334155" />
-            </TouchableOpacity>
-
-            {horarioDropdownOpen && (
-              <Surface style={styles.dropdownList} elevation={1}>
-                {horariosDisponibles.map(h => (
-                  <TouchableOpacity
-                    key={h}
-                    style={[
-                      styles.dropdownOption,
-                      formData.hora_ingreso === h && styles.dropdownOptionActive
-                    ]}
-                    onPress={() => {
-                      setFormData({ ...formData, hora_ingreso: h });
-                      setHorarioDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={{
-                      color: formData.hora_ingreso === h ? '#FFFFFF' : '#0F172A',
-                      fontWeight: formData.hora_ingreso === h ? 'bold' : 'normal'
-                    }}>
-                      {h}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </Surface>
-            )}
-          </View>
+          {/* Hora de Ingreso dropdown via Modal */}
+          <Text style={styles.label}>HORA DE INGRESO PROGRAMADA:</Text>
+          <DropdownModal
+            label="Hora de Ingreso"
+            value={formData.hora_ingreso}
+            displayText={formData.hora_ingreso}
+            options={horarioOptions}
+            onSelect={(val) => setFormData({ ...formData, hora_ingreso: val })}
+            activeColor="#334155"
+            style={styles.dropdownTrigger}
+          />
 
           <Button
             mode="contained"
@@ -408,7 +362,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
-  scrollContent: { padding: 20 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
   card: {
     backgroundColor: '#FFFFFF',
     padding: 20,
@@ -433,47 +387,19 @@ const styles = StyleSheet.create({
   label: {
     color: '#64748B',
     marginBottom: 8,
-    marginTop: 5,
-    fontWeight: 'bold',
-    fontSize: 12,
+    marginTop: 12,
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 0.6,
   },
-  dropdownHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 6,
-    backgroundColor: '#F9FAFB',
-    height: 50,
-  },
-  dropdownHeaderText: {
-    color: '#0F172A',
-    fontSize: 14,
-  },
-  dropdownList: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 6,
-    marginTop: 5,
-    maxHeight: 200,
-    overflow: 'hidden',
-  },
-  dropdownOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  dropdownOptionActive: {
-    backgroundColor: '#334155',
+  dropdownTrigger: {
+    marginBottom: 12,
   },
   segmented: {
     marginBottom: 15,
   },
   button: {
-    marginTop: 15,
+    marginTop: 20,
     height: 50,
     justifyContent: 'center',
     borderRadius: 6,

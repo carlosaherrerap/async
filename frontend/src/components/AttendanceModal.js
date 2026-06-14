@@ -4,6 +4,7 @@ import { Modal, Portal, Surface, Avatar, ActivityIndicator, TextInput } from 're
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { COLORS } from '../theme/colors';
 
 // ─── Paleta de colores por tipo ─────────────────────────────────────────────
 const TIPO_COLORS = {
@@ -149,7 +150,8 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                 />
                 <View style={[styles.statusPill, {
                   backgroundColor: statusIsEntered ? '#F0FDF4' : '#F8FAFC',
-                  borderColor: statusIsEntered ? '#DCFCE7' : '#E2E8F0'
+                  borderColor: statusIsEntered ? '#DCFCE7' : '#E2E8F0',
+                  borderWidth: 2,
                 }]}>
                   <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                   <Text style={[styles.statusPillText, { color: statusColor }]}>
@@ -159,16 +161,17 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               </View>
 
               {/* ── Nombre + Cargo ───────────────────────────────────────── */}
-              <Text style={styles.nombre}>{worker?.nombre || '-'}</Text>
-              <Text style={styles.puesto}>{worker?.puesto || '-'}</Text>
+              <Text style={styles.nombre}>{(worker?.nombre || '-').toUpperCase()}</Text>
+              <Text style={styles.puesto}>{(worker?.puesto || '-').toUpperCase()}</Text>
 
               {/* ── Tipo Postulante Badge ────────────────────────────────── */}
               {tipoPostulante ? (
                 <View style={[styles.tipoBadge, {
                   backgroundColor: tipoColors.bg,
                   borderColor: tipoColors.border,
+                  borderWidth: 2.5,
                 }]}>
-                  <MaterialCommunityIcons name={tipoColors.icon} size={15} color={tipoColors.text} />
+                  <MaterialCommunityIcons name={tipoColors.icon} size={18} color={tipoColors.text} />
                   <Text style={[styles.tipoText, { color: tipoColors.text }]}>
                     {tipoPostulante.toUpperCase()}
                   </Text>
@@ -177,8 +180,9 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                 <View style={[styles.tipoBadge, {
                   backgroundColor: '#FEF9C3',
                   borderColor: '#FDE047',
+                  borderWidth: 2.5,
                 }]}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={15} color="#A16207" />
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#A16207" />
                   <Text style={[styles.tipoText, { color: '#A16207' }]}>TIPO SIN ASIGNAR</Text>
                 </View>
               )}
@@ -190,23 +194,23 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               </View>
 
               {/* ── Área / Local ─────────────────────────────────────────── */}
-              <Text style={styles.areaText}>{worker?.area || '-'}</Text>
+              <Text style={styles.areaText}>{(worker?.area || '-').toUpperCase()}</Text>
 
               {/* ── Turno + Hora ─────────────────────────────────────────── */}
               {worker?.turno && (
                 <View style={styles.turnoRow}>
-                  <View style={styles.turnoChip}>
+                  <View style={[styles.turnoChip, { borderWidth: 2 }]}>
                     <MaterialCommunityIcons
                       name={worker.turno === 'DIA' ? 'weather-sunny' : 'weather-night'}
-                      size={15} color="#334155"
+                      size={18} color="#334155"
                     />
-                    <Text style={styles.turnoChipText}>Turno {turnoDisplay}</Text>
+                    <Text style={styles.turnoChipText}>TURNO {turnoDisplay}</Text>
                   </View>
                   {worker?.hora_ingreso && (
-                    <View style={styles.turnoChip}>
-                      <MaterialCommunityIcons name="clock-outline" size={15} color="#334155" />
+                    <View style={[styles.turnoChip, { borderWidth: 2 }]}>
+                      <MaterialCommunityIcons name="clock-outline" size={18} color="#334155" />
                       <Text style={styles.turnoChipText}>
-                        Ingreso: {worker.hora_ingreso.substring(0, 5)}
+                        INGRESO: {worker.hora_ingreso.substring(0, 5)}
                       </Text>
                     </View>
                   )}
@@ -218,10 +222,10 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               {/* ── Asistencia registrada ─────────────────────────────────── */}
               {attendance && (
                 <View style={styles.attendanceRow}>
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#15803D" />
+                  <MaterialCommunityIcons name="check-circle" size={24} color="#15803D" />
                   <Text style={styles.attendanceText}>
-                    Ingreso: {new Date(attendance.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {' – '}
+                    INGRESO: {new Date(attendance.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {' - '}
                     {attendance.estado === 'P' ? 'PUNTUAL / TEMPRANO' : 'TARDE'}
                   </Text>
                 </View>
@@ -230,14 +234,14 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               {/* ── Campo Aula para Reserva (solo si no ha marcado) ──────── */}
               {isReserva && status === 'none' && (
                 <View style={styles.aulaContainer}>
-                  <View style={[styles.aulaAlert, { borderColor: aulaError ? '#B91C1C' : '#FED7AA' }]}>
-                    <MaterialCommunityIcons name="information-outline" size={16} color="#C2410C" />
+                  <View style={[styles.aulaAlert, { borderColor: aulaError ? '#B91C1C' : '#FED7AA', borderWidth: 2 }]}>
+                    <MaterialCommunityIcons name="information-outline" size={20} color="#C2410C" />
                     <Text style={styles.aulaAlertText}>
-                      Postulante RESERVA — asignar aula antes de marcar ingreso
+                      POSTULANTE RESERVA - ASIGNAR AULA ANTES DE MARCAR INGRESO
                     </Text>
                   </View>
                   <TextInput
-                    label="Aula asignada *"
+                    label="AULA ASIGNADA *"
                     value={aulaReserva}
                     onChangeText={(t) => { setAulaReserva(t); setAulaError(false); }}
                     mode="outlined"
@@ -248,10 +252,11 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                     outlineColor={aulaError ? '#B91C1C' : '#E2E8F0'}
                     activeOutlineColor={aulaError ? '#B91C1C' : '#C2410C'}
                     error={aulaError}
+                    theme={{ colors: { outlineVariant: COLORS.border } }}
                   />
                   {aulaError && (
                     <Text style={styles.aulaErrorText}>
-                      El aula es obligatoria para postulantes Reserva
+                      EL AULA ES OBLIGATORIA PARA POSTULANTES RESERVA
                     </Text>
                   )}
                 </View>
@@ -265,19 +270,19 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                   disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
-                      <MaterialCommunityIcons name="login" size={22} color="#fff" />
+                      <MaterialCommunityIcons name="login" size={24} color="#FFFFFF" />
                       <Text style={styles.btnIngresoText}>MARCAR INGRESO</Text>
                     </>
                   )}
                 </TouchableOpacity>
               ) : (
                 <View style={styles.completedBox}>
-                  <MaterialCommunityIcons name="check-circle" size={26} color="#15803D" />
-                  <Text style={styles.completedTitle}>Ingreso ya registrado por hoy</Text>
-                  <Text style={styles.completedSub}>Se habilitara nuevamente manana</Text>
+                  <MaterialCommunityIcons name="check-circle" size={32} color="#15803D" />
+                  <Text style={styles.completedTitle}>INGRESO YA REGISTRADO POR HOY</Text>
+                  <Text style={styles.completedSub}>SE HABILITARA NUEVAMENTE MANANA</Text>
                 </View>
               )}
 
@@ -302,9 +307,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   card: {
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 2.5,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
     maxHeight: '92%',
@@ -327,16 +332,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 2,
   },
   statusDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
   },
   statusPillText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '900',
     letterSpacing: 0.8,
   },
 
@@ -344,7 +349,7 @@ const styles = StyleSheet.create({
   nombre: {
     color: '#0F172A',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
     textAlign: 'center',
     marginTop: 12,
     marginBottom: 2,
@@ -352,7 +357,7 @@ const styles = StyleSheet.create({
   puesto: {
     color: '#64748B',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '800',
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -365,12 +370,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 2.5,
     marginBottom: 14,
   },
   tipoText: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
 
@@ -386,14 +391,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     padding: 10,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
     minHeight: 52,
   },
   infoBlockLabel: {
     color: '#94A3B8',
     fontSize: 9,
-    fontWeight: 'bold',
+    fontWeight: '900',
     letterSpacing: 0.6,
     marginBottom: 3,
     textTransform: 'uppercase',
@@ -401,7 +406,7 @@ const styles = StyleSheet.create({
   infoBlockValue: {
     color: '#0F172A',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
     lineHeight: 16,
   },
 
@@ -411,6 +416,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 8,
+    fontWeight: '900',
   },
   turnoRow: {
     flexDirection: 'row',
@@ -427,18 +433,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
   },
   turnoChipText: {
     color: '#334155',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 
   divider: {
     width: '100%',
-    height: 1,
+    height: 1.5,
     backgroundColor: '#E2E8F0',
     marginVertical: 14,
   },
@@ -453,13 +459,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     width: '100%',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#DCFCE7',
     marginBottom: 4,
   },
   attendanceText: {
     color: '#15803D',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 13,
   },
 
@@ -474,7 +480,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 6,
     backgroundColor: '#FFF7ED',
-    borderWidth: 1,
+    borderWidth: 2,
     padding: 10,
     borderRadius: 6,
     marginBottom: 10,
@@ -482,7 +488,7 @@ const styles = StyleSheet.create({
   aulaAlertText: {
     color: '#C2410C',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '800',
     flex: 1,
     lineHeight: 16,
   },
@@ -495,6 +501,7 @@ const styles = StyleSheet.create({
     color: '#B91C1C',
     fontSize: 11,
     marginBottom: 6,
+    fontWeight: '900',
   },
 
   // Botones
@@ -512,8 +519,8 @@ const styles = StyleSheet.create({
   },
   btnIngresoText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   completedBox: {
@@ -521,7 +528,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#F0FDF4',
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#DCFCE7',
     alignItems: 'center',
     marginTop: 6,
@@ -529,7 +536,7 @@ const styles = StyleSheet.create({
   },
   completedTitle: {
     color: '#15803D',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 14,
     textAlign: 'center',
   },
@@ -537,6 +544,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     textAlign: 'center',
+    fontWeight: '800',
   },
   btnCerrar: {
     marginTop: 14,
@@ -546,7 +554,7 @@ const styles = StyleSheet.create({
   },
   btnCerrarText: {
     color: '#64748B',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 14,
     letterSpacing: 0.5,
   },
