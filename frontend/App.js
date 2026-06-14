@@ -24,11 +24,15 @@ const theme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: '#334155',
-    accent: '#B91C1C',
-    background: '#F4F6F8',
+    primary: '#1565C0',
+    secondary: '#F5A623',
+    tertiary: '#9C27B0',
+    error: '#DC2626',
+    background: '#F1F5F9',
     surface: '#FFFFFF',
-    text: '#0F172A',
+    onPrimary: '#FFFFFF',
+    onSecondary: '#FFFFFF',
+    outline: '#E2E8F0',
   },
 };
 
@@ -44,9 +48,11 @@ global.dbHelper = {
       db = await SQLite.openDatabaseAsync('asistencia.db');
       this.db = db;
 
-      await db.execAsync(`
-        PRAGMA foreign_keys = ON;
+      // PRAGMA must be run separately (not in batch with CREATE TABLE)
+      await db.runAsync('PRAGMA foreign_keys = ON;');
+      await db.runAsync('PRAGMA journal_mode = WAL;'); // Better performance on mobile/APK
 
+      await db.execAsync(`
         CREATE TABLE IF NOT EXISTS parametros_asistencia (
           estado TEXT PRIMARY KEY,
           descripcion TEXT NOT NULL
@@ -70,18 +76,18 @@ global.dbHelper = {
 
         CREATE TABLE IF NOT EXISTS principal (
           id INTEGER PRIMARY KEY,
-          sede_reg TEXT NOT NULL,
-          sede_juris TEXT NOT NULL,
+          sede_reg TEXT NOT NULL DEFAULT '',
+          sede_juris TEXT NOT NULL DEFAULT '',
           doc_identidad TEXT UNIQUE NOT NULL,
           ape_pat TEXT NOT NULL,
           ape_mat TEXT NOT NULL,
           nombres TEXT NOT NULL,
-          local TEXT NOT NULL,
-          aula INTEGER NOT NULL,
+          local TEXT NOT NULL DEFAULT '',
+          aula INTEGER NOT NULL DEFAULT 1,
           tipo_postulante_id INTEGER NOT NULL,
           cargo_id INTEGER NOT NULL,
-          turno TEXT NOT NULL,
-          hora_ingreso TEXT NOT NULL,
+          turno TEXT NOT NULL DEFAULT 'DIA',
+          hora_ingreso TEXT NOT NULL DEFAULT '08:00:00',
           FOREIGN KEY(tipo_postulante_id) REFERENCES tipo_postulante(id) ON UPDATE CASCADE,
           FOREIGN KEY(cargo_id) REFERENCES cargos(id) ON UPDATE CASCADE
         );
@@ -104,11 +110,21 @@ global.dbHelper = {
         );
       `);
 
+      // Seed immutable reference data
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
       await db.runAsync(`INSERT OR IGNORE INTO parametros_asistencia (estado, descripcion) VALUES ('P', 'Puntual'), ('T', 'Tarde');`);
-      console.log('Local SQLite initialized successfully');
+      console.log('[DB] Local SQLite initialized successfully (WAL mode)');
     } catch (error) {
-      console.error('Error initializing SQLite:', error);
+      console.error('[DB] Error initializing SQLite:', error);
+      // Attempt recovery: reopen and try without foreign keys
+      try {
+        db = await SQLite.openDatabaseAsync('asistencia.db');
+        this.db = db;
+        console.log('[DB] Recovered DB connection after init error');
+      } catch (recoveryErr) {
+        console.error('[DB] Critical: Could not open database:', recoveryErr);
+      }
+
     }
   },
 
@@ -720,19 +736,19 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F4F6F8', justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#1565C0', justifyContent: 'center', alignItems: 'center' }}>
         <Animated.Image
           source={require('./assets/icon.png')}
           style={{
-            width: 160,
-            height: 160,
-            marginBottom: 20,
+            width: 140,
+            height: 140,
+            marginBottom: 24,
             opacity: logoOpacity,
             transform: [{ scale: logoScale }]
           }}
           resizeMode="contain"
         />
-        <ActivityIndicator size="small" color="#334155" />
+        <ActivityIndicator size="small" color="rgba(255,255,255,0.8)" />
       </View>
     );
   }
@@ -743,10 +759,10 @@ export default function App() {
         <Stack.Navigator
           initialRouteName={userToken ? "Home" : "Login"}
           screenOptions={{
-            headerStyle: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', elevation: 0, shadowOpacity: 0 },
-            headerTintColor: '#334155',
-            headerTitleStyle: { fontWeight: 'bold', fontSize: 15, color: '#0F172A' },
-            cardStyle: { backgroundColor: '#F4F6F8' }
+            headerStyle: { backgroundColor: '#1565C0', elevation: 0, shadowOpacity: 0 },
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: { fontWeight: '800', fontSize: 15, color: '#FFFFFF', letterSpacing: 0.5 },
+            cardStyle: { backgroundColor: '#F1F5F9' }
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
