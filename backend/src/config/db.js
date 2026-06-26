@@ -16,8 +16,10 @@ const poolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
-pool.on('connect', () => {
+pool.on('connect', (client) => {
     console.log('Conectado a la base de datos PostgreSQL');
+    client.query("SET TIME ZONE 'America/Lima'")
+        .catch(err => console.error('Error setting timezone on connection:', err));
 });
 
 module.exports = {

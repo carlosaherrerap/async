@@ -351,16 +351,25 @@ global.dbHelper = {
   async getStats() {
     if (!db) return { presentes: 0, faltas: 0, tardanzas: 0, asistenciaPorCargo: [], metasPorCargo: [] };
     try {
+      const getLocalDateString = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const todayStr = getLocalDateString();
+
       const totalRes = await db.getAllAsync('SELECT COUNT(*) as count FROM principal');
       const total = totalRes[0]?.count || 0;
 
-      const presentesRes = await db.getAllAsync('SELECT COUNT(*) as count FROM asistencias');
+      const presentesRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE date(fecha_hora, 'localtime') = ?", [todayStr]);
       const presentes = presentesRes[0]?.count || 0;
 
-      const tardanzasRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'T'");
+      const tardanzasRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'T' AND date(fecha_hora, 'localtime') = ?", [todayStr]);
       const tardanzas = tardanzasRes[0]?.count || 0;
 
-      const tempranoRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'P'");
+      const tempranoRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'P' AND date(fecha_hora, 'localtime') = ?", [todayStr]);
       const temprano = tempranoRes[0]?.count || 0;
 
       const faltas = total - presentes;
@@ -379,10 +388,10 @@ global.dbHelper = {
                (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
         FROM cargos c
         LEFT JOIN principal p ON p.cargo_id = c.id
-        LEFT JOIN asistencias a ON a.principal_id = p.id
+        LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
         GROUP BY c.id, c.nombre
         ORDER BY c.id ASC
-      `);
+      `, [todayStr]);
 
       return { 
         presentes, 
@@ -401,7 +410,14 @@ global.dbHelper = {
   async getDailyAttendance(selectedDate) {
     if (!db) return { presentes: [], ausentes: [] };
     try {
-      const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+      const getLocalDateString = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const targetDate = selectedDate || getLocalDateString();
 
       const presentes = await db.getAllAsync(`
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
@@ -412,7 +428,7 @@ global.dbHelper = {
         JOIN principal p ON a.principal_id = p.id
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-        WHERE date(a.fecha_hora) = date(?)
+        WHERE date(a.fecha_hora, 'localtime') = date(?)
         ORDER BY a.fecha_hora DESC
       `, [targetDate]);
 
@@ -426,7 +442,7 @@ global.dbHelper = {
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         WHERE NOT EXISTS (
           SELECT 1 FROM asistencias a 
-          WHERE a.principal_id = p.id AND date(a.fecha_hora) = date(?)
+          WHERE a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = date(?)
         )
         ORDER BY p.ape_pat, p.ape_mat
       `, [targetDate]);
@@ -446,7 +462,7 @@ global.dbHelper = {
                p.local as area, c.nombre as puesto, p.turno, p.hora_ingreso
         FROM principal p
         JOIN cargos c ON p.cargo_id = c.id
-        WHERE p.id NOT IN (SELECT principal_id FROM asistencias)
+        WHERE p.id NOT IN (SELECT principal_id FROM asistencias WHERE date(fecha_hora, 'localtime') = date('now', 'localtime'))
         ORDER BY p.ape_pat ASC
       `);
     } catch (e) {

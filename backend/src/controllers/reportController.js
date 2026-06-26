@@ -123,7 +123,7 @@ const getStats = async (req, res) => {
 
 const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
 
     try {
         const presentesRes = await db.query(`

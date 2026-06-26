@@ -196,6 +196,163 @@ const CustomAnimatedChart = ({ data }) => {
   );
 };
 
+const GroupedBarChart = ({ data }) => {
+  if (!data || data.length === 0) {
+    return <Text style={styles.emptyText}>No hay datos</Text>;
+  }
+
+  const [animations, setAnimations] = useState([]);
+
+  useEffect(() => {
+    const anims = data.map(() => new Animated.Value(0));
+    setAnimations(anims);
+
+    const timingAnimations = anims.map((anim, idx) => {
+      return Animated.timing(anim, {
+        toValue: 1,
+        duration: 900,
+        delay: idx * 80,
+        useNativeDriver: false,
+      });
+    });
+
+    Animated.parallel(timingAnimations).start();
+  }, [data]);
+
+  const maxVal = Math.max(...data.map(d => d.existente), 5);
+  const scaleMax = Math.ceil(maxVal / 5) * 5;
+  const gridLines = [
+    scaleMax,
+    Math.round(scaleMax * 0.75),
+    Math.round(scaleMax * 0.5),
+    Math.round(scaleMax * 0.25),
+    0
+  ];
+
+  const PLOT_HEIGHT = 160;
+  const HEADER_HEIGHT = 25;
+  const TOTAL_HEIGHT = PLOT_HEIGHT + HEADER_HEIGHT;
+
+  return (
+    <View style={styles.chartContainer}>
+      <View style={{ height: TOTAL_HEIGHT, position: 'relative', width: '100%' }}>
+        {/* Grid lines */}
+        <View style={[styles.gridLinesContainer, { top: HEADER_HEIGHT, height: PLOT_HEIGHT }]}>
+          {gridLines.map((val) => {
+            const bottomPercent = (val / scaleMax) * 100;
+            return (
+              <View 
+                key={val} 
+                style={[
+                  styles.gridLineRow, 
+                  { 
+                    position: 'absolute', 
+                    left: 0, 
+                    right: 0, 
+                    bottom: `${bottomPercent}%`, 
+                    transform: [{ translateY: 10 }]
+                  }
+                ]}
+              >
+                <Text style={styles.gridLineLabel}>{val}</Text>
+                <View style={styles.gridLine} />
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Bars */}
+        <View style={[styles.barsContainer, { height: TOTAL_HEIGHT }]}>
+          {data.map((item, idx) => {
+            const anim = animations[idx];
+
+            const existentePercentage = (item.existente / scaleMax) * 100;
+            const asistieronPercentage = (item.asistieron / scaleMax) * 100;
+
+            const existenteHeight = anim
+              ? anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', `${existentePercentage}%`],
+                })
+              : '0%';
+
+            const asistieronHeight = anim
+              ? anim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', `${asistieronPercentage}%`],
+                })
+              : '0%';
+
+            return (
+              <View key={idx} style={[styles.barColumn, { height: TOTAL_HEIGHT, flexDirection: 'column', justifyContent: 'flex-end' }]}>
+                {/* Value labels on top of the bars */}
+                <View style={{ flexDirection: 'row', gap: 2, height: 15, marginBottom: 2 }}>
+                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#64748B', width: 12, textAlign: 'center' }}>
+                    {item.existente}
+                  </Text>
+                  <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#1565C0', width: 12, textAlign: 'center' }}>
+                    {item.asistieron}
+                  </Text>
+                </View>
+
+                {/* Double Bar Track */}
+                <View style={{ flexDirection: 'row', gap: 2, alignItems: 'flex-end', height: PLOT_HEIGHT }}>
+                  {/* Existente bar */}
+                  <View style={[styles.groupedBarTrack, { height: PLOT_HEIGHT }]}>
+                    <Animated.View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: existenteHeight,
+                          backgroundColor: '#94A3B8'
+                        }
+                      ]}
+                    />
+                  </View>
+
+                  {/* Asistieron bar */}
+                  <View style={[styles.groupedBarTrack, { height: PLOT_HEIGHT }]}>
+                    <Animated.View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: asistieronHeight,
+                          backgroundColor: '#1565C0'
+                        }
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* X Axis Labels */}
+      <View style={styles.labelsContainer}>
+        {data.map((item, idx) => (
+          <View key={idx} style={styles.labelColumn}>
+            <Text style={styles.barLabel} numberOfLines={1}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Legend */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#94A3B8' }} />
+          <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#64748B' }}>EXISTENTE</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#1565C0' }} />
+          <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#1565C0' }}>ASISTIERON</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const AttendanceControlScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -203,8 +360,16 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [cargos, setCargos] = useState([]);
 
   const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | ASISTENCIA
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [attendanceTab, setAttendanceTab] = useState('PRESENTES'); // PRESENTES | AUSENTES
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   // Filtros Asistencia Diaria
   const [filterCargo, setFilterCargo] = useState('TODOS');
@@ -341,6 +506,12 @@ const AttendanceControlScreen = ({ navigation }) => {
         onPress={() => setActiveTab('RESUMEN')}
       >
         <Text style={[styles.tabText, activeTab === 'RESUMEN' && styles.tabTextActive]}>RESUMEN & METAS</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tabButton, activeTab === 'REPORTE' && styles.tabActive]}
+        onPress={() => setActiveTab('REPORTE')}
+      >
+        <Text style={[styles.tabText, activeTab === 'REPORTE' && styles.tabTextActive]}>REPORTE DIARIO</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.tabButton, activeTab === 'ASISTENCIA' && styles.tabActive]}
@@ -715,6 +886,116 @@ const AttendanceControlScreen = ({ navigation }) => {
     );
   };
 
+  const getComparativaData = () => {
+    const group = {};
+
+    cargos.forEach(c => {
+      group[c.nombre] = {
+        cargo: c.nombre,
+        existente: 0,
+        asistieron: 0,
+        titulares: 0,
+        reserva: 0
+      };
+    });
+
+    dailyData.presentes.forEach(item => {
+      const cargoName = item.cargo || '—';
+      if (!group[cargoName]) {
+        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0 };
+      }
+      group[cargoName].existente += 1;
+      group[cargoName].asistieron += 1;
+      if (item.tipo_postulante === 'Titular' || item.tipo_postulante_id === 1 || item.tipo_postulante_id === '1') {
+        group[cargoName].titulares += 1;
+      } else {
+        group[cargoName].reserva += 1;
+      }
+    });
+
+    dailyData.ausentes.forEach(item => {
+      const cargoName = item.cargo || '—';
+      if (!group[cargoName]) {
+        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0 };
+      }
+      group[cargoName].existente += 1;
+    });
+
+    return Object.values(group);
+  };
+
+  const getGroupedChartData = () => {
+    const rawData = getComparativaData();
+    return rawData.map(d => {
+      let shortName = d.cargo.substring(0, 5);
+      if (d.cargo === 'Monitor Nacional') shortName = 'Monit';
+      if (d.cargo === 'Supervisor Nacional') shortName = 'Super';
+      if (d.cargo === 'Coordinador Regional') shortName = 'CoReg';
+      if (d.cargo === 'Coordinador Administrativo Regional') shortName = 'CoAdm';
+      if (d.cargo === 'Tecnico Administrativo Provincial') shortName = 'TecAd';
+
+      return {
+        label: shortName,
+        existente: d.existente,
+        asistieron: d.asistieron
+      };
+    });
+  };
+
+  const renderReporteDiario = () => {
+    const data = getComparativaData();
+    const chartData = getGroupedChartData();
+
+    return (
+      <View style={{ flex: 1 }}>
+        {/* Selector de fecha */}
+        <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="calendar" size={24} color="#1565C0" />
+            <View style={{ marginLeft: 10 }}>
+              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: 'bold' }}>FECHA (CLICK PARA CAMBIAR):</Text>
+              <Text style={{ color: '#1565C0', fontWeight: 'bold', fontSize: 16 }}>{selectedDate}</Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-down" size={24} color="#1565C0" />
+        </TouchableOpacity>
+
+        {/* Gráfico comparativo */}
+        <Surface style={styles.chartCard} elevation={0}>
+          <Text style={styles.chartTitle}>CANTIDAD EXISTENTE vs ASISTIERON</Text>
+          <GroupedBarChart data={chartData} />
+        </Surface>
+
+        {/* Listado de comparaciones por cargo */}
+        <View style={{ gap: 8, marginTop: 10 }}>
+          {data.map((c) => {
+            const formattedDate = selectedDate.split('-').reverse().join('/'); // YYYY-MM-DD to DD/MM/YYYY
+            return (
+              <Surface key={c.cargo} style={styles.reportCard} elevation={1}>
+                <View style={styles.reportCardHeader}>
+                  <View style={[styles.headerAccent, { backgroundColor: '#1565C0', marginRight: 8, height: 18 }]} />
+                  <Text style={styles.reportCargoName}>{c.cargo.toUpperCase()}</Text>
+                </View>
+                <View style={styles.reportRow}>
+                  <View style={styles.reportCol}>
+                    <Text style={styles.reportLabel}>CANTIDAD EXISTENTE</Text>
+                    <Text style={styles.reportValue}>{c.existente}</Text>
+                  </View>
+                  <View style={styles.reportCol}>
+                    <Text style={styles.reportLabel}>ASISTIERON HOY ({formattedDate})</Text>
+                    <Text style={[styles.reportValue, { color: '#1565C0' }]}>
+                      {c.asistieron} <Text style={styles.reportSubValue}>({c.titulares} titulares + {c.reserva} reserva)</Text>
+                    </Text>
+                  </View>
+                </View>
+              </Surface>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
   if (loading && !stats) {
     return (
       <View style={styles.center}>
@@ -727,7 +1008,7 @@ const AttendanceControlScreen = ({ navigation }) => {
     <View style={styles.container}>
       {renderTabs()}
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {activeTab === 'RESUMEN' ? renderResumen() : renderAsistencia()}
+        {activeTab === 'RESUMEN' ? renderResumen() : (activeTab === 'REPORTE' ? renderReporteDiario() : renderAsistencia())}
       </ScrollView>
       {renderCalendarModal()}
     </View>
@@ -1100,6 +1381,64 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   avatarText: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  reportCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderLeftWidth: 6,
+    borderLeftColor: '#1565C0',
+    padding: 14,
+    marginBottom: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  reportCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reportCargoName: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  reportCol: {
+    flex: 1,
+  },
+  reportLabel: {
+    color: '#64748B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  reportValue: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  reportSubValue: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  groupedBarTrack: {
+    width: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
 });
 
 export default AttendanceControlScreen;

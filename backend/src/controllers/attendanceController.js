@@ -32,8 +32,11 @@ const registerAttendance = async (req, res) => {
 
         // 3. Determinar estado (P o T) comparando hora actual con hora_ingreso del postulante
         const now = new Date();
-        const currentHours = now.getHours();
-        const currentMinutes = now.getMinutes();
+        const options = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false };
+        const formatter = new Intl.DateTimeFormat('es-PE', options);
+        const [currentHoursStr, currentMinutesStr] = formatter.format(now).split(':');
+        const currentHours = parseInt(currentHoursStr, 10);
+        const currentMinutes = parseInt(currentMinutesStr, 10);
         const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
         const [ingH, ingM] = worker.hora_ingreso.split(':').map(Number);
