@@ -8,8 +8,16 @@ services:
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: asistencia-db
+          property: connectionString
       - key: JWT_SECRET
         sync: false
       - key: PORT
         value: 10000
+
+databases:
+  - name: asistencia-db
+    databaseName: asistencia_db
+    user: asistencia_user
+    plan: free
