@@ -8,6 +8,9 @@ const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 // Ruta para verificar trabajador y estado
 router.get('/verify', attendanceController.verifyWorker);
 
+// Ruta para escanear y procesar imagen de DNI
+router.post('/scan-dni', verifyToken, attendanceController.scanDniImage);
+
 // Ruta para registrar asistencia (Pública para el punto de marcación)
 router.post('/register', attendanceController.registerAttendance);
 

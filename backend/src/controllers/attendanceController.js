@@ -1,4 +1,7 @@
 const db = require('../config/db');
+const { hasFace } = require('../utils/faceDetector');
+const { decodeBarcodeWithRotations } = require('../utils/barcodeDetector');
+const Jimp = require('jimp');
 
 const registerAttendance = async (req, res) => {
     const { dni, observaciones } = req.body;
@@ -267,11 +270,104 @@ const getSyncPull = async (req, res) => {
     }
 };
 
+
+const scanDniImage = async (req, res) => {
+    const { imageBase64 } = req.body;
+
+    if (!imageBase64) {
+        return res.status(400).json({ message: 'No se recibio ninguna imagen base64' });
+    }
+
+    try {
+        // Remove base64 data header if present
+        const cleanedBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+        const imageBuffer = Buffer.from(cleanedBase64, 'base64');
+
+        // Load image with Jimp
+        const jimpImage = await Jimp.read(imageBuffer);
+
+        // 1. Check for face (indicating front of DNI)
+        const faceDetected = await hasFace(jimpImage);
+        if (faceDetected) {
+            return res.json({
+                status: 'face_detected',
+                message: 'Por favor voltea el DNI'
+            });
+        }
+
+        // 2. Check for barcode (indicating back of DNI)
+        const barcodeResult = await decodeBarcodeWithRotations(jimpImage);
+        if (barcodeResult && barcodeResult.dni) {
+            const dni = barcodeResult.dni;
+
+            // Search for worker in database
+            const workerRes = await db.query(
+                `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+                 FROM principal p 
+                 JOIN cargos c ON p.cargo_id = c.id 
+                 JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+                 WHERE p.doc_identidad = $1`,
+                [dni]
+            );
+
+            if (workerRes.rows.length === 0) {
+                return res.json({
+                    status: 'not_found',
+                    dni,
+                    message: `DNI ${dni} decodificado, pero no registrado en el sistema.`
+                });
+            }
+
+            const worker = workerRes.rows[0];
+
+            // Check if already registered today
+            const attendanceRes = await db.query(
+                'SELECT * FROM asistencias WHERE principal_id = $1 AND fecha_hora::date = CURRENT_DATE',
+                [worker.id]
+            );
+
+            const attendance = attendanceRes.rows[0];
+            const status = attendance ? 'entered' : 'none';
+
+            return res.json({
+                status: 'success',
+                dni,
+                message: 'DNI escaneado exitosamente.',
+                worker: {
+                    id: worker.id,
+                    dni: worker.doc_identidad,
+                    nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                    puesto: worker.cargo,
+                    area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                    sede_reg: worker.sede_reg,
+                    sede_juris: worker.sede_juris,
+                    tipo_postulante: worker.tipo_postulante,
+                    turno: worker.turno,
+                    hora_ingreso: worker.hora_ingreso
+                },
+                attendanceStatus: status,
+                attendance: attendance || null
+            });
+        }
+
+        // If neither face nor barcode is detected
+        return res.json({
+            status: 'unrecognized',
+            message: 'No se detecto rostro ni codigo de barras. Intente enfocar mejor el DNI.'
+        });
+
+    } catch (error) {
+        console.error('Error in scanDniImage:', error);
+        return res.status(500).json({ message: 'Error al procesar la imagen del DNI.' });
+    }
+};
+
 module.exports = {
     registerAttendance,
     verifyWorker,
     registerWorker,
     getAllWorkers,
     updateWorker,
-    getSyncPull
+    getSyncPull,
+    scanDniImage
 };
