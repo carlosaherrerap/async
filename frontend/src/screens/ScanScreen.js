@@ -60,119 +60,82 @@ const ScanScreen = ({ route, navigation }) => {
     ).start();
   }, []);
 
-  // Background scanning loop (only active when online)
-  useEffect(() => {
-    if (isOnline && permission && permission.granted && isScanningActive && !showModal && !loading) {
-      startScanningLoop();
-    } else {
-      stopScanningLoop();
-    }
-    return () => {
-      stopScanningLoop();
-    };
-  }, [isOnline, permission, isScanningActive, showModal, loading]);
+  const takePhoto = async () => {
+    if (!isScanningActive || showModal || loading || !cameraRef.current) return;
 
-  const stopScanningLoop = () => {
-    if (scanLoopRef.current) {
-      clearTimeout(scanLoopRef.current);
-      scanLoopRef.current = null;
-    }
-  };
+    try {
+      setLoading(true);
+      setScanStatus('processing');
+      setStatusMessage('Analizando DNI...');
 
-  const startScanningLoop = () => {
-    stopScanningLoop();
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.1,
+        base64: true,
+        skipProcessing: true,
+        imageType: 'jpg',
+      });
 
-    const run = async () => {
-      if (!isScanningActive || showModal || loading) {
-        scanLoopRef.current = setTimeout(run, 1500);
+      if (!photo || !photo.base64) {
+        setScanStatus('searching');
+        setStatusMessage('Error al capturar, intente de nuevo');
+        setLoading(false);
         return;
       }
 
-      if (cameraRef.current) {
-        try {
-          setScanStatus('processing');
-          setStatusMessage('Analizando DNI en tiempo real...');
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const token = await AsyncStorage.getItem('userToken');
 
-          // Take a lightweight high-compression picture for fast upload/decoding
-          const photo = await cameraRef.current.takePictureAsync({
-            quality: 0.1,
-            base64: true,
-            skipProcessing: true,
-            imageType: 'jpg',
-          });
+      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/scan-dni', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ imageBase64: photo.base64 })
+      });
 
-          if (!photo || !photo.base64) {
-            setScanStatus('searching');
-            setStatusMessage('Reintentando captura de imagen...');
-            scanLoopRef.current = setTimeout(run, 1200);
-            return;
-          }
+      const data = await response.json();
 
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          const token = await AsyncStorage.getItem('userToken');
-
-          const response = await fetch('https://backend-6oio.onrender.com/api/attendance/scan-dni', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ imageBase64: photo.base64 })
-          });
-
-          if (!response.ok) {
-            throw new Error(`Server returned status ${response.status}`);
-          }
-
-          const data = await response.json();
-
-          if (data.status === 'face_detected') {
-            setScanStatus('flip_dni');
-            setStatusMessage('ROSTRO DETECTADO: Por favor, voltee el DNI');
-            // Give user 2.5s to flip the card
-            scanLoopRef.current = setTimeout(run, 2500);
-          } else if (data.status === 'success') {
-            setScanStatus('success');
-            setStatusMessage('¡DNI decodificado exitosamente!');
-            setWorkerData(data.worker);
-            setShowModal(true);
-            setIsScanningActive(false);
-          } else if (data.status === 'not_found') {
-            setScanStatus('unrecognized');
-            setStatusMessage('Postulante no registrado');
-            setIsScanningActive(false);
-
-            Alert.alert(
-              'Postulante no encontrado',
-              `El DNI ${data.dni} no esta registrado. ¿Desea registrarlo ahora?`,
-              [
-                { text: 'Cancelar', style: 'cancel', onPress: () => {
-                    setIsScanningActive(true);
-                    setScanStatus('searching');
-                    setStatusMessage('Coloque el reverso del DNI en el recuadro');
-                  } 
-                },
-                { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: data.dni }) }
-              ]
-            );
-          } else {
-            // Unrecognized image (neither face nor barcode decoded)
-            setScanStatus('searching');
-            setStatusMessage('Buscando reverso del DNI...');
-            scanLoopRef.current = setTimeout(run, 1500);
-          }
-        } catch (err) {
-          console.log('Error scanning DNI via backend:', err.message);
-          setScanStatus('searching');
-          setStatusMessage('Buscando DNI...');
-          scanLoopRef.current = setTimeout(run, 2000);
-        }
-      } else {
-        scanLoopRef.current = setTimeout(run, 1000);
+      if (!response.ok) {
+        setScanStatus('searching');
+        setStatusMessage(data.error || 'No se pudo leer el DNI');
+        setLoading(false);
+        return;
       }
-    };
 
-    scanLoopRef.current = setTimeout(run, 1500);
+      if (data.status === 'face_detected') {
+        setScanStatus('flip_dni');
+        setStatusMessage('¡Voltee el DNI!');
+        setLoading(false);
+      } else if ((data.status === 'success' || data.status === 'not_found') && data.dni) {
+        setScanStatus('success');
+        setStatusMessage(`DNI ${data.dni} detectado`);
+        setLoading(false);
+        
+        Alert.alert(
+          'DNI Detectado',
+          `DNI: ${data.dni}\n¿Desea continuar?`,
+          [
+            { text: 'Cancelar', style: 'cancel', onPress: () => {
+                setIsScanningActive(true);
+                setScanStatus('searching');
+                setStatusMessage('Coloque el reverso del DNI en el recuadro');
+              } 
+            },
+            { text: 'Buscar', onPress: () => handleDniReceived(data.dni) }
+          ]
+        );
+      } else {
+        setScanStatus('searching');
+        setStatusMessage('No se detectó un DNI válido');
+        setLoading(false);
+      }
+    } catch (err) {
+      console.log('Error scanning DNI via backend:', err.message);
+      setScanStatus('searching');
+      setStatusMessage('Error de conexión');
+      setLoading(false);
+    }
   };
 
   const handleDniReceived = async (dni) => {
@@ -348,6 +311,19 @@ const ScanScreen = ({ route, navigation }) => {
             </Text>
           )}
         </View>
+
+        {isOnline && (
+          <View style={styles.captureContainer}>
+            <TouchableOpacity 
+              style={[styles.captureButton, loading && styles.captureButtonDisabled]} 
+              onPress={takePhoto}
+              disabled={loading || !isScanningActive}
+            >
+              <MaterialCommunityIcons name="camera" size={32} color="#FFFFFF" />
+              <Text style={styles.captureButtonText}>Tomar Foto</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Manual entry at bottom */}
         <View style={styles.bottomOverlay}>
