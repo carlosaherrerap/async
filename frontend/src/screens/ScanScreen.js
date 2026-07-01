@@ -69,9 +69,8 @@ const ScanScreen = ({ route, navigation }) => {
       setStatusMessage('Analizando DNI...');
 
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.1,
+        quality: 0.05, // very high compression for < 100KB
         base64: true,
-        skipProcessing: true,
         imageType: 'jpg',
       });
 
@@ -94,7 +93,26 @@ const ScanScreen = ({ route, navigation }) => {
         body: JSON.stringify({ imageBase64: photo.base64 })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        const textResponse = await response.text();
+        try {
+          data = JSON.parse(textResponse);
+        } catch (parseErr) {
+          console.error('Error parseando JSON del servidor:', parseErr.message);
+          console.log('Respuesta cruda del servidor:', textResponse.substring(0, 500)); // Log first 500 chars of HTML error
+          setScanStatus('searching');
+          setStatusMessage('Error en el servidor. Intente de nuevo.');
+          setLoading(false);
+          return;
+        }
+      } catch (readErr) {
+        console.error('Error leyendo respuesta del servidor:', readErr.message);
+        setScanStatus('searching');
+        setStatusMessage('Error de red. Intente de nuevo.');
+        setLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         setScanStatus('searching');
@@ -528,14 +546,41 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   manualSearchButton: {
-    width: 55,
-    height: 55,
+    backgroundColor: '#F1F5F9',
+    padding: 12,
     borderRadius: 8,
-    borderWidth: 2.5,
-    borderColor: COLORS.blue,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  captureContainer: {
+    position: 'absolute',
+    bottom: 210,
+    width: '100%',
     alignItems: 'center',
+    zIndex: 10,
+  },
+  captureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.blue,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  captureButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  captureButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
   permissionText: {
     color: '#FFFFFF',
