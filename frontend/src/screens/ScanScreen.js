@@ -8,9 +8,36 @@ import { COLORS } from '../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 const frameWidth = width * 0.85;
-const frameHeight = (width * 0.85) / 1.58; // Aspect ratio of a standard card (1.58)
+const frameHeight = (width * 0.85) / 1.58;
 const frameTop = height * 0.28;
 const frameLeft = width * 0.075;
+
+const BASE_URL = 'https://backend-u0t0.onrender.com';
+
+// Extract 8-digit DNI from PDF417 barcode raw text (Peruvian DNI format)
+const extractDniFromBarcode = (rawText) => {
+  if (!rawText) return null;
+  console.log('[SCAN] Barcode raw text length:', rawText.length, '| preview:', JSON.stringify(rawText.substring(0, 40)));
+
+  // Peruvian DNI PDF417 format: first 2 chars are header codes, next 8 are DNI digits
+  if (rawText.length >= 10) {
+    const candidate = rawText.substring(2, 10);
+    if (/^\d{8}$/.test(candidate)) {
+      console.log('[SCAN] DNI extraído (posición 2-10):', candidate);
+      return candidate;
+    }
+  }
+
+  // Fallback: find any 8-digit sequence
+  const match = rawText.match(/\b\d{8}\b/) || rawText.match(/\d{8}/);
+  if (match) {
+    console.log('[SCAN] DNI extraído (fallback regex):', match[0]);
+    return match[0];
+  }
+
+  console.log('[SCAN] No se pudo extraer DNI del texto del código de barras');
+  return null;
+};
 
 const ScanScreen = ({ route, navigation }) => {
   const [permission, requestPermission] = useCameraPermissions();
@@ -20,28 +47,18 @@ const ScanScreen = ({ route, navigation }) => {
   const [showModal, setShowModal] = useState(false);
   const [manualDni, setManualDni] = useState('');
 
-  // Real-time scan states
-  const [isScanningActive, setIsScanningActive] = useState(true);
-  const [scanStatus, setScanStatus] = useState('searching'); // 'searching' | 'processing' | 'flip_dni' | 'success' | 'unrecognized'
-  const [statusMessage, setStatusMessage] = useState('Coloque el reverso del DNI en el recuadro');
+  const [scanStatus, setScanStatus] = useState('searching');
+  const [statusMessage, setStatusMessage] = useState('Apunte el REVERSO del DNI — código de barras en el recuadro');
   const [isOnline, setIsOnline] = useState(true);
 
-  const cameraRef = useRef(null);
-  const scanLoopRef = useRef(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
-  // Check online status on mount
   useEffect(() => {
     const online = global.dbHelper.isOnline();
     setIsOnline(online);
-    if (!online) {
-      setStatusMessage('Modo Offline: Escanee la barra del reverso directamente');
-    } else {
-      setStatusMessage('Coloque el reverso del DNI en el recuadro');
-    }
+    console.log('[SCAN] Modo:', online ? 'ONLINE' : 'OFFLINE');
   }, []);
 
-  // Sync params DNI
   useEffect(() => {
     if (route.params?.dni) {
       const targetDni = route.params.dni;
@@ -50,231 +67,134 @@ const ScanScreen = ({ route, navigation }) => {
     }
   }, [route.params?.dni]);
 
-  // Scan line animation loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scanLineAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(scanLineAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+        Animated.timing(scanLineAnim, { toValue: 1, duration: 1800, useNativeDriver: true }),
+        Animated.timing(scanLineAnim, { toValue: 0, duration: 1800, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
-  const takePhoto = async () => {
-    if (!isScanningActive || showModal || loading || !cameraRef.current) return;
+  // ─── Native barcode scanner callback ─────────────────────────────────────
+  const handleBarCodeScanned = ({ type, data }) => {
+    if (scanned || loading || showModal) return;
 
-    try {
-      setLoading(true);
-      setScanStatus('processing');
-      setStatusMessage('Analizando DNI...');
+    console.log('[SCAN] Código detectado! Tipo:', type, '| Longitud:', data?.length);
+    setScanned(true);
+    setScanStatus('processing');
+    setStatusMessage('Código detectado — procesando...');
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.05, // very high compression for < 100KB
-        base64: true,
-        imageType: 'jpg',
-      });
+    const dni = extractDniFromBarcode(data);
 
-      if (!photo || !photo.base64) {
-        setScanStatus('searching');
-        setStatusMessage('Error al capturar, intente de nuevo');
-        setLoading(false);
-        return;
-      }
-
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      const token = await AsyncStorage.getItem('userToken');
-
-      const BASE_URL = 'https://backend-u0t0.onrender.com'; // URL del backend en Render
-      
-      // Timeout de 30 segundos (el servidor gratis de Render puede tardar en despertar)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      let response;
-      try {
-        response = await fetch(`${BASE_URL}/api/attendance/scan-dni`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ imageBase64: photo.base64 }),
-          signal: controller.signal
-        });
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        if (fetchErr.name === 'AbortError') {
-          setScanStatus('searching');
-          setStatusMessage('Timeout: El servidor tardó demasiado. Reintente.');
-        } else {
-          console.error('Error de red al enviar imagen:', fetchErr.message);
-          setScanStatus('searching');
-          setStatusMessage('Sin conexión al servidor.');
-        }
-        setLoading(false);
-        return;
-      }
-      clearTimeout(timeoutId);
-
-      let data;
-      try {
-        const textResponse = await response.text();
-        try {
-          data = JSON.parse(textResponse);
-        } catch (parseErr) {
-          console.error('Error parseando JSON del servidor:', parseErr.message);
-          console.log('Respuesta cruda del servidor:', textResponse.substring(0, 500)); // Log first 500 chars of HTML error
-          setScanStatus('searching');
-          setStatusMessage('Error en el servidor. Intente de nuevo.');
-          setLoading(false);
-          return;
-        }
-      } catch (readErr) {
-        console.error('Error leyendo respuesta del servidor:', readErr.message);
-        setScanStatus('searching');
-        setStatusMessage('Error de red. Intente de nuevo.');
-        setLoading(false);
-        return;
-      }
-
-      if (!response.ok) {
-        setScanStatus('searching');
-        setStatusMessage(data.error || 'No se pudo leer el DNI');
-        setLoading(false);
-        return;
-      }
-
-      if (data.status === 'face_detected') {
-        setScanStatus('flip_dni');
-        setStatusMessage('¡Voltee el DNI!');
-        setLoading(false);
-      } else if ((data.status === 'success' || data.status === 'not_found') && data.dni) {
-        setScanStatus('success');
-        setStatusMessage(`DNI ${data.dni} detectado`);
-        setLoading(false);
-        
-        Alert.alert(
-          'DNI Detectado',
-          `DNI: ${data.dni}\n¿Desea continuar?`,
-          [
-            { text: 'Cancelar', style: 'cancel', onPress: () => {
-                setIsScanningActive(true);
-                setScanStatus('searching');
-                setStatusMessage('Coloque el reverso del DNI en el recuadro');
-              } 
-            },
-            { text: 'Buscar', onPress: () => handleDniReceived(data.dni) }
-          ]
-        );
-      } else {
-        setScanStatus('searching');
-        setStatusMessage('No se detectó un DNI válido');
-        setLoading(false);
-      }
-    } catch (err) {
-      console.log('Error scanning DNI via backend:', err.message);
-      setScanStatus('searching');
-      setStatusMessage('Error de conexión');
-      setLoading(false);
+    if (!dni) {
+      // Código detectado pero sin DNI válido — puede que sea un código distinto al PDF417 del DNI
+      console.log('[SCAN] Código detectado pero sin DNI válido. Texto completo:', data);
+      Alert.alert(
+        'Código no reconocido',
+        `Se detectó un código pero no contiene un DNI válido.\n\nContenido: ${data.substring(0, 50)}`,
+        [{ text: 'Reintentar', onPress: resetScanner }]
+      );
+      return;
     }
+
+    handleDniReceived(dni);
   };
 
+  const resetScanner = () => {
+    setScanned(false);
+    setScanStatus('searching');
+    setStatusMessage('Apunte el REVERSO del DNI — código de barras en el recuadro');
+  };
+
+  // ─── Worker lookup (online → backend, offline → SQLite) ──────────────────
   const handleDniReceived = async (dni) => {
     if (loading || !dni) return;
+    console.log('[SCAN] Buscando DNI:', dni);
     setLoading(true);
 
     const showNotFoundAlert = () => {
       Alert.alert(
         'Postulante no encontrado',
-        `El DNI ${dni} no esta registrado. ¿Desea registrarlo ahora?`,
+        `El DNI ${dni} no está registrado. ¿Desea registrarlo?`,
         [
-          { text: 'Cancelar', style: 'cancel', onPress: () => {
-              setIsScanningActive(true);
-              setScanStatus('searching');
-              setStatusMessage(isOnline ? 'Coloque el reverso del DNI en el recuadro' : 'Modo Offline: Escanee la barra del reverso directamente');
-            } 
+          {
+            text: 'Cancelar', style: 'cancel', onPress: () => {
+              setLoading(false);
+              resetScanner();
+            }
           },
-          { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni: dni }) }
+          { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni }) }
         ]
       );
     };
 
     try {
-      if (global.dbHelper.isOnline()) {
+      if (isOnline) {
+        console.log('[SCAN] Verificando en backend:', `${BASE_URL}/api/attendance/verify?dni=${dni}`);
         try {
           const AsyncStorage = require('@react-native-async-storage/async-storage').default;
           const token = await AsyncStorage.getItem('userToken');
-          const response = await fetch(`https://backend-6oio.onrender.com/api/attendance/verify?dni=${dni}`, {
+          const response = await fetch(`${BASE_URL}/api/attendance/verify?dni=${dni}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const data = await response.json();
+          console.log('[SCAN] Respuesta backend verify:', response.status, JSON.stringify(data).substring(0, 100));
 
           if (response.ok) {
             setWorkerData(data);
             setShowModal(true);
-            setIsScanningActive(false);
+            setScanStatus('success');
+            setLoading(false);
             return;
           } else {
+            setLoading(false);
             showNotFoundAlert();
             return;
           }
         } catch (fetchErr) {
-          console.log('Error verifying worker online, falling back to local SQLite:', fetchErr.message);
+          console.log('[SCAN] Error online, fallback a SQLite:', fetchErr.message);
         }
       }
 
+      // Offline fallback
       const data = await global.dbHelper.verifyWorkerOffline(dni);
       if (data) {
         setWorkerData(data);
         setShowModal(true);
-        setIsScanningActive(false);
+        setScanStatus('success');
       } else {
         showNotFoundAlert();
       }
     } catch (error) {
-      Alert.alert('Error', 'Ocurrio un error al verificar el postulante.');
+      console.error('[SCAN] Error crítico en handleDniReceived:', error.message);
+      Alert.alert('Error', 'Ocurrió un error al verificar el postulante.');
     } finally {
       setLoading(false);
       setScanned(false);
     }
   };
 
-  const handleBarCodeScanned = ({ data }) => {
-    // Only used when OFFLINE
-    if (isOnline) return;
-    if (scanned) return;
-    setScanned(true);
-    handleDniReceived(data);
+  const handleCloseModal = () => {
+    setShowModal(false);
+    resetScanner();
   };
 
   const getBorderColor = () => {
     switch (scanStatus) {
-      case 'processing':
-        return COLORS.orange;
-      case 'flip_dni':
-        return COLORS.danger;
-      case 'success':
-        return COLORS.successLight;
-      default:
-        return 'rgba(255,255,255,0.7)';
+      case 'processing': return COLORS.orange;
+      case 'success':    return COLORS.successLight;
+      default:           return 'rgba(255,255,255,0.7)';
     }
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setIsScanningActive(true);
-    setScanStatus('searching');
-    setStatusMessage(isOnline ? 'Coloque el reverso del DNI en el recuadro' : 'Modo Offline: Escanee la barra del reverso directamente');
   };
 
   if (!permission) return <View style={styles.container}><ActivityIndicator color={COLORS.blue} /></View>;
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <View style={[styles.background, { backgroundColor: '#1a1a1a' }]} />
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a1a' }]}>
         <MaterialCommunityIcons name="camera-off" size={80} color="#666" />
-        <Text style={styles.permissionText}>Se requiere acceso a la camara</Text>
+        <Text style={styles.permissionText}>Se requiere acceso a la cámara</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Solicitar Permiso</Text>
         </TouchableOpacity>
@@ -285,88 +205,73 @@ const ScanScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <CameraView
-        ref={cameraRef}
         style={StyleSheet.absoluteFillObject}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ["code128", "code39"], // Fallback barcodes offline
+          barcodeTypes: ['pdf417', 'code128', 'code39', 'code93', 'qr'],
         }}
       />
 
       <View style={styles.overlay}>
-        {/* Header HUD */}
+        {/* Header */}
         <View style={styles.topOverlay}>
           <View style={styles.header}>
             <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
-            <Text style={styles.headerTitle}>CONTROL DE ASISTENCIA (DNI)</Text>
+            <Text style={styles.headerTitle}>MARCACIÓN DNI</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <View style={[
-            styles.statusBadge, 
-            scanStatus === 'flip_dni' && styles.statusBadgeDanger,
+            styles.statusBadge,
             scanStatus === 'processing' && styles.statusBadgeWarning,
-            scanStatus === 'success' && styles.statusBadgeSuccess
+            scanStatus === 'success' && styles.statusBadgeSuccess,
           ]}>
-            <Text style={[
-              styles.statusText,
-              scanStatus === 'flip_dni' && styles.statusTextDanger,
-              scanStatus === 'processing' && styles.statusTextWarning,
-              scanStatus === 'success' && styles.statusTextSuccess
-            ]}>
-              {statusMessage.toUpperCase()}
-            </Text>
+            {loading
+              ? <ActivityIndicator size="small" color={COLORS.blue} />
+              : <Text style={[
+                  styles.statusText,
+                  scanStatus === 'processing' && styles.statusTextWarning,
+                  scanStatus === 'success'    && styles.statusTextSuccess,
+                ]}>
+                  {statusMessage.toUpperCase()}
+                </Text>
+            }
           </View>
         </View>
 
-        {/* Viewfinder slot */}
+        {/* Scanner frame */}
         <View style={[styles.scannerFrame, { borderColor: getBorderColor() }]}>
-          <View style={[styles.cornerTopLeft, { borderColor: getBorderColor() }]} />
-          <View style={[styles.cornerTopRight, { borderColor: getBorderColor() }]} />
+          <View style={[styles.cornerTopLeft,    { borderColor: getBorderColor() }]} />
+          <View style={[styles.cornerTopRight,   { borderColor: getBorderColor() }]} />
           <View style={[styles.cornerBottomLeft, { borderColor: getBorderColor() }]} />
-          <View style={[styles.cornerBottomRight, { borderColor: getBorderColor() }]} />
+          <View style={[styles.cornerBottomRight,{ borderColor: getBorderColor() }]} />
 
-          <Animated.View
-            style={[
-              styles.scanLine,
-              {
-                backgroundColor: scanStatus === 'flip_dni' ? COLORS.danger : (scanStatus === 'success' ? COLORS.successLight : '#B91C1C'),
-                transform: [{
-                  translateY: scanLineAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [10, frameHeight - 10]
-                  })
-                }]
-              }
-            ]}
-          />
+          <Animated.View style={[styles.scanLine, {
+            backgroundColor: scanStatus === 'success' ? COLORS.successLight : '#B91C1C',
+            transform: [{
+              translateY: scanLineAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [10, frameHeight - 10]
+              })
+            }]
+          }]} />
 
-          {scanStatus === 'flip_dni' ? (
-            <View style={styles.flipContainer}>
-              <MaterialCommunityIcons name="card-refresh-outline" size={70} color={COLORS.danger} />
-              <Text style={styles.flipText}>¡VOLTEE EL DNI!</Text>
-            </View>
-          ) : (
-            <Text style={styles.guideText}>
-              {isOnline ? 'UBIQUE EL REVERSO DE DNI AQUÍ' : 'ESCANEE LA BARRA DE CONTROL'}
-            </Text>
-          )}
+          <Text style={styles.guideText}>
+            {scanStatus === 'processing'
+              ? 'PROCESANDO...'
+              : 'CÓDIGO DE BARRAS DEL REVERSO'}
+          </Text>
         </View>
 
-        {isOnline && (
-          <View style={styles.captureContainer}>
-            <TouchableOpacity 
-              style={[styles.captureButton, loading && styles.captureButtonDisabled]} 
-              onPress={takePhoto}
-              disabled={loading || !isScanningActive}
-            >
-              <MaterialCommunityIcons name="camera" size={32} color="#FFFFFF" />
-              <Text style={styles.captureButtonText}>Tomar Foto</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Hint below frame */}
+        <View style={styles.hintContainer}>
+          <MaterialCommunityIcons name="barcode-scan" size={20} color="rgba(255,255,255,0.8)" />
+          <Text style={styles.hintText}>
+            Acerque el código de barras vertical{'\n'}(esquina superior derecha del reverso)
+          </Text>
+        </View>
 
-        {/* Manual entry at bottom */}
+        {/* Manual entry */}
         <View style={styles.bottomOverlay}>
           <Surface style={styles.manualPanel} elevation={3}>
             <Text style={styles.manualLabel}>INGRESO MANUAL DE DNI:</Text>
@@ -381,8 +286,12 @@ const ScanScreen = ({ route, navigation }) => {
                 onChangeText={setManualDni}
               />
               <TouchableOpacity
-                onPress={() => handleDniReceived(manualDni)}
+                onPress={() => {
+                  if (manualDni.length === 8) handleDniReceived(manualDni);
+                  else Alert.alert('DNI inválido', 'El DNI debe tener 8 dígitos.');
+                }}
                 style={styles.manualSearchButton}
+                disabled={loading}
               >
                 <MaterialCommunityIcons name="magnify" size={26} color={COLORS.blue} />
               </TouchableOpacity>
@@ -408,17 +317,8 @@ const ScanScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-  },
+  container: { flex: 1, backgroundColor: '#000000' },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between' },
   topOverlay: {
     paddingTop: 50,
     paddingHorizontal: 20,
@@ -433,16 +333,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  backBtn: {
-    backgroundColor: '#F4F6F8',
-    margin: 0,
-  },
-  headerTitle: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
+  backBtn: { backgroundColor: '#F4F6F8', margin: 0 },
+  headerTitle: { color: '#0F172A', fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   statusBadge: {
     backgroundColor: '#F1F5F9',
     borderRadius: 6,
@@ -452,34 +344,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    minHeight: 40,
   },
-  statusBadgeWarning: {
-    backgroundColor: COLORS.orangeSoft,
-    borderColor: COLORS.orangeBorder,
-  },
-  statusBadgeDanger: {
-    backgroundColor: COLORS.dangerSoft,
-    borderColor: COLORS.dangerBorder,
-  },
-  statusBadgeSuccess: {
-    backgroundColor: COLORS.successSoft,
-    borderColor: COLORS.successBorder,
-  },
-  statusText: {
-    color: '#334155',
-    fontWeight: '900',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  statusTextWarning: {
-    color: COLORS.orangeDark,
-  },
-  statusTextDanger: {
-    color: COLORS.danger,
-  },
-  statusTextSuccess: {
-    color: COLORS.success,
-  },
+  statusBadgeWarning: { backgroundColor: COLORS.orangeSoft, borderColor: COLORS.orangeBorder },
+  statusBadgeSuccess: { backgroundColor: COLORS.successSoft, borderColor: COLORS.successBorder },
+  statusText:        { color: '#334155', fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  statusTextWarning: { color: COLORS.orangeDark },
+  statusTextSuccess: { color: COLORS.success },
   scannerFrame: {
     position: 'absolute',
     width: frameWidth,
@@ -491,151 +362,57 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 3.5,
   },
-  cornerTopLeft: { position: 'absolute', top: -3.5, left: -3.5, width: 25, height: 25, borderTopWidth: 5.5, borderLeftWidth: 5.5, borderTopLeftRadius: 12 },
-  cornerTopRight: { position: 'absolute', top: -3.5, right: -3.5, width: 25, height: 25, borderTopWidth: 5.5, borderRightWidth: 5.5, borderTopRightRadius: 12 },
-  cornerBottomLeft: { position: 'absolute', bottom: -3.5, left: -3.5, width: 25, height: 25, borderBottomWidth: 5.5, borderLeftWidth: 5.5, borderBottomLeftRadius: 12 },
-  cornerBottomRight: { position: 'absolute', bottom: -3.5, right: -3.5, width: 25, height: 25, borderBottomWidth: 5.5, borderRightWidth: 5.5, borderBottomRightRadius: 12 },
+  cornerTopLeft:    { position: 'absolute', top: -3.5, left: -3.5,   width: 28, height: 28, borderTopWidth: 5.5, borderLeftWidth: 5.5,   borderTopLeftRadius: 12 },
+  cornerTopRight:   { position: 'absolute', top: -3.5, right: -3.5,  width: 28, height: 28, borderTopWidth: 5.5, borderRightWidth: 5.5,  borderTopRightRadius: 12 },
+  cornerBottomLeft: { position: 'absolute', bottom: -3.5, left: -3.5, width: 28, height: 28, borderBottomWidth: 5.5, borderLeftWidth: 5.5, borderBottomLeftRadius: 12 },
+  cornerBottomRight:{ position: 'absolute', bottom: -3.5, right: -3.5,width: 28, height: 28, borderBottomWidth: 5.5, borderRightWidth: 5.5,borderBottomRightRadius: 12 },
   scanLine: {
-    width: '90%',
-    height: 3,
-    position: 'absolute',
-    left: '5%',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 8,
+    width: '90%', height: 3, position: 'absolute', left: '5%',
+    shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4, elevation: 8,
   },
   guideText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '900',
+    color: '#FFFFFF', fontSize: 11, textAlign: 'center', fontWeight: '900',
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#334155',
-    overflow: 'hidden',
+    paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8,
+    borderWidth: 1.5, borderColor: '#334155', overflow: 'hidden',
   },
-  flipContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(254, 242, 242, 0.95)',
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 2.5,
-    borderColor: COLORS.dangerBorder,
-  },
-  flipText: {
-    color: COLORS.danger,
-    fontSize: 14,
-    fontWeight: '900',
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  bottomOverlay: {
-    padding: 20,
-    paddingBottom: 40,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-  manualPanel: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-  },
-  manualLabel: {
-    color: '#64748B',
-    fontSize: 12,
-    marginBottom: 10,
-    fontWeight: '900',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 6,
-    paddingHorizontal: 15,
-    height: 55,
-    color: '#0F172A',
-    fontSize: 18,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    fontWeight: '800',
-  },
-  manualSearchButton: {
-    backgroundColor: '#F1F5F9',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  captureContainer: {
+  hintContainer: {
     position: 'absolute',
-    bottom: 210,
+    top: frameTop + frameHeight + 16,
     width: '100%',
     alignItems: 'center',
-    zIndex: 10,
+    flexDirection: 'column',
+    gap: 6,
   },
-  captureButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.blue,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 30,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  hintText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    fontWeight: '600',
   },
-  captureButtonDisabled: {
-    backgroundColor: '#94A3B8',
+  bottomOverlay: { padding: 20, paddingBottom: 40, backgroundColor: 'rgba(0,0,0,0.7)' },
+  manualPanel: { backgroundColor: '#FFFFFF', borderRadius: 8, padding: 20, borderWidth: 2, borderColor: '#E2E8F0' },
+  manualLabel: { color: '#64748B', fontSize: 12, marginBottom: 10, fontWeight: '900' },
+  inputContainer: { flexDirection: 'row', gap: 10 },
+  input: {
+    flex: 1, backgroundColor: '#F9FAFB', borderRadius: 6,
+    paddingHorizontal: 15, height: 55, color: '#0F172A',
+    fontSize: 18, borderWidth: 2, borderColor: '#E2E8F0', fontWeight: '800',
   },
-  captureButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  permissionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    marginTop: 20,
-    marginBottom: 20,
-    fontWeight: '700',
-  },
-  permissionButton: {
-    backgroundColor: COLORS.blue,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  permissionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 14,
+  manualSearchButton: {
+    backgroundColor: '#F1F5F9', padding: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(255,255,255,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    justifyContent: 'center', alignItems: 'center', zIndex: 10,
   },
-  loadingText: {
-    color: '#334155',
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: '900',
-  }
+  loadingText: { color: '#334155', marginTop: 15, fontSize: 16, fontWeight: '900' },
+  permissionText: { color: '#FFFFFF', fontSize: 16, marginTop: 20, marginBottom: 20, fontWeight: '700' },
+  permissionButton: { backgroundColor: COLORS.blue, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
+  permissionButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14 },
 });
 
 export default ScanScreen;
