@@ -282,12 +282,16 @@ const scanDniImage = async (req, res) => {
         // Remove base64 data header if present
         const cleanedBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
         const imageBuffer = Buffer.from(cleanedBase64, 'base64');
+        console.log(`[SCAN] Image buffer size: ${imageBuffer.length} bytes`);
 
         // Load image with Jimp
         const jimpImage = await Jimp.read(imageBuffer);
+        console.log(`[SCAN] Image dimensions: ${jimpImage.bitmap.width}x${jimpImage.bitmap.height}`);
 
         // 1. Check for face (indicating front of DNI)
+        console.log('[SCAN] Running face detection...');
         const faceDetected = await hasFace(jimpImage);
+        console.log(`[SCAN] Face detected: ${faceDetected}`);
         if (faceDetected) {
             return res.json({
                 status: 'face_detected',
@@ -296,9 +300,13 @@ const scanDniImage = async (req, res) => {
         }
 
         // 2. Check for barcode (indicating back of DNI)
+        console.log('[SCAN] Running barcode detection...');
         const barcodeResult = await decodeBarcodeWithRotations(jimpImage);
+        console.log(`[SCAN] Barcode result:`, barcodeResult);
+
         if (barcodeResult && barcodeResult.dni) {
             const dni = barcodeResult.dni;
+            console.log(`[SCAN] DNI found: ${dni}`);
 
             // Search for worker in database
             const workerRes = await db.query(
@@ -351,14 +359,15 @@ const scanDniImage = async (req, res) => {
         }
 
         // If neither face nor barcode is detected
+        console.log('[SCAN] No DNI barcode found — returning unrecognized');
         return res.json({
             status: 'unrecognized',
-            message: 'No se detecto rostro ni codigo de barras. Intente enfocar mejor el DNI.'
+            message: 'No se detecto codigo de barras. Asegurese de enfocar el reverso del DNI.'
         });
 
     } catch (error) {
-        console.error('Error in scanDniImage:', error);
-        return res.status(500).json({ message: 'Error al procesar la imagen del DNI.' });
+        console.error('[SCAN] Error in scanDniImage:', error);
+        return res.status(500).json({ message: 'Error al procesar la imagen del DNI.', detail: error.message });
     }
 };
 

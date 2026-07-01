@@ -84,14 +84,37 @@ const ScanScreen = ({ route, navigation }) => {
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       const token = await AsyncStorage.getItem('userToken');
 
-      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/scan-dni', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ imageBase64: photo.base64 })
-      });
+      const BASE_URL = 'https://backend-u0t0.onrender.com'; // URL del backend en Render
+      
+      // Timeout de 30 segundos (el servidor gratis de Render puede tardar en despertar)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      let response;
+      try {
+        response = await fetch(`${BASE_URL}/api/attendance/scan-dni`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ imageBase64: photo.base64 }),
+          signal: controller.signal
+        });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        if (fetchErr.name === 'AbortError') {
+          setScanStatus('searching');
+          setStatusMessage('Timeout: El servidor tardó demasiado. Reintente.');
+        } else {
+          console.error('Error de red al enviar imagen:', fetchErr.message);
+          setScanStatus('searching');
+          setStatusMessage('Sin conexión al servidor.');
+        }
+        setLoading(false);
+        return;
+      }
+      clearTimeout(timeoutId);
 
       let data;
       try {
