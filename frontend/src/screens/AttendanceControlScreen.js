@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Animated, TextInput, FlatList } from 'react-native';
 import { Text, Surface, ActivityIndicator, Portal, Modal, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -371,6 +371,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   const [attendanceTab, setAttendanceTab] = useState('PRESENTES'); // PRESENTES | AUSENTES
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const [searchDni, setSearchDni] = useState('');
 
   // Filtros Asistencia Diaria
   const [filterCargo, setFilterCargo] = useState('TODOS');
@@ -696,29 +697,22 @@ const AttendanceControlScreen = ({ navigation }) => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
         const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
-        return matchCargo && matchTurno && matchTipo;
+        const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
+        return matchCargo && matchTurno && matchTipo && matchDni;
       }),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
         const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
-        return matchCargo && matchTurno && matchTipo;
+        const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
+        return matchCargo && matchTurno && matchTipo && matchDni;
       }),
     };
 
-    return (
-      <View style={{ flex: 1 }}>
-        <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="calendar" size={24} color="#334155" />
-            <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: 'bold' }}>FECHA (CLICK PARA CAMBIAR):</Text>
-              <Text style={{ color: '#334155', fontWeight: 'bold', fontSize: 16 }}>{selectedDate}</Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons name="chevron-down" size={24} color="#334155" />
-        </TouchableOpacity>
+    const currentList = attendanceTab === 'PRESENTES' ? filteredData.presentes : filteredData.ausentes;
 
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 10 }}>
         {/* Switch TODOS / TITULAR / RESERVA */}
         <View style={styles.tipoSwitchRow}>
           {['TODOS', 'Titular', 'Reserva'].map(tipo => {
@@ -768,26 +762,61 @@ const AttendanceControlScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Búsqueda por DNI input */}
+        <View style={styles.searchContainer}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#64748B" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Busqueda por DNI"
+            placeholderTextColor="#94A3B8"
+            value={searchDni}
+            onChangeText={setSearchDni}
+            keyboardType="numeric"
+            maxLength={8}
+          />
+          {searchDni.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchDni('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* SubTabs */}
         <View style={styles.subTabContainer}>
           <TouchableOpacity
-            style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
-            onPress={() => setAttendanceTab('PRESENTES')}
+             style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
+             onPress={() => setAttendanceTab('PRESENTES')}
           >
-            <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>PRESENTES ({filteredData.presentes.length})</Text>
+             <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>
+               EVALUADOS ({filteredData.presentes.length})
+             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
-            onPress={() => setAttendanceTab('AUSENTES')}
+             style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
+             onPress={() => setAttendanceTab('AUSENTES')}
           >
-            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>AUSENTES ({filteredData.ausentes.length})</Text>
+             <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>
+               No evaluados ({filteredData.ausentes.length})
+             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ marginTop: 10 }}>
-          {attendanceTab === 'PRESENTES' ? filteredData.presentes.map(renderPersonItem) : filteredData.ausentes.map(renderPersonItem)}
-          {attendanceTab === 'PRESENTES' && filteredData.presentes.length === 0 && <Text style={styles.emptyText}>No hay registros para este día.</Text>}
-          {attendanceTab === 'AUSENTES' && filteredData.ausentes.length === 0 && <Text style={styles.emptyText}>Todos asistieron o no hay personal.</Text>}
-        </View>
+        <FlatList
+          data={currentList}
+          keyExtractor={(item) => `${item.id}-${item.dni}`}
+          renderItem={({ item }) => renderPersonItem(item)}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          contentContainerStyle={{ paddingBottom: 24, paddingTop: 6 }}
+          ListEmptyComponent={() => {
+            if (attendanceTab === 'PRESENTES') {
+              return <Text style={styles.emptyText}>No hay registros para este día.</Text>;
+            } else {
+              return <Text style={styles.emptyText}>Todos asistieron o no hay personal.</Text>;
+            }
+          }}
+        />
       </View>
     );
   };
@@ -1008,9 +1037,17 @@ const AttendanceControlScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {renderTabs()}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {activeTab === 'RESUMEN' ? renderResumen() : (activeTab === 'REPORTE' ? renderReporteDiario() : renderAsistencia())}
-      </ScrollView>
+      {activeTab === 'RESUMEN' ? (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {renderResumen()}
+        </ScrollView>
+      ) : activeTab === 'REPORTE' ? (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {renderReporteDiario()}
+        </ScrollView>
+      ) : (
+        renderAsistencia()
+      )}
       {renderCalendarModal()}
     </View>
   );
@@ -1439,6 +1476,28 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     justifyContent: 'flex-end',
     overflow: 'hidden',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: 10,
+    marginTop: 5,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: 'bold',
+    paddingVertical: 8,
   },
 });
 

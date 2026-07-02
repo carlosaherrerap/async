@@ -337,7 +337,7 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('PersonalList')}
           />
           <MenuBtn
-            title="CONTROL"
+            title="EVALUACION"
             icon="chart-bar"
             themeColor={COLORS.orange}
             onPress={() => navigation.navigate('AttendanceControl')}

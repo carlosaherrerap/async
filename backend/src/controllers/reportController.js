@@ -2,8 +2,10 @@ const db = require('../config/db');
 const XLSX = require('xlsx');
 
 const exportAttendanceToExcel = async (req, res) => {
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
     try {
-        const query = `
+        let query = `
             SELECT 
                 asist.id as "Id",
                 'DNI' as "tipo_doc",
@@ -27,10 +29,15 @@ const exportAttendanceToExcel = async (req, res) => {
             JOIN principal p ON asist.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-            ORDER BY asist.fecha_hora DESC
         `;
+        const params = [];
+        if (!isSU) {
+            query += ` WHERE p.sede_reg = $1`;
+            params.push(userRole);
+        }
+        query += ` ORDER BY asist.fecha_hora DESC`;
 
-        const result = await db.query(query);
+        const result = await db.query(query, params);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'No hay datos para exportar' });
@@ -53,8 +60,10 @@ const exportAttendanceToExcel = async (req, res) => {
 };
 
 const getAbsentees = async (req, res) => {
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
     try {
-        const query = `
+        let query = `
             SELECT p.doc_identidad as dni, p.nombres, p.ape_pat || ' ' || p.ape_mat as apellidos, 
                    p.local as area, c.nombre as puesto, p.turno, p.hora_ingreso::text as hora_ingreso
             FROM principal p
@@ -65,8 +74,12 @@ const getAbsentees = async (req, res) => {
                 AND asist.fecha_hora::date = CURRENT_DATE
             )
         `;
-
-        const result = await db.query(query);
+        const params = [];
+        if (!isSU) {
+            query += ` AND p.sede_reg = $1`;
+            params.push(userRole);
+        }
+        const result = await db.query(query, params);
         res.json(result.rows);
     } catch (error) {
         console.error(error);
@@ -75,19 +88,35 @@ const getAbsentees = async (req, res) => {
 };
 
 const getStats = async (req, res) => {
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
     try {
-        const stats = await db.query(`
-            SELECT 
-                (SELECT COUNT(*) FROM principal) as total_postulantes,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas,
-                (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'P') as temprano
-        `);
-        
+        let statsQuery;
+        let params = [];
+        if (isSU) {
+            statsQuery = `
+                SELECT 
+                    (SELECT COUNT(*) FROM principal) as total_postulantes,
+                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
+                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas,
+                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'P') as temprano
+            `;
+        } else {
+            statsQuery = `
+                SELECT 
+                    (SELECT COUNT(*) FROM principal WHERE sede_reg = $1) as total_postulantes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1) as presentes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND a.estado = 'T' AND p.sede_reg = $1) as tardanzas,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND a.estado = 'P' AND p.sede_reg = $1) as temprano
+            `;
+            params.push(userRole);
+        }
+
+        const stats = await db.query(statsQuery, params);
         const data = stats.rows[0];
         const faltas = parseInt(data.total_postulantes) - parseInt(data.presentes);
 
-        const asistenciaPorCargo = await db.query(`
+        let queryAsistenciaPorCargo = `
             SELECT c.nombre as cargo, 
                    COUNT(a.id) as presentes,
                    (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
@@ -96,16 +125,39 @@ const getStats = async (req, res) => {
             LEFT JOIN asistencias a ON a.principal_id = p.id AND a.fecha_hora::date = CURRENT_DATE
             GROUP BY c.id, c.nombre
             ORDER BY c.id ASC
-        `);
-
-        const metasPorCargo = await db.query(`
+        `;
+        let queryMetasPorCargo = `
             SELECT c.nombre as cargo,
                    COALESCE(m.limite_vacantes, 0) as meta,
                    (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as registrados
             FROM cargos c
             LEFT JOIN metas_cargos m ON m.cargo_id = c.id
             ORDER BY c.id ASC
-        `);
+        `;
+
+        if (!isSU) {
+            queryAsistenciaPorCargo = `
+                SELECT c.nombre as cargo, 
+                       COUNT(a.id) as presentes,
+                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND sede_reg = $1) as total_cargo
+                FROM cargos c
+                LEFT JOIN principal p ON p.cargo_id = c.id AND p.sede_reg = $1
+                LEFT JOIN asistencias a ON a.principal_id = p.id AND a.fecha_hora::date = CURRENT_DATE
+                GROUP BY c.id, c.nombre
+                ORDER BY c.id ASC
+            `;
+            queryMetasPorCargo = `
+                SELECT c.nombre as cargo,
+                       COALESCE(m.limite_vacantes, 0) as meta,
+                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND sede_reg = $1) as registrados
+                FROM cargos c
+                LEFT JOIN metas_cargos m ON m.cargo_id = c.id
+                ORDER BY c.id ASC
+            `;
+        }
+
+        const asistenciaPorCargo = await db.query(queryAsistenciaPorCargo, params);
+        const metasPorCargo = await db.query(queryMetasPorCargo, params);
         
         res.json({
             presentes: parseInt(data.presentes),
@@ -124,25 +176,25 @@ const getStats = async (req, res) => {
 const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
     const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
 
     try {
-        const presentesRes = await db.query(`
+        let queryPresentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                    c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   p.sede_reg, p.sede_juris, p.local, p.turno,
+                   p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             WHERE a.fecha_hora::date = $1
-            ORDER BY a.fecha_hora DESC
-        `, [targetDate]);
-
-        const ausentesRes = await db.query(`
+        `;
+        let queryAusentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                    c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   p.sede_reg, p.sede_juris, p.local, p.turno,
+                   p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
@@ -151,8 +203,23 @@ const getDailyAttendance = async (req, res) => {
                 SELECT 1 FROM asistencias a 
                 WHERE a.principal_id = p.id AND a.fecha_hora::date = $1
             )
-            ORDER BY p.ape_pat, p.ape_mat
-        `, [targetDate]);
+        `;
+        const paramsPresentes = [targetDate];
+        const paramsAusentes = [targetDate];
+
+        if (!isSU) {
+            queryPresentes += ` AND p.sede_reg = $2`;
+            paramsPresentes.push(userRole);
+
+            queryAusentes += ` AND p.sede_reg = $2`;
+            paramsAusentes.push(userRole);
+        }
+
+        queryPresentes += ` ORDER BY a.fecha_hora DESC`;
+        queryAusentes += ` ORDER BY p.ape_pat, p.ape_mat`;
+
+        const presentesRes = await db.query(queryPresentes, paramsPresentes);
+        const ausentesRes = await db.query(queryAusentes, paramsAusentes);
 
         res.json({
             date: targetDate,

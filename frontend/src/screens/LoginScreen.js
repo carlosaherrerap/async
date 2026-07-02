@@ -32,24 +32,9 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
         
         try {
-          const syncRes = await fetch(`${API_URL}/api/attendance/sync-pull`, {
-            headers: { 'Authorization': `Bearer ${data.token}` }
-          });
-          if (syncRes.ok) {
-            const syncData = await syncRes.json();
-            await global.dbHelper.clearAndPopulate(
-              syncData.cargos,
-              syncData.metas_cargos,
-              syncData.tipo_postulante,
-              syncData.parametros_asistencia,
-              syncData.workers,
-              syncData.asistencias
-            );
-          } else {
-            console.error('Error in sync-pull during login:', syncRes.status);
-          }
+          await global.dbHelper.syncPullIfUpdated(data.token);
         } catch (syncErr) {
-          console.error('Network error during sync-pull:', syncErr);
+          console.error('Error syncing on login:', syncErr.message);
         }
 
         navigation.replace('Home');

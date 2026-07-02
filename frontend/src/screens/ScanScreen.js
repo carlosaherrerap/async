@@ -116,16 +116,16 @@ const ScanScreen = ({ route, navigation }) => {
 
     const showNotFoundAlert = () => {
       Alert.alert(
-        'Postulante no encontrado',
-        `El DNI ${dni} no está registrado. ¿Desea registrarlo?`,
+        'REGISTRAR PERSONAL',
+        '¿Quieres registrar un nuevo personal?',
         [
           {
-            text: 'Cancelar', style: 'cancel', onPress: () => {
+            text: 'NO', style: 'cancel', onPress: () => {
               setLoading(false);
               resetScanner();
             }
           },
-          { text: 'Registrar', onPress: () => navigation.navigate('RegisterWorker', { dni }) }
+          { text: 'SI', onPress: () => navigation.navigate('RegisterWorker', { dni }) }
         ]
       );
     };

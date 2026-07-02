@@ -5,6 +5,8 @@ const Jimp = require('jimp');
 
 const registerAttendance = async (req, res) => {
     const { dni, observaciones } = req.body;
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
 
     try {
         // 1. Buscar al postulante por doc_identidad
@@ -22,6 +24,10 @@ const registerAttendance = async (req, res) => {
         }
 
         const worker = workerRes.rows[0];
+
+        if (!isSU && worker.sede_reg !== userRole) {
+            return res.status(403).json({ message: 'No tiene permisos para registrar asistencia en esta sede regional.' });
+        }
 
         // 2. Verificar si ya marco ingreso hoy (bloquear segundo intento)
         const existingRes = await db.query(
@@ -75,6 +81,8 @@ const registerAttendance = async (req, res) => {
 
 const verifyWorker = async (req, res) => {
     const { dni } = req.query;
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
 
     try {
         const workerRes = await db.query(
@@ -91,6 +99,10 @@ const verifyWorker = async (req, res) => {
         }
 
         const worker = workerRes.rows[0];
+
+        if (!isSU && worker.sede_reg !== userRole) {
+            return res.status(404).json({ message: 'Postulante no pertenece a su sede regional asignada.' });
+        }
 
         // Ver si ya marco ingreso hoy
         const attendanceRes = await db.query(
@@ -177,6 +189,8 @@ const registerWorker = async (req, res) => {
 
 const getAllWorkers = async (req, res) => {
     const { limit = 10, offset = 0, tipo } = req.query;
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
     try {
         let query = `
             SELECT p.id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
@@ -189,10 +203,20 @@ const getAllWorkers = async (req, res) => {
         let countQuery = 'SELECT COUNT(*) FROM principal p JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id';
         const params = [];
 
+        const conditions = [];
         if (tipo) {
-            query += ` WHERE tp.descripcion = $1`;
-            countQuery += ` WHERE tp.descripcion = $1`;
+            conditions.push(`tp.descripcion = $${conditions.length + 1}`);
             params.push(tipo);
+        }
+        if (!isSU) {
+            conditions.push(`p.sede_reg = $${conditions.length + 1}`);
+            params.push(userRole);
+        }
+
+        if (conditions.length > 0) {
+            const whereClause = ' WHERE ' + conditions.join(' AND ');
+            query += whereClause;
+            countQuery += whereClause;
         }
 
         query += ` ORDER BY p.sede_reg, p.sede_juris, p.local, c.nombre, p.ape_pat LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -238,23 +262,38 @@ const updateWorker = async (req, res) => {
 };
 
 const getSyncPull = async (req, res) => {
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
     try {
         const cargosRes = await db.query('SELECT id, nombre FROM cargos ORDER BY id ASC');
         const metasCargosRes = await db.query('SELECT cargo_id, limite_vacantes FROM metas_cargos');
         const tipoPostulanteRes = await db.query('SELECT id, descripcion FROM tipo_postulante');
         const parametrosAsistenciaRes = await db.query('SELECT estado, descripcion FROM parametros_asistencia');
 
-        const workersRes = await db.query(`
+        let queryWorkers = `
             SELECT id, sede_reg, sede_juris, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
                    aula, tipo_postulante_id, cargo_id, turno, hora_ingreso 
             FROM principal
-        `);
+        `;
+        let queryAsistencias = `
+            SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones 
+            FROM asistencias a
+            WHERE a.fecha_hora::date = CURRENT_DATE
+        `;
+        const params = [];
+        if (!isSU) {
+            queryWorkers += ` WHERE sede_reg = $1`;
+            queryAsistencias = `
+                SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones 
+                FROM asistencias a
+                JOIN principal p ON a.principal_id = p.id
+                WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1
+            `;
+            params.push(userRole);
+        }
 
-        const asistenciasRes = await db.query(`
-            SELECT id, principal_id, estado, fecha_hora, observaciones 
-            FROM asistencias 
-            WHERE fecha_hora::date = CURRENT_DATE
-        `);
+        const workersRes = await db.query(queryWorkers, params);
+        const asistenciasRes = await db.query(queryAsistencias, params);
 
         res.json({
             cargos: cargosRes.rows,
@@ -327,6 +366,16 @@ const scanDniImage = async (req, res) => {
             }
 
             const worker = workerRes.rows[0];
+            const userRole = req.user.rol;
+            const isSU = userRole === 'SU' || userRole === 'admin';
+
+            if (!isSU && worker.sede_reg !== userRole) {
+                return res.json({
+                    status: 'not_found',
+                    dni,
+                    message: `DNI ${dni} decodificado, pero no registrado en su sede regional.`
+                });
+            }
 
             // Check if already registered today
             const attendanceRes = await db.query(
@@ -378,5 +427,6 @@ module.exports = {
     getAllWorkers,
     updateWorker,
     getSyncPull,
+    getSyncCheck,
     scanDniImage
 };

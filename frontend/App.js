@@ -295,27 +295,57 @@ global.dbHelper = {
       // Check if queue is now empty (was empty or successfully processed everything)
       const remaining = await db.getAllAsync('SELECT COUNT(*) as count FROM sync_queue');
       if (remaining[0].count === 0) {
-        console.log('Sync queue completed (or empty), doing pull...');
-        const res = await fetch(`${API_URL}/api/attendance/sync-pull`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const syncData = await res.json();
-          await this.clearAndPopulate(
-            syncData.cargos,
-            syncData.metas_cargos,
-            syncData.tipo_postulante,
-            syncData.parametros_asistencia,
-            syncData.workers,
-            syncData.asistencias
-          );
-          console.log('[SYNC] Pull successful. Local SQLite database fully synchronized.');
-        } else {
-          console.log(`[SYNC] Pull failed. Status: ${res.status}`);
-        }
+        console.log('Sync queue completed (or empty), triggering syncPullIfUpdated...');
+        await this.syncPullIfUpdated(token);
       }
     } catch (e) {
       console.error('Error during syncQueue:', e);
+    }
+  },
+
+  async syncPullIfUpdated(token) {
+    if (!token) return false;
+    try {
+      console.log('[SYNC] Checking if updates exist via sync-check...');
+      const checkRes = await fetch(`${API_URL}/api/attendance/sync-check`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        const localCounts = await this.getDbDiagnostics();
+        if (localCounts &&
+            localCounts.principalCount === checkData.workers &&
+            localCounts.asistenciasCount === checkData.asistencias &&
+            localCounts.cargosCount === checkData.cargos &&
+            localCounts.metasCount === checkData.metas_cargos &&
+            localCounts.tiposCount === checkData.tipo_postulante &&
+            localCounts.paramsCount === checkData.parametros_asistencia) {
+          console.log('[SYNC] Local counts match Render. Skipping sync-pull.');
+          return true;
+        }
+      }
+
+      console.log('[SYNC] SQLite counts differ. Performing sync-pull...');
+      const pullRes = await fetch(`${API_URL}/api/attendance/sync-pull`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (pullRes.ok) {
+        const syncData = await pullRes.json();
+        await this.clearAndPopulate(
+          syncData.cargos,
+          syncData.metas_cargos,
+          syncData.tipo_postulante,
+          syncData.parametros_asistencia,
+          syncData.workers,
+          syncData.asistencias
+        );
+        console.log('[SYNC] Pull successful. Local SQLite database fully synchronized.');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('[SYNC] Error in syncPullIfUpdated:', e);
+      return false;
     }
   },
 
@@ -432,7 +462,7 @@ global.dbHelper = {
       const presentes = await db.getAllAsync(`
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
-               p.sede_reg, p.sede_juris, p.local, p.turno,
+               p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
                p.hora_ingreso, a.estado, a.fecha_hora
         FROM asistencias a
         JOIN principal p ON a.principal_id = p.id
@@ -445,7 +475,7 @@ global.dbHelper = {
       const ausentes = await db.getAllAsync(`
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
-               p.sede_reg, p.sede_juris, p.local, p.turno,
+               p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
                p.hora_ingreso
         FROM principal p
         JOIN cargos c ON p.cargo_id = c.id
@@ -808,11 +838,11 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'MARCACION DNI' }} />
-          <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'REGISTRAR PERSONAL' }} />
+          <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'INSCRIPCION DE POSTULANTE' }} />
           <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'INGRESO MANUAL' }} />
           <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'FALTAS DE HOY' }} />
           <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'PERSONAL' }} />
-          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'CONTROL DE ASISTENCIA' }} />
+          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'EVALUACION CURRICULAR' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />
         </Stack.Navigator>
       </NavigationContainer>
