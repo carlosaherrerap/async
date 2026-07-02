@@ -5,6 +5,7 @@ import { ActivityIndicator, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AttendanceModal from '../components/AttendanceModal';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 const { width, height } = Dimensions.get('window');
 const frameWidth = width * 0.85;
@@ -12,7 +13,7 @@ const frameHeight = (width * 0.85) / 1.58;
 const frameTop = height * 0.28;
 const frameLeft = width * 0.075;
 
-const BASE_URL = 'https://backend-u0t0.onrender.com';
+const BASE_URL = API_URL;
 
 // Extract 8-digit DNI from PDF417 barcode raw text (Peruvian DNI format)
 const extractDniFromBarcode = (rawText) => {

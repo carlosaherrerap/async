@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 const { width } = Dimensions.get('window');
 const COL = (width - 52) / 2;
@@ -129,7 +130,7 @@ const HomeScreen = ({ navigation }) => {
 
       if (online) {
         try {
-          const res = await fetch('https://backend-6oio.onrender.com/api/attendance/stats', {
+          const res = await fetch(`${API_URL}/api/attendance/stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.status === 401 || res.status === 403) { handleLogout(); return; }
@@ -177,7 +178,7 @@ const HomeScreen = ({ navigation }) => {
     if (!isOnline) { Alert.alert('Sin conexión', 'Se requiere internet para descargar.'); return; }
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('https://backend-6oio.onrender.com/api/attendance/sync-pull', {
+      const res = await fetch(`${API_URL}/api/attendance/sync-pull`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

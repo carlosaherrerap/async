@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TIPO_CONFIG } from '../theme/colors';
 import DropdownModal from '../components/DropdownModal';
+import { API_URL } from '../config';
 
 const { width } = Dimensions.get('window');
 
@@ -431,8 +432,8 @@ const AttendanceControlScreen = ({ navigation }) => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [statsRes, dailyRes] = await Promise.all([
-        fetch('https://backend-6oio.onrender.com/api/attendance/stats', { headers }),
-        fetch(`https://backend-6oio.onrender.com/api/attendance/daily?date=${selectedDate}`, { headers })
+        fetch(`${API_URL}/api/attendance/stats`, { headers }),
+        fetch(`${API_URL}/api/attendance/daily?date=${selectedDate}`, { headers })
       ]);
 
       if (statsRes.status === 401) {
@@ -468,7 +469,7 @@ const AttendanceControlScreen = ({ navigation }) => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/api/config/cargos`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setCargos(await res.json());
     } catch (e) {
       try {

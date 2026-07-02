@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } f
 import { TextInput, Button, Surface, Text, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DropdownModal from '../components/DropdownModal';
+import { API_URL } from '../config';
 
 const HORARIOS_DIA   = ['07:00', '08:00', '09:00', '10:00'];
 const HORARIOS_TARDE = ['12:00', '13:00', '14:00', '15:00', '16:00'];
@@ -54,7 +55,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
+      const res = await fetch(`${API_URL}/api/config/cargos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -110,7 +111,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         ...formData,
         hora_ingreso: formData.hora_ingreso + ':00',
       };
-      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register-worker', {
+      const response = await fetch(`${API_URL}/api/attendance/register-worker`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

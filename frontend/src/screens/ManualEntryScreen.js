@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AttendanceModal from '../components/AttendanceModal';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 const ManualEntryScreen = () => {
   const [dni, setDni] = useState('');
@@ -48,7 +49,7 @@ const ManualEntryScreen = () => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
+      const response = await fetch(`${API_URL}/api/attendance/register`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

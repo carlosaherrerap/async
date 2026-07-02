@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 // ─── Paleta de colores por tipo ─────────────────────────────────────────────
 const TIPO_COLORS = {
@@ -73,7 +74,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
           const body = { dni: worker.dni };
           if (isReserva && aulaReserva) body.aula = parseInt(aulaReserva);
 
-          const response = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
+          const response = await fetch(`${API_URL}/api/attendance/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(body),

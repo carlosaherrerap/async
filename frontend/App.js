@@ -17,6 +17,7 @@ import PersonalListScreen from './src/screens/PersonalListScreen';
 import AttendanceControlScreen from './src/screens/AttendanceControlScreen';
 import ConfigScreen from './src/screens/ConfigScreen';
 import RegisterWorkerScreen from './src/screens/RegisterWorkerScreen';
+import { API_URL } from './src/config';
 
 const Stack = createStackNavigator();
 
@@ -193,103 +194,109 @@ global.dbHelper = {
 
   async syncQueue() {
     if (!db) return;
+    if (!isConnected) {
+      console.log('[SYNC] Device is offline, skipping sync.');
+      return;
+    }
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
       const queue = await db.getAllAsync('SELECT * FROM sync_queue ORDER BY id ASC');
-      if (queue.length === 0) return;
+      
+      if (queue.length > 0) {
+        console.log(`Processing ${queue.length} items in sync queue...`);
+        for (const item of queue) {
+          const payload = JSON.parse(item.payload);
+          let success = false;
+          let responseStatus = 200;
 
-      console.log(`Processing ${queue.length} items in sync queue...`);
-      for (const item of queue) {
-        const payload = JSON.parse(item.payload);
-        let success = false;
-        let responseStatus = 200;
+          try {
+            if (item.action_type === 'REGISTER_WORKER') {
+              const res = await fetch(`${API_URL}/api/attendance/register-worker`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+              if (success) {
+                const resData = await res.json();
+                const realId = resData.worker.id;
+                await db.runAsync('UPDATE principal SET id = ? WHERE doc_identidad = ?', [realId, payload.dni]);
+                await db.runAsync('UPDATE asistencias SET principal_id = ? WHERE principal_id = ?', [realId, payload.id]);
+              }
+            } else if (item.action_type === 'MARK_ATTENDANCE') {
+              const res = await fetch(`${API_URL}/api/attendance/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+            } else if (item.action_type === 'CREATE_CARGO') {
+              const res = await fetch(`${API_URL}/api/config/cargos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+              if (success) {
+                const resData = await res.json();
+                const realId = resData.id;
+                await db.runAsync('UPDATE cargos SET id = ? WHERE nombre = ?', [realId, payload.nombre]);
+                await db.runAsync('UPDATE principal SET cargo_id = ? WHERE cargo_id = ?', [realId, payload.tempId]);
+              }
+            } else if (item.action_type === 'UPDATE_META') {
+              // Find real cargo ID if it was created offline and updated offline
+              const cargoLocal = await db.getAllAsync('SELECT id FROM cargos WHERE nombre = ?', [payload.nombre]);
+              const realId = cargoLocal[0]?.id || payload.id;
+              
+              const res = await fetch(`${API_URL}/api/config/cargos/${realId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ meta: payload.meta })
+              });
+              responseStatus = res.status;
+              success = res.ok;
+            } else if (item.action_type === 'UPDATE_WORKER') {
+              // Find real worker ID by DNI
+              const workerLocal = await db.getAllAsync('SELECT id FROM principal WHERE doc_identidad = ?', [payload.dni]);
+              const realId = workerLocal[0]?.id || payload.id;
 
-        try {
-          if (item.action_type === 'REGISTER_WORKER') {
-            const res = await fetch('https://backend-6oio.onrender.com/api/attendance/register-worker', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify(payload)
-            });
-            responseStatus = res.status;
-            success = res.ok;
-            if (success) {
-              const resData = await res.json();
-              const realId = resData.worker.id;
-              await db.runAsync('UPDATE principal SET id = ? WHERE doc_identidad = ?', [realId, payload.dni]);
-              await db.runAsync('UPDATE asistencias SET principal_id = ? WHERE principal_id = ?', [realId, payload.id]);
+              const res = await fetch(`${API_URL}/api/attendance/workers/${realId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
             }
-          } else if (item.action_type === 'MARK_ATTENDANCE') {
-            const res = await fetch('https://backend-6oio.onrender.com/api/attendance/register', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify(payload)
-            });
-            responseStatus = res.status;
-            success = res.ok;
-          } else if (item.action_type === 'CREATE_CARGO') {
-            const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify(payload)
-            });
-            responseStatus = res.status;
-            success = res.ok;
+
             if (success) {
-              const resData = await res.json();
-              const realId = resData.id;
-              await db.runAsync('UPDATE cargos SET id = ? WHERE nombre = ?', [realId, payload.nombre]);
-              await db.runAsync('UPDATE principal SET cargo_id = ? WHERE cargo_id = ?', [realId, payload.tempId]);
-            }
-          } else if (item.action_type === 'UPDATE_META') {
-            // Find real cargo ID if it was created offline and updated offline
-            const cargoLocal = await db.getAllAsync('SELECT id FROM cargos WHERE nombre = ?', [payload.nombre]);
-            const realId = cargoLocal[0]?.id || payload.id;
-            
-            const res = await fetch(`https://backend-6oio.onrender.com/api/config/cargos/${realId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ meta: payload.meta })
-            });
-            responseStatus = res.status;
-            success = res.ok;
-          } else if (item.action_type === 'UPDATE_WORKER') {
-            // Find real worker ID by DNI
-            const workerLocal = await db.getAllAsync('SELECT id FROM principal WHERE doc_identidad = ?', [payload.dni]);
-            const realId = workerLocal[0]?.id || payload.id;
-
-            const res = await fetch(`https://backend-6oio.onrender.com/api/attendance/workers/${realId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify(payload)
-            });
-            responseStatus = res.status;
-            success = res.ok;
-          }
-
-          if (success) {
-            await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]);
-          } else {
-            console.log(`Failed to sync item ${item.id}, status: ${responseStatus}`);
-            if (responseStatus === 401 || responseStatus === 403) return; // Stop if unauthenticated
-            if (responseStatus >= 400 && responseStatus < 500) {
-              await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]); // Drop invalid request
+              await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]);
             } else {
-              break; // Stop and retry later for server or network error
+              console.log(`Failed to sync item ${item.id}, status: ${responseStatus}`);
+              if (responseStatus === 401 || responseStatus === 403) return; // Stop if unauthenticated
+              if (responseStatus >= 400 && responseStatus < 500) {
+                await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]); // Drop invalid request
+              } else {
+                break; // Stop and retry later for server or network error
+              }
             }
+          } catch (fetchErr) {
+            console.error(`Network error during sync of item ${item.id}:`, fetchErr);
+            break;
           }
-        } catch (fetchErr) {
-          console.error(`Network error during sync of item ${item.id}:`, fetchErr);
-          break;
         }
       }
 
+      // Check if queue is now empty (was empty or successfully processed everything)
       const remaining = await db.getAllAsync('SELECT COUNT(*) as count FROM sync_queue');
       if (remaining[0].count === 0) {
-        console.log('Sync queue completed, doing pull...');
-        const res = await fetch('https://backend-6oio.onrender.com/api/attendance/sync-pull', {
+        console.log('Sync queue completed (or empty), doing pull...');
+        const res = await fetch(`${API_URL}/api/attendance/sync-pull`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -302,6 +309,9 @@ global.dbHelper = {
             syncData.workers,
             syncData.asistencias
           );
+          console.log('[SYNC] Pull successful. Local SQLite database fully synchronized.');
+        } else {
+          console.log(`[SYNC] Pull failed. Status: ${res.status}`);
         }
       }
     } catch (e) {
@@ -749,6 +759,20 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  // Periodic background sync helper when logged in and online
+  useEffect(() => {
+    if (!userToken) return;
+
+    const interval = setInterval(() => {
+      if (isConnected) {
+        console.log('[SYNC] Running periodic background sync...');
+        global.dbHelper.syncQueue();
+      }
+    }, 90000); // 90 seconds
+
+    return () => clearInterval(interval);
+  }, [userToken]);
 
   if (isLoading) {
     return (

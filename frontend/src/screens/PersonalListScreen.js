@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TIPO_CONFIG } from '../theme/colors';
 import DropdownModal from '../components/DropdownModal';
+import { API_URL } from '../config';
 
 const { width } = Dimensions.get('window');
 const HORARIOS_DIA = ['07:00', '08:00', '09:00', '10:00'];
@@ -210,7 +211,7 @@ const PersonalListScreen = ({ navigation }) => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
+      const res = await fetch(`${API_URL}/api/config/cargos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) setCargos(await res.json());
@@ -242,7 +243,7 @@ const PersonalListScreen = ({ navigation }) => {
       }
 
       const token = await AsyncStorage.getItem('userToken');
-      let url = `https://backend-6oio.onrender.com/api/attendance/workers?limit=${LIMIT}&offset=${offset}`;
+      let url = `${API_URL}/api/attendance/workers?limit=${LIMIT}&offset=${offset}`;
       if (filterTipo !== 'TODOS') url += `&tipo=${encodeURIComponent(filterTipo)}`;
 
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -310,7 +311,7 @@ const PersonalListScreen = ({ navigation }) => {
         hora_ingreso: editForm.hora_ingreso + ':00',
         aula: editForm.aula ? parseInt(editForm.aula) : 99,
       };
-      const res = await fetch(`https://backend-6oio.onrender.com/api/attendance/workers/${selectedWorker.id}`, {
+      const res = await fetch(`${API_URL}/api/attendance/workers/${selectedWorker.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body),

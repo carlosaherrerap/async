@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { List, Avatar, Surface, ActivityIndicator } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../config';
 
 const AbsenteesScreen = ({ navigation }) => {
   const [absentees, setAbsentees] = useState([]);
@@ -28,7 +29,7 @@ const AbsenteesScreen = ({ navigation }) => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('https://backend-6oio.onrender.com/api/attendance/absentees', {
+      const response = await fetch(`${API_URL}/api/attendance/absentees`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

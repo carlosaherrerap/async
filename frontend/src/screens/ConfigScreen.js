@@ -4,6 +4,7 @@ import { Surface, Text, TextInput, Button, ActivityIndicator, IconButton, Portal
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 const ConfigScreen = () => {
   const [cargos, setCargos] = useState([]);
@@ -29,7 +30,7 @@ const ConfigScreen = () => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
+      const response = await fetch(`${API_URL}/api/config/cargos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -75,13 +76,13 @@ const ConfigScreen = () => {
       const token = await AsyncStorage.getItem('userToken');
       let response;
       if (modalMode === 'create') {
-        response = await fetch('https://backend-6oio.onrender.com/api/config/cargos', {
+        response = await fetch(`${API_URL}/api/config/cargos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ nombre, meta: parseInt(meta) || 0 })
         });
       } else {
-        response = await fetch(`https://backend-6oio.onrender.com/api/config/cargos/${selectedCargo.id}`, {
+        response = await fetch(`${API_URL}/api/config/cargos/${selectedCargo.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ meta: parseInt(meta) || 0 })

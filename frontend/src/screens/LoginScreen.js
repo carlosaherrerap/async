@@ -4,6 +4,7 @@ import { TextInput, Text, Surface } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../theme/colors';
+import { API_URL } from '../config';
 
 const LoginScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
@@ -18,7 +19,7 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('https://backend-6oio.onrender.com/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -31,7 +32,7 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
         
         try {
-          const syncRes = await fetch('https://backend-6oio.onrender.com/api/attendance/sync-pull', {
+          const syncRes = await fetch(`${API_URL}/api/attendance/sync-pull`, {
             headers: { 'Authorization': `Bearer ${data.token}` }
           });
           if (syncRes.ok) {
