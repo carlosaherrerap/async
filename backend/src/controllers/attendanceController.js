@@ -309,6 +309,41 @@ const getSyncPull = async (req, res) => {
     }
 };
 
+const getSyncCheck = async (req, res) => {
+    const userRole = req.user.rol;
+    const isSU = userRole === 'SU' || userRole === 'admin';
+    try {
+        const cargosCount = await db.query('SELECT COUNT(*) FROM cargos');
+        const metasCount = await db.query('SELECT COUNT(*) FROM metas_cargos');
+        const tipoCount = await db.query('SELECT COUNT(*) FROM tipo_postulante');
+        const paramsCount = await db.query('SELECT COUNT(*) FROM parametros_asistencia');
+
+        let queryWorkers = 'SELECT COUNT(*) FROM principal';
+        let queryAsistencias = 'SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE';
+        const params = [];
+
+        if (!isSU) {
+            queryWorkers += ' WHERE sede_reg = $1';
+            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1';
+            params.push(userRole);
+        }
+
+        const workersCount = await db.query(queryWorkers, params);
+        const asistenciasCount = await db.query(queryAsistencias, params);
+
+        res.json({
+            cargos: parseInt(cargosCount.rows[0].count),
+            metas_cargos: parseInt(metasCount.rows[0].count),
+            tipo_postulante: parseInt(tipoCount.rows[0].count),
+            parametros_asistencia: parseInt(paramsCount.rows[0].count),
+            workers: parseInt(workersCount.rows[0].count),
+            asistencias: parseInt(asistenciasCount.rows[0].count)
+        });
+    } catch (error) {
+        console.error('Error in getSyncCheck:', error);
+        res.status(500).json({ message: 'Error al verificar sincronización.' });
+    }
+};
 
 const scanDniImage = async (req, res) => {
     const { imageBase64 } = req.body;
