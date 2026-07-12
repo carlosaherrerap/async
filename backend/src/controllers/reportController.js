@@ -3,7 +3,7 @@ const XLSX = require('xlsx');
 
 const exportAttendanceToExcel = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         let query = `
             SELECT 
@@ -61,7 +61,7 @@ const exportAttendanceToExcel = async (req, res) => {
 
 const getAbsentees = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         let query = `
             SELECT p.doc_identidad as dni, p.nombres, p.ape_pat || ' ' || p.ape_mat as apellidos, 
@@ -89,7 +89,7 @@ const getAbsentees = async (req, res) => {
 
 const getStats = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         let statsQuery;
         let params = [];
@@ -177,7 +177,7 @@ const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
     const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
         let queryPresentes = `

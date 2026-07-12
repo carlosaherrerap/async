@@ -51,6 +51,7 @@ const ScanScreen = ({ route, navigation }) => {
   const [scanStatus, setScanStatus] = useState('searching');
   const [statusMessage, setStatusMessage] = useState('Apunte el REVERSO del DNI — código de barras en el recuadro');
   const [isOnline, setIsOnline] = useState(true);
+  const [userRole, setUserRole] = useState('');
 
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
@@ -58,6 +59,21 @@ const ScanScreen = ({ route, navigation }) => {
     const online = global.dbHelper.isOnline();
     setIsOnline(online);
     console.log('[SCAN] Modo:', online ? 'ONLINE' : 'OFFLINE');
+  }, []);
+
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          setUserRole(JSON.parse(userData).rol);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadUserRole();
   }, []);
 
   useEffect(() => {
@@ -150,7 +166,11 @@ const ScanScreen = ({ route, navigation }) => {
             return;
           } else {
             setLoading(false);
-            showNotFoundAlert();
+            if (response.status === 400 || response.status === 403) {
+              Alert.alert('ERROR', data.message || 'Este postulante no pertenece a la sede actual', [{ text: 'OK', onPress: resetScanner }]);
+            } else {
+              showNotFoundAlert();
+            }
             return;
           }
         } catch (fetchErr) {
@@ -161,9 +181,13 @@ const ScanScreen = ({ route, navigation }) => {
       // Offline fallback
       const data = await global.dbHelper.verifyWorkerOffline(dni);
       if (data) {
-        setWorkerData(data);
-        setShowModal(true);
-        setScanStatus('success');
+        if (data.error) {
+          Alert.alert('ERROR', data.error, [{ text: 'OK', onPress: resetScanner }]);
+        } else {
+          setWorkerData(data);
+          setShowModal(true);
+          setScanStatus('success');
+        }
       } else {
         showNotFoundAlert();
       }

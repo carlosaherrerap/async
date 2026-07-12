@@ -32,7 +32,7 @@ const LoginScreen = ({ navigation }) => {
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
         
         try {
-          await global.dbHelper.syncPullIfUpdated(data.token);
+          await global.dbHelper.syncPullIfUpdated(data.token, true);
         } catch (syncErr) {
           console.error('Error syncing on login:', syncErr.message);
         }

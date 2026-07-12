@@ -303,9 +303,10 @@ global.dbHelper = {
     }
   },
 
-  async syncPullIfUpdated(token) {
+  async syncPullIfUpdated(token, force = false) {
     if (!token) return false;
     try {
+      if (!force) {
       console.log('[SYNC] Checking if updates exist via sync-check...');
       const checkRes = await fetch(`${API_URL}/api/attendance/sync-check`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -322,6 +323,7 @@ global.dbHelper = {
             localCounts.paramsCount === checkData.parametros_asistencia) {
           console.log('[SYNC] Local counts match Render. Skipping sync-pull.');
           return true;
+          }
         }
       }
 
@@ -524,6 +526,18 @@ global.dbHelper = {
     if (workerRes.length === 0) return null;
 
     const worker = workerRes[0];
+
+    const userData = await AsyncStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
+      if (!isSU && worker.sede_reg !== user.rol) {
+        return {
+          error: 'Este postulante no pertenece a la sede actual',
+          worker: { dni: worker.doc_identidad, sede_reg: worker.sede_reg }
+        };
+      }
+    }
     const attendanceRes = await db.getAllAsync('SELECT * FROM asistencias WHERE principal_id = ?', [worker.id]);
     const attendance = attendanceRes[0] || null;
     const status = attendance ? 'entered' : 'none';
@@ -558,6 +572,15 @@ global.dbHelper = {
 
     if (workerRes.length === 0) throw new Error('Postulante no encontrado');
     const worker = workerRes[0];
+
+    const userData = await AsyncStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
+      if (!isSU && worker.sede_reg !== user.rol) {
+        throw new Error('Este postulante no pertenece a la sede actual');
+      }
+    }
 
     const existing = await db.getAllAsync('SELECT * FROM asistencias WHERE principal_id = ?', [worker.id]);
     if (existing.length > 0) {
@@ -605,6 +628,15 @@ global.dbHelper = {
   async registerWorkerOffline(payload) {
     if (!db) throw new Error('Base de datos no inicializada');
     const { dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = payload;
+
+    const userData = await AsyncStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
+      if (!isSU && sede_reg !== user.rol) {
+        throw new Error('Solo se permite registrar postulantes para la sede del usuario activo');
+      }
+    }
 
     const exists = await db.getAllAsync('SELECT id FROM principal WHERE doc_identidad = ?', [dni]);
     if (exists.length > 0) throw new Error('El DNI ya esta registrado.');

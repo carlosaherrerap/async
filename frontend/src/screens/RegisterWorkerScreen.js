@@ -32,7 +32,25 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
 
   const horariosDisponibles = formData.turno === 'DIA' ? HORARIOS_DIA : HORARIOS_TARDE;
 
+  const [userRole, setUserRole] = useState('');
+
   useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          const user = JSON.parse(userData);
+          setUserRole(user.rol);
+          const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
+          if (!isSU) {
+            setFormData(prev => ({ ...prev, sede_reg: user.rol }));
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadUserRole();
     fetchCargos();
   }, []);
 
@@ -80,6 +98,12 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   const handleRegister = async () => {
     if (!formData.dni || !formData.nombres || !formData.ape_pat || !formData.ape_mat || !formData.sede_reg || !formData.local) {
       Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+    if (!isSU && formData.sede_reg !== userRole) {
+      Alert.alert('Error', 'Solo se permite registrar postulantes para la sede del usuario activo');
       return;
     }
 
@@ -254,6 +278,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
               textColor="#0F172A"
               outlineColor="#E2E8F0"
               activeOutlineColor="#334155"
+              disabled={userRole?.toLowerCase() !== 'su' && userRole?.toLowerCase() !== 'admin'}
             />
             <TextInput
               label="Sede Jurisdiccional"

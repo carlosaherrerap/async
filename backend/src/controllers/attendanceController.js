@@ -6,7 +6,7 @@ const Jimp = require('jimp');
 const registerAttendance = async (req, res) => {
     const { dni, observaciones } = req.body;
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
         // 1. Buscar al postulante por doc_identidad
@@ -26,7 +26,7 @@ const registerAttendance = async (req, res) => {
         const worker = workerRes.rows[0];
 
         if (!isSU && worker.sede_reg !== userRole) {
-            return res.status(403).json({ message: 'No tiene permisos para registrar asistencia en esta sede regional.' });
+            return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
         // 2. Verificar si ya marco ingreso hoy (bloquear segundo intento)
@@ -82,7 +82,7 @@ const registerAttendance = async (req, res) => {
 const verifyWorker = async (req, res) => {
     const { dni } = req.query;
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
         const workerRes = await db.query(
@@ -101,7 +101,7 @@ const verifyWorker = async (req, res) => {
         const worker = workerRes.rows[0];
 
         if (!isSU && worker.sede_reg !== userRole) {
-            return res.status(404).json({ message: 'Postulante no pertenece a su sede regional asignada.' });
+            return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
         // Ver si ya marco ingreso hoy
@@ -137,8 +137,13 @@ const verifyWorker = async (req, res) => {
 
 const registerWorker = async (req, res) => {
     const { dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = req.body;
+    const userRole = req.user.rol;
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
+        if (!isSU && sede_reg !== userRole) {
+            return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede del usuario activo' });
+        }
         const exists = await db.query('SELECT id FROM principal WHERE doc_identidad = $1', [dni]);
         if (exists.rows.length > 0) {
             return res.status(400).json({ message: 'El DNI ya esta registrado.' });
@@ -190,7 +195,7 @@ const registerWorker = async (req, res) => {
 const getAllWorkers = async (req, res) => {
     const { limit = 10, offset = 0, tipo } = req.query;
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         let query = `
             SELECT p.id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
@@ -237,7 +242,19 @@ const getAllWorkers = async (req, res) => {
 const updateWorker = async (req, res) => {
     const { id } = req.params;
     const { sede_reg, sede_juris, local, aula, cargo_id, turno, hora_ingreso } = req.body;
+    const userRole = req.user.rol;
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
+        if (!isSU) {
+            const checkWorker = await db.query('SELECT sede_reg FROM principal WHERE id = $1', [id]);
+            if (checkWorker.rows.length === 0) return res.status(404).json({ message: 'Postulante no encontrado' });
+            if (checkWorker.rows[0].sede_reg !== userRole) {
+                return res.status(403).json({ message: 'No tiene permisos para modificar este postulante' });
+            }
+            if (sede_reg && sede_reg !== userRole) {
+                return res.status(400).json({ message: 'No puede cambiar la sede del postulante a otra diferente de la suya' });
+            }
+        }
         const updateQuery = `
             UPDATE principal 
             SET sede_reg = COALESCE($1, sede_reg), 
@@ -263,7 +280,7 @@ const updateWorker = async (req, res) => {
 
 const getSyncPull = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         const cargosRes = await db.query('SELECT id, nombre FROM cargos ORDER BY id ASC');
         const metasCargosRes = await db.query('SELECT cargo_id, limite_vacantes FROM metas_cargos');
@@ -311,7 +328,7 @@ const getSyncPull = async (req, res) => {
 
 const getSyncCheck = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole === 'SU' || userRole === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         const cargosCount = await db.query('SELECT COUNT(*) FROM cargos');
         const metasCount = await db.query('SELECT COUNT(*) FROM metas_cargos');
@@ -402,7 +419,7 @@ const scanDniImage = async (req, res) => {
 
             const worker = workerRes.rows[0];
             const userRole = req.user.rol;
-            const isSU = userRole === 'SU' || userRole === 'admin';
+            const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
             if (!isSU && worker.sede_reg !== userRole) {
                 return res.json({

@@ -181,6 +181,21 @@ const PersonalListScreen = ({ navigation }) => {
   const [sortOrder, setSortOrder] = useState('ASC');
 
   const [cargos, setCargos] = useState([]);
+  const [userRole, setUserRole] = useState('');
+
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          setUserRole(JSON.parse(userData).rol);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadUserRole();
+  }, []);
 
   const [editModal, setEditModal] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
@@ -478,7 +493,7 @@ const PersonalListScreen = ({ navigation }) => {
             showsVerticalScrollIndicator
           >
             {[
-              { label: 'Sede Regional', key: 'sede_reg', icon: 'map-marker' },
+              { label: 'Sede Regional', key: 'sede_reg', icon: 'map-marker', disabled: userRole?.toLowerCase() !== 'su' && userRole?.toLowerCase() !== 'admin' },
               { label: 'Sede Jurisdiccional', key: 'sede_juris', icon: 'map-marker-radius' },
               { label: 'Local', key: 'local', icon: 'office-building-marker' },
               { label: 'Aula', key: 'aula', icon: 'door', numeric: true },
@@ -495,6 +510,7 @@ const PersonalListScreen = ({ navigation }) => {
                 activeOutlineColor={COLORS.blue}
                 outlineColor={COLORS.border}
                 left={<TextInput.Icon icon={field.icon} color={COLORS.blue} />}
+                disabled={field.disabled}
               />
             ))}
 

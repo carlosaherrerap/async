@@ -17,8 +17,10 @@ const verifyToken = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-    if (req.user && req.user.rol === 'admin') {
-        next();
+    // Se verifica si el usuario tiene rol de administrador o superusuario (insensible a mayúsculas/minúsculas)
+    const role = req.user?.rol?.toLowerCase();
+    if (req.user && (role === 'admin' || role === 'su')) {
+        next(); // Si tiene rol de administrador o su, se permite el acceso
     } else {
         return res.status(403).json({ message: 'Requiere rol de Administrador' });
     }

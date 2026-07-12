@@ -96,6 +96,7 @@ const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [isOnline, setIsOnline] = useState(true);
 
   const [debugVisible, setDebugVisible] = useState(false);
@@ -122,7 +123,11 @@ const HomeScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const userData = await AsyncStorage.getItem('userData');
-      if (userData) setUserName(JSON.parse(userData).nombre);
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserName(user.nombre);
+        setUserRole(user.rol);
+      }
 
       const netState = await NetInfo.fetch();
       const online = !!netState.isConnected;
@@ -342,13 +347,15 @@ const HomeScreen = ({ navigation }) => {
             themeColor={COLORS.orange}
             onPress={() => navigation.navigate('AttendanceControl')}
           />
-          <MenuBtn
-            title="CONFIG."
-            icon="tune-vertical"
-            themeColor={COLORS.magenta}
-            onPress={() => navigation.navigate('Config')}
-            fullWidth
-          />
+          {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
+            <MenuBtn
+              title="CONFIG."
+              icon="tune-vertical"
+              themeColor={COLORS.magenta}
+              onPress={() => navigation.navigate('Config')}
+              fullWidth
+            />
+          )}
         </View>
 
         {/* Footer Watermark */}
