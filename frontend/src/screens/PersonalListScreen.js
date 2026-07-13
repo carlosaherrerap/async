@@ -75,7 +75,7 @@ const WorkerCard = ({ item, onPress }) => {
         onPress={() => onPress(item)}
       >
         <Surface style={[styles.card, { borderLeftColor: cfg.avatar }]} elevation={1}>
-          {/* Header row */}
+          {/* Fila de encabezado */}
           <View style={styles.cardHeader}>
             <WorkerAvatar worker={item} />
             <View style={styles.cardHeaderInfo}>
@@ -89,7 +89,7 @@ const WorkerCard = ({ item, onPress }) => {
 
           <Divider style={styles.cardDivider} />
 
-          {/* DNI + Turno row */}
+          {/* Fila de DNI + Turno */}
           <View style={styles.cardMeta}>
             <View style={styles.cardMetaItem}>
               <MaterialCommunityIcons name="card-account-details" size={18} color={COLORS.blue} />
@@ -112,7 +112,7 @@ const WorkerCard = ({ item, onPress }) => {
             ) : null}
           </View>
 
-          {/* Sedes row */}
+          {/* Fila de sedes */}
           {(item.sede_reg || item.sede_juris) ? (
             <View style={styles.sedeRow}>
               <SedePill icon="map-marker" label="REGIONAL" value={item.sede_reg} />
@@ -216,7 +216,7 @@ const PersonalListScreen = ({ navigation }) => {
     fetchCargos();
   }, [filterTipo, filterCargo, sortOrder, page]);
 
-  // ── Fetch cargos ────────────────────────────────────────────
+  // ── Obtener cargos ──────────────────────────────────────────
   const fetchCargos = async () => {
     try {
       const isOnline = global.dbHelper.isOnline();
@@ -235,7 +235,7 @@ const PersonalListScreen = ({ navigation }) => {
     }
   };
 
-  // ── Fetch workers ───────────────────────────────────────────
+  // ── Obtener postulantes ───────────────────────────────────────
   const fetchWorkers = async () => {
     setLoading(true);
     const offset = (page - 1) * LIMIT;
@@ -367,7 +367,7 @@ const PersonalListScreen = ({ navigation }) => {
     }
   };
 
-  // ─── Render ────────────────────────────────────────────────
+  // ─── Renderización ─────────────────────────────────────────
   return (
     <View style={styles.container}>
       {/* ── Header ─────────────────────────────────────────── */}
@@ -417,7 +417,7 @@ const PersonalListScreen = ({ navigation }) => {
         })}
       </View>
 
-      {/* ── Cargo filter via DropdownModal ────────────────────────────────────── */}
+      {/* ── Filtro de cargo mediante DropdownModal ────────────────────────────────── */}
       <View style={styles.cargoBar}>
         <DropdownModal
           label="Cargo"
@@ -460,7 +460,7 @@ const PersonalListScreen = ({ navigation }) => {
         />
       )}
 
-      {/* ── Edit Modal ──────────────────────────────────────── */}
+      {/* ── Modal de edición ─────────────────────────────────── */}
       <Portal>
         <Modal visible={editModal} onDismiss={() => setEditModal(false)} contentContainerStyle={styles.modal}>
           <View style={styles.modalHeader}>
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   cargoOptionActive: { backgroundColor: COLORS.blue },
 
-  // ── List ─────────────────────────────────────────────────────
+  // ── Lista ────────────────────────────────────────────────────
   listContent: { padding: 14, paddingBottom: 30, gap: 10 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   loadingText: { color: COLORS.muted, marginTop: 12, fontSize: 13, fontWeight: '800' },
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#FFF', fontSize: 18, fontWeight: '900' },
 
-  // ── Pagination ────────────────────────────────────────────────
+  // ── Paginación ───────────────────────────────────────────────
   pagination: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 16, paddingVertical: 12,

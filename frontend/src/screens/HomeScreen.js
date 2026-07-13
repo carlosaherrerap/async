@@ -15,7 +15,7 @@ import { API_URL } from '../config';
 const { width } = Dimensions.get('window');
 const COL = (width - 52) / 2;
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+// ── Tarjeta de estadística ────────────────────────────────────────────────────
 const StatCard = ({ value, label, color, icon, onPress }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const handleIn = () => Animated.spring(scaleAnim, { toValue: 0.94, useNativeDriver: true, speed: 50 }).start();
@@ -36,7 +36,7 @@ const StatCard = ({ value, label, color, icon, onPress }) => {
   );
 };
 
-// ── Menu button ───────────────────────────────────────────────────────────────
+// ── Botón de menú ─────────────────────────────────────────────────────────────
 const MenuBtn = ({ title, icon, themeColor, onPress, fullWidth = false, solid = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const handleIn = () => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
@@ -200,7 +200,7 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  // ── Debug Modal ────────────────────────────────────────────
+  // ── Modal de depuración ────────────────────────────────────────────
   const renderDebugModal = () => (
     <Portal>
       <Modal visible={debugVisible} onDismiss={() => setDebugVisible(false)} contentContainerStyle={styles.debugModal}>
@@ -269,12 +269,12 @@ const HomeScreen = ({ navigation }) => {
     </Portal>
   );
 
-  // ── Render ────────────────────────────────────────────────
+  // ── Renderización ───────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.blue} />
 
-      {/* ── Top header gradient ─────────────────────────────── */}
+      {/* ── Gradiente del encabezado superior ─────────────────────────────── */}
       <View
         style={[styles.topHeader, { backgroundColor: COLORS.blue }]}
       >
@@ -309,7 +309,7 @@ const HomeScreen = ({ navigation }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.blue} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Stats strip ──────────────────────────────────────── */}
+        {/* ── Franja de estadísticas ─────────────────────────────── */}
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           <Text style={styles.sectionLabel}>RESUMEN DE HOY</Text>
           {loading ? (

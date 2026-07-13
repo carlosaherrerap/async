@@ -370,16 +370,16 @@ const scanDniImage = async (req, res) => {
     }
 
     try {
-        // Remove base64 data header if present
+        // Eliminar el encabezado de datos base64 si está presente
         const cleanedBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
         const imageBuffer = Buffer.from(cleanedBase64, 'base64');
         console.log(`[SCAN] Image buffer size: ${imageBuffer.length} bytes`);
 
-        // Load image with Jimp
+        // Cargar imagen con Jimp
         const jimpImage = await Jimp.read(imageBuffer);
         console.log(`[SCAN] Image dimensions: ${jimpImage.bitmap.width}x${jimpImage.bitmap.height}`);
 
-        // 1. Check for face (indicating front of DNI)
+        // 1. Verificar si hay rostro (indica el anverso del DNI)
         console.log('[SCAN] Running face detection...');
         const faceDetected = await hasFace(jimpImage);
         console.log(`[SCAN] Face detected: ${faceDetected}`);
@@ -390,7 +390,7 @@ const scanDniImage = async (req, res) => {
             });
         }
 
-        // 2. Check for barcode (indicating back of DNI)
+        // 2. Verificar si hay código de barras (indica el reverso del DNI)
         console.log('[SCAN] Running barcode detection...');
         const barcodeResult = await decodeBarcodeWithRotations(jimpImage);
         console.log(`[SCAN] Barcode result:`, barcodeResult);
@@ -399,7 +399,7 @@ const scanDniImage = async (req, res) => {
             const dni = barcodeResult.dni;
             console.log(`[SCAN] DNI found: ${dni}`);
 
-            // Search for worker in database
+            // Buscar postulante en la base de datos
             const workerRes = await db.query(
                 `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
                  FROM principal p 
@@ -429,7 +429,7 @@ const scanDniImage = async (req, res) => {
                 });
             }
 
-            // Check if already registered today
+            // Verificar si ya se registró hoy
             const attendanceRes = await db.query(
                 'SELECT * FROM asistencias WHERE principal_id = $1 AND fecha_hora::date = CURRENT_DATE',
                 [worker.id]
@@ -459,7 +459,7 @@ const scanDniImage = async (req, res) => {
             });
         }
 
-        // If neither face nor barcode is detected
+        // Si no se detecta ni rostro ni código de barras
         console.log('[SCAN] No DNI barcode found — returning unrecognized');
         return res.json({
             status: 'unrecognized',

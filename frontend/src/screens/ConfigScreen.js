@@ -11,7 +11,7 @@ const ConfigScreen = () => {
   const [loading, setLoading] = useState(true);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  const [modalMode, setModalMode] = useState('create'); // 'crear' o 'editar'
   const [selectedCargo, setSelectedCargo] = useState(null);
   
   const [nombre, setNombre] = useState('');

@@ -15,12 +15,12 @@ const frameLeft = width * 0.075;
 
 const BASE_URL = API_URL;
 
-// Extract 8-digit DNI from PDF417 barcode raw text (Peruvian DNI format)
+// Extraer DNI de 8 dígitos a partir del texto sin procesar del código de barras PDF417 (formato DNI peruano)
 const extractDniFromBarcode = (rawText) => {
   if (!rawText) return null;
   console.log('[SCAN] Barcode raw text length:', rawText.length, '| preview:', JSON.stringify(rawText.substring(0, 40)));
 
-  // Peruvian DNI PDF417 format: first 2 chars are header codes, next 8 are DNI digits
+  // Formato PDF417 del DNI peruano: los primeros 2 caracteres son códigos de cabecera, los siguientes 8 son dígitos del DNI
   if (rawText.length >= 10) {
     const candidate = rawText.substring(2, 10);
     if (/^\d{8}$/.test(candidate)) {
@@ -29,7 +29,7 @@ const extractDniFromBarcode = (rawText) => {
     }
   }
 
-  // Fallback: find any 8-digit sequence
+  // Alternativa: encontrar cualquier secuencia de 8 dígitos
   const match = rawText.match(/\b\d{8}\b/) || rawText.match(/\d{8}/);
   if (match) {
     console.log('[SCAN] DNI extraído (fallback regex):', match[0]);
@@ -93,7 +93,7 @@ const ScanScreen = ({ route, navigation }) => {
     ).start();
   }, []);
 
-  // ─── Native barcode scanner callback ─────────────────────────────────────
+  // ─── Callback del escáner nativo de código de barras ───────────────────────────────────
   const handleBarCodeScanned = ({ type, data }) => {
     if (scanned || loading || showModal) return;
 
@@ -124,7 +124,7 @@ const ScanScreen = ({ route, navigation }) => {
     setStatusMessage('Apunte el REVERSO del DNI — código de barras en el recuadro');
   };
 
-  // ─── Worker lookup (online → backend, offline → SQLite) ──────────────────
+  // ─── Búsqueda de postulante (online → backend, offline → SQLite) ──────────────────
   const handleDniReceived = async (dni) => {
     if (loading || !dni) return;
     console.log('[SCAN] Buscando DNI:', dni);
@@ -178,7 +178,7 @@ const ScanScreen = ({ route, navigation }) => {
         }
       }
 
-      // Offline fallback
+      // Alternativa fuera de línea (offline fallback)
       const data = await global.dbHelper.verifyWorkerOffline(dni);
       if (data) {
         if (data.error) {
@@ -238,7 +238,7 @@ const ScanScreen = ({ route, navigation }) => {
       />
 
       <View style={styles.overlay}>
-        {/* Header */}
+        {/* Encabezado */}
         <View style={styles.topOverlay}>
           <View style={styles.header}>
             <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
@@ -264,7 +264,7 @@ const ScanScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Scanner frame */}
+        {/* Marco del escáner */}
         <View style={[styles.scannerFrame, { borderColor: getBorderColor() }]}>
           <View style={[styles.cornerTopLeft,    { borderColor: getBorderColor() }]} />
           <View style={[styles.cornerTopRight,   { borderColor: getBorderColor() }]} />
@@ -288,7 +288,7 @@ const ScanScreen = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* Hint below frame */}
+        {/* Pista debajo del marco */}
         <View style={styles.hintContainer}>
           <MaterialCommunityIcons name="barcode-scan" size={20} color="rgba(255,255,255,0.8)" />
           <Text style={styles.hintText}>
@@ -296,7 +296,7 @@ const ScanScreen = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* Manual entry */}
+        {/* Entrada manual */}
         <View style={styles.bottomOverlay}>
           <Surface style={styles.manualPanel} elevation={3}>
             <Text style={styles.manualLabel}>INGRESO MANUAL DE DNI:</Text>

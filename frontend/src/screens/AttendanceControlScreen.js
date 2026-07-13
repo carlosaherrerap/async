@@ -34,7 +34,7 @@ const TipoBadge = ({ tipo }) => {
   );
 };
 
-// ─── Info pill (sede) ─────────────────────────────────────────────────────────
+// ─── Informacion de sede ─────────────────────────────────────────────────────────
 const SedePill = ({ icon, label, value }) => (
   value && value.trim() ? (
     <View style={styles.sedePill}>
@@ -97,22 +97,22 @@ const CustomAnimatedChart = ({ data }) => {
 
   return (
     <View style={styles.chartContainer}>
-      {/* Plot Area and Grid Lines Wrapper */}
+      {/* Contenedor del área de trazado y líneas de cuadrícula */}
       <View style={{ height: TOTAL_HEIGHT, position: 'relative', width: '100%' }}>
         {/* Líneas de cuadrícula traseras */}
         <View style={[styles.gridLinesContainer, { top: HEADER_HEIGHT, height: PLOT_HEIGHT }]}>
           {gridLines.map((val) => {
             const bottomPercent = (val / scaleMax) * 100;
             return (
-              <View 
-                key={val} 
+              <View
+                key={val}
                 style={[
-                  styles.gridLineRow, 
-                  { 
-                    position: 'absolute', 
-                    left: 0, 
-                    right: 0, 
-                    bottom: `${bottomPercent}%`, 
+                  styles.gridLineRow,
+                  {
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: `${bottomPercent}%`,
                     transform: [{ translateY: 10 }] // Centrar la línea horizontal con la etiqueta de 20px de alto
                   }
                 ]}
@@ -237,20 +237,20 @@ const GroupedBarChart = ({ data }) => {
   return (
     <View style={styles.chartContainer}>
       <View style={{ height: TOTAL_HEIGHT, position: 'relative', width: '100%' }}>
-        {/* Grid lines */}
+        {/* Líneas de cuadrícula */}
         <View style={[styles.gridLinesContainer, { top: HEADER_HEIGHT, height: PLOT_HEIGHT }]}>
           {gridLines.map((val) => {
             const bottomPercent = (val / scaleMax) * 100;
             return (
-              <View 
-                key={val} 
+              <View
+                key={val}
                 style={[
-                  styles.gridLineRow, 
-                  { 
-                    position: 'absolute', 
-                    left: 0, 
-                    right: 0, 
-                    bottom: `${bottomPercent}%`, 
+                  styles.gridLineRow,
+                  {
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: `${bottomPercent}%`,
                     transform: [{ translateY: 10 }]
                   }
                 ]}
@@ -262,7 +262,7 @@ const GroupedBarChart = ({ data }) => {
           })}
         </View>
 
-        {/* Bars */}
+        {/* Barras */}
         <View style={[styles.barsContainer, { height: TOTAL_HEIGHT }]}>
           {data.map((item, idx) => {
             const anim = animations[idx];
@@ -272,21 +272,21 @@ const GroupedBarChart = ({ data }) => {
 
             const existenteHeight = anim
               ? anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', `${existentePercentage}%`],
-                })
+                inputRange: [0, 1],
+                outputRange: ['0%', `${existentePercentage}%`],
+              })
               : '0%';
 
             const asistieronHeight = anim
               ? anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', `${asistieronPercentage}%`],
-                })
+                inputRange: [0, 1],
+                outputRange: ['0%', `${asistieronPercentage}%`],
+              })
               : '0%';
 
             return (
               <View key={idx} style={[styles.barColumn, { height: TOTAL_HEIGHT, flexDirection: 'column', justifyContent: 'flex-end' }]}>
-                {/* Value labels on top of the bars */}
+                {/* Etiquetas de valor encima de las barras */}
                 <View style={{ flexDirection: 'row', gap: 2, height: 15, marginBottom: 2 }}>
                   <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#64748B', width: 12, textAlign: 'center' }}>
                     {item.existente}
@@ -296,9 +296,9 @@ const GroupedBarChart = ({ data }) => {
                   </Text>
                 </View>
 
-                {/* Double Bar Track */}
+                {/* Doble Barra */}
                 <View style={{ flexDirection: 'row', gap: 2, alignItems: 'flex-end', height: PLOT_HEIGHT }}>
-                  {/* Existente bar */}
+                  {/* Existente */}
                   <View style={[styles.groupedBarTrack, { height: PLOT_HEIGHT }]}>
                     <Animated.View
                       style={[
@@ -311,7 +311,7 @@ const GroupedBarChart = ({ data }) => {
                     />
                   </View>
 
-                  {/* Asistieron bar */}
+                  {/* Asistieron */}
                   <View style={[styles.groupedBarTrack, { height: PLOT_HEIGHT }]}>
                     <Animated.View
                       style={[
@@ -330,7 +330,7 @@ const GroupedBarChart = ({ data }) => {
         </View>
       </View>
 
-      {/* X Axis Labels */}
+      {/* Etiquetas del eje X */}
       <View style={styles.labelsContainer}>
         {data.map((item, idx) => (
           <View key={idx} style={styles.labelColumn}>
@@ -339,7 +339,7 @@ const GroupedBarChart = ({ data }) => {
         ))}
       </View>
 
-      {/* Legend */}
+      {/* Leyenda */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#94A3B8' }} />
@@ -732,7 +732,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           })}
         </View>
 
-        {/* Filtros Cargo y Turno — using DropdownModal for proper scroll support */}
+        {/* Filtros de Cargo y Turno — usando DropdownModal para un correcto soporte de desplazamiento */}
         <View style={styles.filterRow}>
           <View style={{ flex: 1 }}>
             <DropdownModal
@@ -784,20 +784,20 @@ const AttendanceControlScreen = ({ navigation }) => {
         {/* SubTabs */}
         <View style={styles.subTabContainer}>
           <TouchableOpacity
-             style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
-             onPress={() => setAttendanceTab('PRESENTES')}
+            style={[styles.subTabButton, attendanceTab === 'PRESENTES' && styles.subTabActive]}
+            onPress={() => setAttendanceTab('PRESENTES')}
           >
-             <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>
-               EVALUADOS ({filteredData.presentes.length})
-             </Text>
+            <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>
+              EVALUADOS ({filteredData.presentes.length})
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-             style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
-             onPress={() => setAttendanceTab('AUSENTES')}
+            style={[styles.subTabButton, attendanceTab === 'AUSENTES' && styles.subTabActive]}
+            onPress={() => setAttendanceTab('AUSENTES')}
           >
-             <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>
-               No evaluados ({filteredData.ausentes.length})
-             </Text>
+            <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>
+              No evaluados ({filteredData.ausentes.length})
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -833,7 +833,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
     return (
       <Surface key={`${item.id}-${item.dni}`} style={[styles.card, { borderLeftColor: cfg.avatar }]} elevation={1}>
-        {/* Header row */}
+        {/* Fila de encabezado */}
         <View style={styles.cardHeader}>
           <WorkerAvatar worker={item} />
           <View style={styles.cardHeaderInfo}>
@@ -857,7 +857,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
         <View style={styles.cardDivider} />
 
-        {/* DNI + Turno row */}
+        {/* Fila de DNI + Turno */}
         <View style={styles.cardMeta}>
           <View style={styles.cardMetaItem}>
             <MaterialCommunityIcons name="card-account-details" size={18} color={COLORS.blue} />
@@ -880,7 +880,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           ) : null}
         </View>
 
-        {/* Sede Regional + Jurisdiccional row */}
+        {/* Fila de Sede Regional + Sede Jurisdiccional */}
         {(item.sede_reg || item.sede_juris) ? (
           <View style={styles.sedeRow}>
             <SedePill icon="map-marker" label="REGIONAL" value={item.sede_reg} />
@@ -891,7 +891,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           </View>
         ) : null}
 
-        {/* Aula + Local / Marca */}
+        {/* Aula + Local / Marcación */}
         <View style={styles.cardFooter}>
           <MaterialCommunityIcons name="office-building-marker" size={16} color={COLORS.muted} />
           <Text style={styles.cardFooterText} numberOfLines={1}>
@@ -999,7 +999,7 @@ const AttendanceControlScreen = ({ navigation }) => {
         {/* Listado de comparaciones por cargo */}
         <View style={{ gap: 8, marginTop: 10 }}>
           {data.map((c) => {
-            const formattedDate = selectedDate.split('-').reverse().join('/'); // YYYY-MM-DD to DD/MM/YYYY
+            const formattedDate = selectedDate.split('-').reverse().join('/'); // YYYY-MM-DD a DD/MM/YYYY
             return (
               <Surface key={c.cargo} style={styles.reportCard} elevation={1}>
                 <View style={styles.reportCardHeader}>
@@ -1205,7 +1205,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Custom Animated Chart styles
+  // Estilos del gráfico animado personalizado
   chartContainer: {
     height: 235,
     backgroundColor: '#FFFFFF',
@@ -1291,7 +1291,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Calendar styles
+  // Estilos del calendario
   calendarModal: {
     backgroundColor: '#FFFFFF',
     padding: 20,

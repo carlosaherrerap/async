@@ -52,11 +52,11 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   const isTitular = tipoPostulante === 'Titular';
   const tipoColors = TIPO_COLORS[tipoPostulante] || TIPO_COLORS.default;
 
-  // ── Turno display ────────────────────────────────────────────────────────
+  // ── Visualización del turno ───────────────────────────────────────────────
   const turnoDisplay = worker?.turno === 'DIA' ? 'DIURNO'
     : worker?.turno === 'TARDE' ? 'TARDE' : (worker?.turno || '');
 
-  // ── Handle registro de ingreso ───────────────────────────────────────────
+  // ── Manejar registro de ingreso ───────────────────────────────────────────
   const handleIngreso = async () => {
     if (isReserva && status === 'none') {
       if (!aulaReserva || aulaReserva.trim() === '') {
@@ -127,7 +127,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
     }
   };
 
-  // ── Status badge ─────────────────────────────────────────────────────────
+  // ── Insignia de estado ────────────────────────────────────────────────────
   const statusIsEntered = status === 'entered';
   const statusColor = statusIsEntered ? '#15803D' : '#94A3B8';
 
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Avatar & status
+  // Avatar y estado
   avatarRow: {
     alignItems: 'center',
     marginBottom: 4,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Sedes grid
+  // Cuadrícula de sedes
   sedeGrid: {
     flexDirection: 'row',
     width: '100%',
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
 
-  // Attendance
+  // Asistencia
   attendanceRow: {
     flexDirection: 'row',
     alignItems: 'center',

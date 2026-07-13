@@ -49,9 +49,9 @@ global.dbHelper = {
       db = await SQLite.openDatabaseAsync('asistencia.db');
       this.db = db;
 
-      // PRAGMA must be run separately (not in batch with CREATE TABLE)
+      // PRAGMA debe ejecutarse por separado (no en lote con CREATE TABLE)
       await db.runAsync('PRAGMA foreign_keys = ON;');
-      await db.runAsync('PRAGMA journal_mode = WAL;'); // Better performance on mobile/APK
+      await db.runAsync('PRAGMA journal_mode = WAL;'); // Mejor rendimiento en móviles/APK
 
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS parametros_asistencia (
@@ -111,19 +111,19 @@ global.dbHelper = {
         );
       `);
 
-      // Seed immutable reference data
+      // Sembrar datos de referencia inmutables
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
       await db.runAsync(`INSERT OR IGNORE INTO parametros_asistencia (estado, descripcion) VALUES ('P', 'Puntual'), ('T', 'Tarde');`);
       console.log('[DB] Local SQLite initialized successfully (WAL mode)');
     } catch (error) {
       console.error('[DB] Error initializing SQLite:', error);
-      // Attempt recovery: reopen and try without foreign keys
+      // Intentar recuperación: reabrir e intentar sin llaves foráneas
       try {
         db = await SQLite.openDatabaseAsync('asistencia.db');
         this.db = db;
-        console.log('[DB] Recovered DB connection after init error');
+        console.log('[DB] Conexión de base de datos recuperada después de error de inicialización');
       } catch (recoveryErr) {
-        console.error('[DB] Critical: Could not open database:', recoveryErr);
+        console.error('[DB] Crítico: No se pudo abrir la base de datos:', recoveryErr);
       }
 
     }
@@ -249,7 +249,7 @@ global.dbHelper = {
                 await db.runAsync('UPDATE principal SET cargo_id = ? WHERE cargo_id = ?', [realId, payload.tempId]);
               }
             } else if (item.action_type === 'UPDATE_META') {
-              // Find real cargo ID if it was created offline and updated offline
+              // Buscar el ID real del cargo si fue creado fuera de línea y actualizado fuera de línea
               const cargoLocal = await db.getAllAsync('SELECT id FROM cargos WHERE nombre = ?', [payload.nombre]);
               const realId = cargoLocal[0]?.id || payload.id;
               
@@ -261,7 +261,7 @@ global.dbHelper = {
               responseStatus = res.status;
               success = res.ok;
             } else if (item.action_type === 'UPDATE_WORKER') {
-              // Find real worker ID by DNI
+              // Buscar el ID real del postulante por DNI
               const workerLocal = await db.getAllAsync('SELECT id FROM principal WHERE doc_identidad = ?', [payload.dni]);
               const realId = workerLocal[0]?.id || payload.id;
 
@@ -278,11 +278,11 @@ global.dbHelper = {
               await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]);
             } else {
               console.log(`Failed to sync item ${item.id}, status: ${responseStatus}`);
-              if (responseStatus === 401 || responseStatus === 403) return; // Stop if unauthenticated
+              if (responseStatus === 401 || responseStatus === 403) return; // Detener si no está autenticado
               if (responseStatus >= 400 && responseStatus < 500) {
-                await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]); // Drop invalid request
+                await db.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]); // Descartar solicitud inválida
               } else {
-                break; // Stop and retry later for server or network error
+                break; // Detener y reintentar más tarde en caso de error del servidor o de red
               }
             }
           } catch (fetchErr) {
@@ -292,7 +292,7 @@ global.dbHelper = {
         }
       }
 
-      // Check if queue is now empty (was empty or successfully processed everything)
+      // Verificar si la cola está vacía ahora (estaba vacía o procesó todo correctamente)
       const remaining = await db.getAllAsync('SELECT COUNT(*) as count FROM sync_queue');
       if (remaining[0].count === 0) {
         console.log('Sync queue completed (or empty), triggering syncPullIfUpdated...');
@@ -321,7 +321,7 @@ global.dbHelper = {
             localCounts.metasCount === checkData.metas_cargos &&
             localCounts.tiposCount === checkData.tipo_postulante &&
             localCounts.paramsCount === checkData.parametros_asistencia) {
-          console.log('[SYNC] Local counts match Render. Skipping sync-pull.');
+          console.log('[SYNC] Los conteos locales coinciden con Render. Omitiendo la sincronización por descarga (sync-pull).');
           return true;
           }
         }
@@ -822,7 +822,7 @@ export default function App() {
     };
   }, []);
 
-  // Periodic background sync helper when logged in and online
+  // Ayudante de sincronización periódica en segundo plano cuando está conectado y en línea
   useEffect(() => {
     if (!userToken) return;
 
@@ -831,7 +831,7 @@ export default function App() {
         console.log('[SYNC] Running periodic background sync...');
         global.dbHelper.syncQueue();
       }
-    }, 90000); // 90 seconds
+    }, 90000); // 90 segundos
 
     return () => clearInterval(interval);
   }, [userToken]);

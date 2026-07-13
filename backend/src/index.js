@@ -5,11 +5,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewaress
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Routes
+// Rutas
 const attendanceRoutes = require('./routes/attendance');
 const authRoutes = require('./routes/auth');
 const configRoutes = require('./routes/config');

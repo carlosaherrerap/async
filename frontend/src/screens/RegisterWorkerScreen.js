@@ -202,7 +202,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
     }
   };
 
-  // Build dropdown options from cargo list
+  // Construir opciones desplegables a partir de la lista de cargos
   const cargoOptions = cargosList.map(c => ({
     value: c.id.toString(),
     label: c.nombre,
@@ -210,7 +210,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
 
   const cargoSelected = cargosList.find(c => c.id.toString() === formData.cargo_id.toString());
 
-  // Build horario options
+  // Construir opciones de horario
   const horarioOptions = horariosDisponibles.map(h => ({
     value: h,
     label: h,
@@ -316,7 +316,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             />
           </View>
 
-          {/* Cargo dropdown via Modal */}
+          {/* Menú desplegable de Cargo vía Modal */}
           <Text style={styles.label}>CARGO:</Text>
           {fetchingCargos ? (
             <ActivityIndicator color="#334155" size="small" style={{ marginVertical: 10 }} />
@@ -358,7 +358,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             theme={{ colors: { secondaryContainer: '#334155', onSecondaryContainer: '#FFFFFF' } }}
           />
 
-          {/* Hora de Ingreso dropdown via Modal */}
+          {/* Menú desplegable de Hora de Ingreso vía Modal */}
           <Text style={styles.label}>HORA DE INGRESO PROGRAMADA:</Text>
           <DropdownModal
             label="Hora de Ingreso"

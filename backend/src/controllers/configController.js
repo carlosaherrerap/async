@@ -45,7 +45,7 @@ const updateMeta = async (req, res) => {
     const { id } = req.params;
     const { meta } = req.body;
     try {
-        // Upsert logic for meta
+        // Lógica de Upsert (insertar o actualizar) para la meta
         await db.query(`
             INSERT INTO metas_cargos (cargo_id, limite_vacantes)
             VALUES ($1, $2)

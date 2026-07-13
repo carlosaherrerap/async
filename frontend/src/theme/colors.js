@@ -1,59 +1,55 @@
-// ═══════════════════════════════════════════════════════════════
-//  ENLA – Design System Tokens
-//  Basado en paleta del logo: Azul #1565C0, Naranja #F5A623,
-//  Morado #9C27B0, Rosa-Magenta #E91E8A
-// ═══════════════════════════════════════════════════════════════
+
 export const COLORS = {
-  // ── Primarios (logo) ─────────────────────────────────────────
-  blue:    '#1565C0',
-  blueLight:  '#1E88E5',
-  blueDark:   '#0D47A1',
-  blueSoft:   '#E3F2FD',
+  // ── Primarios (logo) 
+  blue: '#1565C0',
+  blueLight: '#1E88E5',
+  blueDark: '#0D47A1',
+  blueSoft: '#E3F2FD',
   blueBorder: '#BBDEFB',
 
-  orange:  '#F5A623',
+  orange: '#F5A623',
   orangeLight: '#FFB74D',
-  orangeDark:  '#E65100',
-  orangeSoft:  '#FFF3E0',
-  orangeBorder:'#FFE0B2',
+  orangeDark: '#E65100',
+  orangeSoft: '#FFF3E0',
+  orangeBorder: '#FFE0B2',
 
-  purple:  '#9C27B0',
+  purple: '#9C27B0',
   purpleLight: '#AB47BC',
-  purpleSoft:  '#F3E5F5',
-  purpleBorder:'#E1BEE7',
+  purpleSoft: '#F3E5F5',
+  purpleBorder: '#E1BEE7',
 
   magenta: '#E91E8A',
   magentaDark: '#C2185B',
   magentaSoft: '#FCE4EC',
-  magentaBorder:'#F8BBD9',
+  magentaBorder: '#F8BBD9',
 
-  // ── Semánticos ───────────────────────────────────────────────
-  success:     '#15803D',
-  successLight:'#16A34A',
+  // ── Semánticos 
+  success: '#15803D',
+  successLight: '#16A34A',
   successSoft: '#F0FDF4',
-  successBorder:'#DCFCE7',
+  successBorder: '#DCFCE7',
 
-  warning:     '#D97706',
+  warning: '#D97706',
   warningSoft: '#FFFBEB',
-  warningBorder:'#FDE68A',
+  warningBorder: '#FDE68A',
 
-  danger:      '#DC2626',
-  dangerSoft:  '#FEF2F2',
-  dangerBorder:'#FECACA',
+  danger: '#DC2626',
+  dangerSoft: '#FEF2F2',
+  dangerBorder: '#FECACA',
 
-  // ── Neutrales ────────────────────────────────────────────────
-  ink:     '#0A1628',
-  inkMid:  '#1E293B',
-  inkLight:'#334155',
-  muted:   '#64748B',
-  subtle:  '#94A3B8',
-  border:  '#E2E8F0',
+  // ── Neutrales 
+  ink: '#0A1628',
+  inkMid: '#1E293B',
+  inkLight: '#334155',
+  muted: '#64748B',
+  subtle: '#94A3B8',
+  border: '#E2E8F0',
   surface: '#F8FAFC',
-  bg:      '#F1F5F9',
-  white:   '#FFFFFF',
+  bg: '#F1F5F9',
+  white: '#FFFFFF',
 };
 
-// Tipo-postulante config
+// Configuración del tipo de postulante
 export const TIPO_CONFIG = {
   Titular: {
     bg: COLORS.successSoft,

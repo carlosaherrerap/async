@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderLeftWidth: 6,
-    borderLeftColor: '#DC2626', // Red color for absentees/danger
+    borderLeftColor: '#DC2626', // Color rojo para inasistencias/peligro
     overflow: 'hidden',
     elevation: 1.5,
     shadowColor: '#000',

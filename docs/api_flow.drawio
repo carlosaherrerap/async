@@ -1,0 +1,114 @@
+<mxfile host="Electron" modified="2026-07-13T22:15:35Z" agent="5.0" version="22.1.2" type="device">
+  <diagram id="api_diagram" name="API Endpoints Flow">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Vertex: Client -->
+        <mxCell id="client" value="Cliente Móvil (Expo/RN)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontWeight=bold;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="140" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: Router -->
+        <mxCell id="router" value="API Express Router&#xa;(backend/src/index.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontWeight=bold;" vertex="1" parent="1">
+          <mxGeometry x="260" y="320" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: verifyToken Middleware -->
+        <mxCell id="authmw" value="verifyToken&#xa;(jwt.verify)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontWeight=bold;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="500" y="300" width="120" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: isAdmin Middleware -->
+        <mxCell id="adminmw" value="isAdmin&#xa;(check role)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontWeight=bold;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="500" y="480" width="120" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: Auth Controller -->
+        <mxCell id="authctrl" value="authController.js&#xa;&#xa;POST /login (Público)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontWeight=bold;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="120" width="220" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: Config Controller -->
+        <mxCell id="configctrl" value="configController.js&#xa;&#xa;GET /cargos (User)&#xa;POST /cargos (Admin)&#xa;PUT /cargos/:id (Admin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontWeight=bold;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="270" width="220" height="110" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: Attendance / Report Controller -->
+        <mxCell id="attendctrl" value="attendanceController.js &amp;&#xa;reportController.js&#xa;&#xa;GET /verify (User)&#xa;POST /scan-dni (User)&#xa;POST /register (User)&#xa;POST /register-worker (User)&#xa;GET /workers (User)&#xa;PUT /workers/:id (User)&#xa;GET /sync-pull (User)&#xa;GET /sync-check (User)&#xa;GET /absentees (User)&#xa;GET /stats (User)&#xa;GET /daily (User)&#xa;GET /export (Admin)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontWeight=bold;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="440" width="220" height="270" as="geometry" />
+        </mxCell>
+        
+        <!-- Vertex: Database -->
+        <mxCell id="db" value="PostgreSQL DB&#xa;(asistencia_db)" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#D5E8D4;strokeColor=#82B366;fontWeight=bold;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="320" width="140" height="100" as="geometry" />
+        </mxCell>
+        
+        <!-- Edges -->
+        
+        <!-- Client -> Router -->
+        <mxCell id="e1" value="HTTP Requests" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="client" target="router">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Router -> Auth Controller -->
+        <mxCell id="e2" value="/api/auth/login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="router" target="authctrl">
+          <mxGeometry x="-0.4" y="10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Router -> verifyToken Middleware -->
+        <mxCell id="e3" value="/api/config/*&#xa;/api/attendance/*" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="router" target="authmw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- verifyToken -> Config Controller (User paths) -->
+        <mxCell id="e4" value="GET /cargos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="authmw" target="configctrl">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- verifyToken -> Attendance Controller (User paths) -->
+        <mxCell id="e5" value="verifyWorker, register,&#xa;scan-dni, workers, stats" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" parent="1" source="authmw" target="attendctrl">
+          <mxGeometry x="-0.5" y="-15" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- verifyToken -> isAdmin Middleware (Admin paths check) -->
+        <mxCell id="e6" value="Admin Checks" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="authmw" target="adminmw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- isAdmin -> Config Controller -->
+        <mxCell id="e7" value="POST /cargos&#xa;PUT /cargos/:id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="adminmw" target="configctrl">
+          <mxGeometry x="-0.2" y="-10" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- isAdmin -> Attendance Controller -->
+        <mxCell id="e8" value="GET /export" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="adminmw" target="attendctrl">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Auth Controller -> DB -->
+        <mxCell id="e9" value="SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="authctrl" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Config Controller -> DB -->
+        <mxCell id="e10" value="SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="configctrl" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Attendance Controller -> DB -->
+        <mxCell id="e11" value="SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="attendctrl" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,9 +1,9 @@
 /**
  * DropdownModal.js
- * Reusable dropdown that renders via Portal/Modal so it works inside
- * any ScrollView on Android without the nested-scroll limitation.
+ * Menú desplegable reutilizable que se renderiza mediante Portal/Modal para que funcione dentro de
+ * cualquier ScrollView en Android sin la limitación de desplazamiento anidado (nested-scroll).
  *
- * Usage:
+ * Uso:
  *   <DropdownModal
  *     label="Cargo"
  *     value={selectedId}
@@ -40,7 +40,7 @@ const DropdownModal = ({
 
   return (
     <>
-      {/* Trigger button */}
+      {/* Botón de activación (trigger) */}
       <TouchableOpacity
         style={[styles.trigger, style]}
         onPress={() => setOpen(true)}
@@ -56,7 +56,7 @@ const DropdownModal = ({
         />
       </TouchableOpacity>
 
-      {/* Full-screen modal overlay */}
+      {/* Superposición de modal a pantalla completa */}
       <Modal
         visible={open}
         transparent
@@ -64,19 +64,19 @@ const DropdownModal = ({
         onRequestClose={() => setOpen(false)}
         statusBarTranslucent={Platform.OS === 'android'}
       >
-        {/* Dim overlay — tap to close */}
+        {/* Superposición atenuada — presionar para cerrar */}
         <TouchableOpacity
           style={styles.overlay}
           activeOpacity={1}
           onPress={() => setOpen(false)}
         >
-          {/* Sheet — stop tap propagation */}
+          {/* Panel — detener la propagación de toques */}
           <TouchableOpacity
             activeOpacity={1}
             style={styles.sheet}
-            onPress={() => {}} // swallow taps inside sheet
+            onPress={() => {}} // absorber toques dentro del panel
           >
-            {/* Header */}
+            {/* Encabezado */}
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>
                 {label ? label.toUpperCase() : 'SELECCIONAR'}
@@ -86,7 +86,7 @@ const DropdownModal = ({
               </TouchableOpacity>
             </View>
 
-            {/* Options list — full ScrollView, no nesting issues */}
+            {/* Lista de opciones — ScrollView completo, sin problemas de anidamiento */}
             <ScrollView
               style={styles.optionsList}
               keyboardShouldPersistTaps="handled"
@@ -130,7 +130,7 @@ const DropdownModal = ({
                   </TouchableOpacity>
                 );
               })}
-              {/* Extra padding at bottom */}
+              {/* Espaciado extra en la parte inferior */}
               <View style={{ height: 20 }} />
             </ScrollView>
           </TouchableOpacity>
