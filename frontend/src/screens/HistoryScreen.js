@@ -16,7 +16,7 @@ const HistoryScreen = ({ navigation }) => {
     if (isOnline) {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        const res = await fetch(`${API_URL}/api/attendance/history`, {
+        const res = await fetch(`${API_URL}/api/asistencia/historial-sedes`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

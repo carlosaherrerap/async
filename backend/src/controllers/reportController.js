@@ -21,14 +21,16 @@ const exportAttendanceToExcel = async (req, res) => {
                 c.nombre as "CARGO",
                 p.turno as "TURNO",
                 p.hora_ingreso::text as "HORA_PROGRAMADA",
-                to_char(asist.fecha_hora, 'YYYY-MM-DD') as "FECHA_REGISTRO",
-                to_char(asist.fecha_hora, 'HH24:MI:SS') as "HORA_REGISTRO",
+                to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'YYYY-MM-DD') as "FECHA_REGISTRO",
+                to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'HH24:MI:SS') as "HORA_REGISTRO",
                 asist.estado as "ESTADO_ASISTENCIA",
-                COALESCE(asist.observaciones, '') as "OBSERVACIONES"
+                COALESCE(asist.observaciones, '') as "OBSERVACIONES",
+                COALESCE(u.username, 'desconocido') as "USUARIO_REGISTRO"
             FROM asistencias asist
             JOIN principal p ON asist.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            LEFT JOIN usuarios u ON asist.usuario_registro_id = u.id
         `;
         const params = [];
         if (!isSU) {

@@ -447,8 +447,8 @@ const AttendanceControlScreen = ({ navigation }) => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const [statsRes, dailyRes] = await Promise.all([
-        fetch(`${API_URL}/api/attendance/stats`, { headers }),
-        fetch(`${API_URL}/api/attendance/daily?date=${selectedDate}`, { headers })
+        fetch(`${API_URL}/api/asistencia/estadisticas`, { headers }),
+        fetch(`${API_URL}/api/asistencia/reporte-diario?date=${selectedDate}`, { headers })
       ]);
 
       if (statsRes.status === 401) {
@@ -484,7 +484,7 @@ const AttendanceControlScreen = ({ navigation }) => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch(`${API_URL}/api/config/cargos`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/api/configuracion/cargos`, { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) setCargos(await res.json());
     } catch (e) {
       try {

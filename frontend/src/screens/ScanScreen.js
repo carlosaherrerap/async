@@ -148,11 +148,11 @@ const ScanScreen = ({ route, navigation }) => {
 
     try {
       if (isOnline) {
-        console.log('[SCAN] Verificando en backend:', `${BASE_URL}/api/attendance/verify?dni=${dni}`);
+        console.log('[SCAN] Verificando en backend:', `${BASE_URL}/api/asistencia/verificar?dni=${dni}`);
         try {
           const AsyncStorage = require('@react-native-async-storage/async-storage').default;
           const token = await AsyncStorage.getItem('userToken');
-          const response = await fetch(`${BASE_URL}/api/attendance/verify?dni=${dni}`, {
+          const response = await fetch(`${BASE_URL}/api/asistencia/verificar?dni=${dni}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const data = await response.json();

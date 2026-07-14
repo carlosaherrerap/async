@@ -50,10 +50,15 @@ const login = async (req, res) => {
         // Registrar intento exitoso
         await db.query('INSERT INTO intentos_login (username, ip_address, exitoso) VALUES ($1, $2, $3)', [username, ip, true]);
 
+        // Calcular tiempo restante del día en segundos en zona horaria de Lima (America/Lima)
+        const nowInLima = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+        const tomorrowInLima = new Date(nowInLima.getFullYear(), nowInLima.getMonth(), nowInLima.getDate() + 1, 0, 0, 0);
+        const secondsRemaining = Math.max(60, Math.floor((tomorrowInLima.getTime() - nowInLima.getTime()) / 1000));
+
         const token = jwt.sign(
             { id: user.id, username: user.username, rol: user.rol },
             process.env.JWT_SECRET || 'clave_secreta_provisional',
-            { expiresIn: '24h' }
+            { expiresIn: secondsRemaining }
         );
 
         res.json({
@@ -71,6 +76,11 @@ const login = async (req, res) => {
     }
 };
 
+const logout = async (req, res) => {
+    res.json({ success: true, message: 'Sesión cerrada correctamente' });
+};
+
 module.exports = {
-    login
+    login,
+    logout
 };

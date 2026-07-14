@@ -59,8 +59,23 @@ const updateMeta = async (req, res) => {
     }
 };
 
+const getSedes = async (req, res) => {
+    try {
+        const regionals = await db.query('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        const jurisdictions = await db.query('SELECT id, sede_regional_nombre, codigo_juris, nombre FROM sede_juris ORDER BY nombre ASC');
+        res.json({
+            regionals: regionals.rows,
+            jurisdictions: jurisdictions.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error al obtener sedes' });
+    }
+};
+
 module.exports = {
     getCargos,
     createCargo,
-    updateMeta
+    updateMeta,
+    getSedes
 };

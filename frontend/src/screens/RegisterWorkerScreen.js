@@ -33,9 +33,27 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   const horariosDisponibles = formData.turno === 'DIA' ? HORARIOS_DIA : HORARIOS_TARDE;
 
   const [userRole, setUserRole] = useState('');
+  const [sedesRegionales, setSedesRegionales] = useState([]);
+  const [sedesJurisdiccionales, setSedesJurisdiccionales] = useState([]);
+  const [filteredJuris, setFilteredJuris] = useState([]);
+
+  const loadSedes = async () => {
+    try {
+      const db = global.dbHelper.db;
+      if (db) {
+        const regRows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        const jurRows = await db.getAllAsync('SELECT id, sede_regional_nombre, codigo_juris, nombre FROM sede_juris ORDER BY nombre ASC');
+        setSedesRegionales(regRows);
+        setSedesJurisdiccionales(jurRows);
+      }
+    } catch (e) {
+      console.error('Error loading sedes from SQLite:', e);
+    }
+  };
 
   useEffect(() => {
-    const loadUserRole = async () => {
+    const loadUserRoleAndSedes = async () => {
+      await loadSedes();
       try {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
@@ -43,16 +61,32 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           setUserRole(user.rol);
           const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
           if (!isSU) {
-            setFormData(prev => ({ ...prev, sede_reg: user.rol }));
+            setFormData(prev => ({ ...prev, sede_reg: user.rol.toUpperCase() }));
           }
         }
       } catch (e) {
         console.error(e);
       }
     };
-    loadUserRole();
+    loadUserRoleAndSedes();
     fetchCargos();
   }, []);
+
+  // Filtrar jurisdicciones según la sede regional seleccionada
+  useEffect(() => {
+    if (formData.sede_reg) {
+      const filtered = sedesJurisdiccionales.filter(
+        j => j.sede_regional_nombre?.toLowerCase() === formData.sede_reg?.toLowerCase()
+      );
+      setFilteredJuris(filtered);
+      // Si la jurisdicción actual no pertenece a la nueva sede, resetearla
+      if (!filtered.some(f => f.nombre === formData.sede_juris)) {
+        setFormData(prev => ({ ...prev, sede_juris: '' }));
+      }
+    } else {
+      setFilteredJuris([]);
+    }
+  }, [formData.sede_reg, sedesJurisdiccionales]);
 
   // Cuando cambia el turno, resetear la hora de ingreso al primer horario disponible
   useEffect(() => {
@@ -73,7 +107,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch(`${API_URL}/api/config/cargos`, {
+      const res = await fetch(`${API_URL}/api/configuracion/cargos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -135,7 +169,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
         ...formData,
         hora_ingreso: formData.hora_ingreso + ':00',
       };
-      const response = await fetch(`${API_URL}/api/attendance/register-worker`, {
+      const response = await fetch(`${API_URL}/api/asistencia/registrar-postulante`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -217,6 +251,18 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
     icon: 'clock-outline',
   }));
 
+  const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+
+  const regOptions = sedesRegionales.map(r => ({
+    value: r.nombre,
+    label: r.nombre
+  }));
+
+  const jurisOptions = filteredJuris.map(j => ({
+    value: j.nombre,
+    label: j.nombre
+  }));
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -268,29 +314,28 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             outlineColor="#E2E8F0"
             activeOutlineColor="#334155"
           />
-          <View style={styles.row}>
-            <TextInput
-              label="Sede Regional"
-              value={formData.sede_reg}
-              onChangeText={(t) => setFormData({ ...formData, sede_reg: t })}
-              mode="outlined"
-              style={[styles.input, { flex: 1, marginRight: 5 }]}
-              textColor="#0F172A"
-              outlineColor="#E2E8F0"
-              activeOutlineColor="#334155"
-              disabled={userRole?.toLowerCase() !== 'su' && userRole?.toLowerCase() !== 'admin'}
-            />
-            <TextInput
-              label="Sede Jurisdiccional"
-              value={formData.sede_juris}
-              onChangeText={(t) => setFormData({ ...formData, sede_juris: t })}
-              mode="outlined"
-              style={[styles.input, { flex: 1, marginLeft: 5 }]}
-              textColor="#0F172A"
-              outlineColor="#E2E8F0"
-              activeOutlineColor="#334155"
-            />
-          </View>
+          <Text style={styles.label}>SEDE REGIONAL:</Text>
+          <DropdownModal
+            label="Sede Regional"
+            value={formData.sede_reg}
+            displayText={formData.sede_reg || 'Seleccione Sede Regional'}
+            options={regOptions}
+            onSelect={(val) => setFormData({ ...formData, sede_reg: val })}
+            activeColor="#334155"
+            style={styles.dropdownTrigger}
+            disabled={!isSU}
+          />
+
+          <Text style={styles.label}>SEDE JURISDICCIONAL:</Text>
+          <DropdownModal
+            label="Sede Jurisdiccional"
+            value={formData.sede_juris}
+            displayText={formData.sede_juris || 'Seleccione Sede Jurisdiccional'}
+            options={jurisOptions}
+            onSelect={(val) => setFormData({ ...formData, sede_juris: val })}
+            activeColor="#334155"
+            style={styles.dropdownTrigger}
+          />
           <View style={styles.row}>
             <TextInput
               label="Local"

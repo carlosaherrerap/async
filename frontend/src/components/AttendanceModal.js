@@ -75,7 +75,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
 
     try {
       if (isOnline) {
-        const res = await fetch(`${API_URL}/api/attendance/change-sede`, {
+        const res = await fetch(`${API_URL}/api/asistencia/cambiar-sede`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ workerId: worker.id, nuevaSede: selectedNewSede })
@@ -143,7 +143,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
           const body = { dni: worker.dni };
           if (isReserva && aulaReserva) body.aula = parseInt(aulaReserva);
 
-          const response = await fetch(`${API_URL}/api/attendance/register`, {
+          const response = await fetch(`${API_URL}/api/asistencia/registrar-asistencia`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(body),

@@ -4,7 +4,7 @@ const { decodeBarcodeWithRotations } = require('../utils/barcodeDetector');
 const Jimp = require('jimp');
 
 const registerAttendance = async (req, res) => {
-    const { dni, observaciones } = req.body;
+    const { dni, observaciones, usuario_registro_id } = req.body;
     const userRole = req.user.rol;
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
@@ -52,12 +52,13 @@ const registerAttendance = async (req, res) => {
         const ingresoTotalMinutes = ingH * 60 + ingM;
 
         const estado = currentTotalMinutes <= ingresoTotalMinutes ? 'P' : 'T';
+        const operatorId = usuario_registro_id || req.user?.id || null;
 
         // 4. Registrar ingreso
         const insertRes = await db.query(
-            `INSERT INTO asistencias (principal_id, estado, fecha_hora, observaciones) 
-             VALUES ($1, $2, CURRENT_TIMESTAMP, $3) RETURNING *`,
-            [worker.id, estado, observaciones]
+            `INSERT INTO asistencias (principal_id, estado, fecha_hora, observaciones, usuario_registro_id) 
+             VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4) RETURNING *`,
+            [worker.id, estado, observaciones, operatorId]
         );
 
         res.status(201).json({
@@ -286,6 +287,8 @@ const getSyncPull = async (req, res) => {
         const metasCargosRes = await db.query('SELECT cargo_id, limite_vacantes FROM metas_cargos');
         const tipoPostulanteRes = await db.query('SELECT id, descripcion FROM tipo_postulante');
         const parametrosAsistenciaRes = await db.query('SELECT estado, descripcion FROM parametros_asistencia');
+        const regionalRes = await db.query('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        const jurisRes = await db.query('SELECT id, sede_regional_nombre, codigo_juris, nombre FROM sede_juris ORDER BY nombre ASC');
 
         let queryWorkers = `
             SELECT id, sede_reg, sede_juris, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
@@ -293,7 +296,7 @@ const getSyncPull = async (req, res) => {
             FROM principal
         `;
         let queryAsistencias = `
-            SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones 
+            SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
             FROM asistencias a
             WHERE a.fecha_hora::date = CURRENT_DATE
         `;
@@ -301,7 +304,7 @@ const getSyncPull = async (req, res) => {
         if (!isSU) {
             queryWorkers += ` WHERE LOWER(sede_reg) = LOWER($1)`;
             queryAsistencias = `
-                SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones 
+                SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
                 FROM asistencias a
                 JOIN principal p ON a.principal_id = p.id
                 WHERE a.fecha_hora::date = CURRENT_DATE AND LOWER(p.sede_reg) = LOWER($1)
@@ -317,6 +320,8 @@ const getSyncPull = async (req, res) => {
             metas_cargos: metasCargosRes.rows,
             tipo_postulante: tipoPostulanteRes.rows,
             parametros_asistencia: parametrosAsistenciaRes.rows,
+            sede_regional: regionalRes.rows,
+            sede_juris: jurisRes.rows,
             workers: workersRes.rows,
             asistencias: asistenciasRes.rows
         });
@@ -334,6 +339,8 @@ const getSyncCheck = async (req, res) => {
         const metasCount = await db.query('SELECT COUNT(*) FROM metas_cargos');
         const tipoCount = await db.query('SELECT COUNT(*) FROM tipo_postulante');
         const paramsCount = await db.query('SELECT COUNT(*) FROM parametros_asistencia');
+        const regionalCount = await db.query('SELECT COUNT(*) FROM sede_regional');
+        const jurisCount = await db.query('SELECT COUNT(*) FROM sede_juris');
 
         let queryWorkers = 'SELECT COUNT(*) FROM principal';
         let queryAsistencias = 'SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE';
@@ -353,6 +360,8 @@ const getSyncCheck = async (req, res) => {
             metas_cargos: parseInt(metasCount.rows[0].count),
             tipo_postulante: parseInt(tipoCount.rows[0].count),
             parametros_asistencia: parseInt(paramsCount.rows[0].count),
+            sede_regional: parseInt(regionalCount.rows[0].count),
+            sede_juris: parseInt(jurisCount.rows[0].count),
             workers: parseInt(workersCount.rows[0].count),
             asistencias: parseInt(asistenciasCount.rows[0].count)
         });

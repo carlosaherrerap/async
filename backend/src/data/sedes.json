@@ -1,0 +1,1273 @@
+{
+  "regionals": [
+    {
+      "id": "01",
+      "nombre": "AMAZONAS"
+    },
+    {
+      "id": "02",
+      "nombre": "ANCASH-CHIMBOTE"
+    },
+    {
+      "id": "03",
+      "nombre": "ANCASH-HUARAZ"
+    },
+    {
+      "id": "04",
+      "nombre": "APURIMAC"
+    },
+    {
+      "id": "05",
+      "nombre": "AREQUIPA"
+    },
+    {
+      "id": "06",
+      "nombre": "AYACUCHO"
+    },
+    {
+      "id": "07",
+      "nombre": "CAJAMARCA"
+    },
+    {
+      "id": "08",
+      "nombre": "CALLAO"
+    },
+    {
+      "id": "09",
+      "nombre": "CUSCO"
+    },
+    {
+      "id": "10",
+      "nombre": "HUANCAVELICA"
+    },
+    {
+      "id": "11",
+      "nombre": "HUANUCO"
+    },
+    {
+      "id": "12",
+      "nombre": "ICA"
+    },
+    {
+      "id": "13",
+      "nombre": "JUNIN"
+    },
+    {
+      "id": "14",
+      "nombre": "LA LIBERTAD"
+    },
+    {
+      "id": "15",
+      "nombre": "LAMBAYEQUE"
+    },
+    {
+      "id": "16",
+      "nombre": "LIMA METROPOLITANA"
+    },
+    {
+      "id": "17",
+      "nombre": "LIMA PROVINCIAS"
+    },
+    {
+      "id": "18",
+      "nombre": "LORETO"
+    },
+    {
+      "id": "19",
+      "nombre": "MADRE DE DIOS"
+    },
+    {
+      "id": "20",
+      "nombre": "MOQUEGUA"
+    },
+    {
+      "id": "21",
+      "nombre": "PASCO"
+    },
+    {
+      "id": "22",
+      "nombre": "PIURA"
+    },
+    {
+      "id": "23",
+      "nombre": "PUNO"
+    },
+    {
+      "id": "24",
+      "nombre": "SAN MARTIN-MOYOBAMBA"
+    },
+    {
+      "id": "25",
+      "nombre": "SAN MARTIN-TARAPOTO"
+    },
+    {
+      "id": "26",
+      "nombre": "TACNA"
+    },
+    {
+      "id": "27",
+      "nombre": "TUMBES"
+    },
+    {
+      "id": "28",
+      "nombre": "UCAYALI"
+    }
+  ],
+  "jurisdictions": [
+    {
+      "id": "01-01",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "01",
+      "nombre": "BAGUA"
+    },
+    {
+      "id": "01-02",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "02",
+      "nombre": "BONGARA (JAZAN)"
+    },
+    {
+      "id": "01-03",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "03",
+      "nombre": "CHACHAPOYAS"
+    },
+    {
+      "id": "01-04",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "04",
+      "nombre": "CONDORCANQUI"
+    },
+    {
+      "id": "01-05",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "05",
+      "nombre": "JAEN"
+    },
+    {
+      "id": "01-06",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "06",
+      "nombre": "LUYA"
+    },
+    {
+      "id": "01-07",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "07",
+      "nombre": "RODRIGUEZ DE MENDOZA"
+    },
+    {
+      "id": "01-08",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "08",
+      "nombre": "SAN IGNACIO"
+    },
+    {
+      "id": "01-09",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "09",
+      "nombre": "UTCUBAMBA 1"
+    },
+    {
+      "id": "01-10",
+      "sede_regional_id": "01",
+      "sede_regional_nombre": "AMAZONAS",
+      "codigo_juris": "10",
+      "nombre": "UTCUBAMBA 2"
+    },
+    {
+      "id": "02-01",
+      "sede_regional_id": "02",
+      "sede_regional_nombre": "ANCASH-CHIMBOTE",
+      "codigo_juris": "01",
+      "nombre": "CASMA"
+    },
+    {
+      "id": "02-02",
+      "sede_regional_id": "02",
+      "sede_regional_nombre": "ANCASH-CHIMBOTE",
+      "codigo_juris": "02",
+      "nombre": "SANTA 1"
+    },
+    {
+      "id": "02-03",
+      "sede_regional_id": "02",
+      "sede_regional_nombre": "ANCASH-CHIMBOTE",
+      "codigo_juris": "03",
+      "nombre": "SANTA 2"
+    },
+    {
+      "id": "03-01",
+      "sede_regional_id": "03",
+      "sede_regional_nombre": "ANCASH-HUARAZ",
+      "codigo_juris": "01",
+      "nombre": "HUARAZ"
+    },
+    {
+      "id": "03-02",
+      "sede_regional_id": "03",
+      "sede_regional_nombre": "ANCASH-HUARAZ",
+      "codigo_juris": "02",
+      "nombre": "HUARI"
+    },
+    {
+      "id": "03-03",
+      "sede_regional_id": "03",
+      "sede_regional_nombre": "ANCASH-HUARAZ",
+      "codigo_juris": "03",
+      "nombre": "RECUAY"
+    },
+    {
+      "id": "03-04",
+      "sede_regional_id": "03",
+      "sede_regional_nombre": "ANCASH-HUARAZ",
+      "codigo_juris": "04",
+      "nombre": "SIHUAS"
+    },
+    {
+      "id": "03-05",
+      "sede_regional_id": "03",
+      "sede_regional_nombre": "ANCASH-HUARAZ",
+      "codigo_juris": "05",
+      "nombre": "YUNGAY"
+    },
+    {
+      "id": "04-01",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "01",
+      "nombre": "ABANCAY"
+    },
+    {
+      "id": "04-02",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "02",
+      "nombre": "ANDAHUAYLAS"
+    },
+    {
+      "id": "04-03",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "03",
+      "nombre": "AYMARAES"
+    },
+    {
+      "id": "04-04",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "04",
+      "nombre": "CHINCHEROS"
+    },
+    {
+      "id": "04-05",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "05",
+      "nombre": "COTABAMBAS"
+    },
+    {
+      "id": "04-06",
+      "sede_regional_id": "04",
+      "sede_regional_nombre": "APURIMAC",
+      "codigo_juris": "06",
+      "nombre": "GRAU"
+    },
+    {
+      "id": "05-01",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "01",
+      "nombre": "AREQUIPA 1"
+    },
+    {
+      "id": "05-02",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "02",
+      "nombre": "AREQUIPA 2"
+    },
+    {
+      "id": "05-03",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "03",
+      "nombre": "AREQUIPA 3"
+    },
+    {
+      "id": "05-04",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "04",
+      "nombre": "AREQUIPA 4"
+    },
+    {
+      "id": "05-05",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "05",
+      "nombre": "CAMANA"
+    },
+    {
+      "id": "05-06",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "06",
+      "nombre": "CASTILLA"
+    },
+    {
+      "id": "05-07",
+      "sede_regional_id": "05",
+      "sede_regional_nombre": "AREQUIPA",
+      "codigo_juris": "07",
+      "nombre": "MAJES"
+    },
+    {
+      "id": "06-01",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "01",
+      "nombre": "CANGALLO"
+    },
+    {
+      "id": "06-02",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "02",
+      "nombre": "HUAMANGA 1"
+    },
+    {
+      "id": "06-03",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "03",
+      "nombre": "HUAMANGA 2"
+    },
+    {
+      "id": "06-04",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "04",
+      "nombre": "HUANTA"
+    },
+    {
+      "id": "06-05",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "05",
+      "nombre": "LA CONVENCION (PICHARI)"
+    },
+    {
+      "id": "06-06",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "06",
+      "nombre": "LA MAR (TAMBO)"
+    },
+    {
+      "id": "06-07",
+      "sede_regional_id": "06",
+      "sede_regional_nombre": "AYACUCHO",
+      "codigo_juris": "07",
+      "nombre": "VICTOR FAJARDO"
+    },
+    {
+      "id": "07-01",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "01",
+      "nombre": "CAJABAMBA"
+    },
+    {
+      "id": "07-02",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "02",
+      "nombre": "CAJAMARCA 1"
+    },
+    {
+      "id": "07-03",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "03",
+      "nombre": "CAJAMARCA 2"
+    },
+    {
+      "id": "07-04",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "04",
+      "nombre": "CELENDIN"
+    },
+    {
+      "id": "07-05",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "05",
+      "nombre": "CHOTA"
+    },
+    {
+      "id": "07-06",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "06",
+      "nombre": "CUTERVO"
+    },
+    {
+      "id": "07-07",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "07",
+      "nombre": "HUALGAYOC"
+    },
+    {
+      "id": "07-08",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "08",
+      "nombre": "SAN MARCOS"
+    },
+    {
+      "id": "07-09",
+      "sede_regional_id": "07",
+      "sede_regional_nombre": "CAJAMARCA",
+      "codigo_juris": "09",
+      "nombre": "SAN MIGUEL"
+    },
+    {
+      "id": "08-01",
+      "sede_regional_id": "08",
+      "sede_regional_nombre": "CALLAO",
+      "codigo_juris": "01",
+      "nombre": "CALLAO 1"
+    },
+    {
+      "id": "08-02",
+      "sede_regional_id": "08",
+      "sede_regional_nombre": "CALLAO",
+      "codigo_juris": "02",
+      "nombre": "CALLAO 2"
+    },
+    {
+      "id": "08-03",
+      "sede_regional_id": "08",
+      "sede_regional_nombre": "CALLAO",
+      "codigo_juris": "03",
+      "nombre": "VENTANILLA"
+    },
+    {
+      "id": "09-01",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "01",
+      "nombre": "ANTA"
+    },
+    {
+      "id": "09-02",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "02",
+      "nombre": "CALCA"
+    },
+    {
+      "id": "09-03",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "03",
+      "nombre": "CANCHIS"
+    },
+    {
+      "id": "09-04",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "04",
+      "nombre": "CHUMBIVILCAS"
+    },
+    {
+      "id": "09-05",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "05",
+      "nombre": "CUSCO 1"
+    },
+    {
+      "id": "09-06",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "06",
+      "nombre": "CUSCO 2"
+    },
+    {
+      "id": "09-07",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "07",
+      "nombre": "ESPINAR"
+    },
+    {
+      "id": "09-08",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "08",
+      "nombre": "LA CONVENCION (QUILLABAMBA)"
+    },
+    {
+      "id": "09-09",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "09",
+      "nombre": "QUISPICANCHI"
+    },
+    {
+      "id": "09-10",
+      "sede_regional_id": "09",
+      "sede_regional_nombre": "CUSCO",
+      "codigo_juris": "10",
+      "nombre": "URUBAMBA"
+    },
+    {
+      "id": "10-01",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "01",
+      "nombre": "ACOBAMBA"
+    },
+    {
+      "id": "10-02",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "02",
+      "nombre": "ANGARAES"
+    },
+    {
+      "id": "10-03",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "03",
+      "nombre": "CHURCAMPA"
+    },
+    {
+      "id": "10-04",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "04",
+      "nombre": "HUANCAVELICA 1"
+    },
+    {
+      "id": "10-05",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "05",
+      "nombre": "HUANCAVELICA 2"
+    },
+    {
+      "id": "10-06",
+      "sede_regional_id": "10",
+      "sede_regional_nombre": "HUANCAVELICA",
+      "codigo_juris": "06",
+      "nombre": "TAYACAJA"
+    },
+    {
+      "id": "11-01",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "01",
+      "nombre": "AMBO"
+    },
+    {
+      "id": "11-02",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "02",
+      "nombre": "DOS DE MAYO"
+    },
+    {
+      "id": "11-03",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "03",
+      "nombre": "HUAMALIES"
+    },
+    {
+      "id": "11-04",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "04",
+      "nombre": "HUANUCO 1"
+    },
+    {
+      "id": "11-05",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "05",
+      "nombre": "HUANUCO 2"
+    },
+    {
+      "id": "11-06",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "06",
+      "nombre": "LEONCIO PRADO"
+    },
+    {
+      "id": "11-07",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "07",
+      "nombre": "MARAÑON"
+    },
+    {
+      "id": "11-08",
+      "sede_regional_id": "11",
+      "sede_regional_nombre": "HUANUCO",
+      "codigo_juris": "08",
+      "nombre": "PACHITEA"
+    },
+    {
+      "id": "12-01",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "01",
+      "nombre": "CHINCHA"
+    },
+    {
+      "id": "12-02",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "02",
+      "nombre": "ICA 1"
+    },
+    {
+      "id": "12-03",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "03",
+      "nombre": "ICA 2"
+    },
+    {
+      "id": "12-04",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "04",
+      "nombre": "LUCANAS"
+    },
+    {
+      "id": "12-05",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "05",
+      "nombre": "NASCA"
+    },
+    {
+      "id": "12-06",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "06",
+      "nombre": "PARINACOCHAS"
+    },
+    {
+      "id": "12-07",
+      "sede_regional_id": "12",
+      "sede_regional_nombre": "ICA",
+      "codigo_juris": "07",
+      "nombre": "PISCO"
+    },
+    {
+      "id": "13-01",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "01",
+      "nombre": "CHANCHAMAYO"
+    },
+    {
+      "id": "13-02",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "02",
+      "nombre": "CHUPACA"
+    },
+    {
+      "id": "13-03",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "03",
+      "nombre": "HUANCAYO 1"
+    },
+    {
+      "id": "13-04",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "04",
+      "nombre": "HUANCAYO 2"
+    },
+    {
+      "id": "13-05",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "05",
+      "nombre": "JAUJA"
+    },
+    {
+      "id": "13-06",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "06",
+      "nombre": "SATIPO"
+    },
+    {
+      "id": "13-07",
+      "sede_regional_id": "13",
+      "sede_regional_nombre": "JUNIN",
+      "codigo_juris": "07",
+      "nombre": "TARMA"
+    },
+    {
+      "id": "14-01",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "01",
+      "nombre": "ASCOPE"
+    },
+    {
+      "id": "14-02",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "02",
+      "nombre": "OTUZCO"
+    },
+    {
+      "id": "14-03",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "03",
+      "nombre": "PATAZ"
+    },
+    {
+      "id": "14-04",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "04",
+      "nombre": "SANCHEZ CARRION"
+    },
+    {
+      "id": "14-05",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "05",
+      "nombre": "TRUJILLO 1"
+    },
+    {
+      "id": "14-06",
+      "sede_regional_id": "14",
+      "sede_regional_nombre": "LA LIBERTAD",
+      "codigo_juris": "06",
+      "nombre": "TRUJILLO 2"
+    },
+    {
+      "id": "15-01",
+      "sede_regional_id": "15",
+      "sede_regional_nombre": "LAMBAYEQUE",
+      "codigo_juris": "01",
+      "nombre": "CHICLAYO 1"
+    },
+    {
+      "id": "15-02",
+      "sede_regional_id": "15",
+      "sede_regional_nombre": "LAMBAYEQUE",
+      "codigo_juris": "02",
+      "nombre": "CHICLAYO 2"
+    },
+    {
+      "id": "15-03",
+      "sede_regional_id": "15",
+      "sede_regional_nombre": "LAMBAYEQUE",
+      "codigo_juris": "03",
+      "nombre": "FERREÑAFE"
+    },
+    {
+      "id": "15-04",
+      "sede_regional_id": "15",
+      "sede_regional_nombre": "LAMBAYEQUE",
+      "codigo_juris": "04",
+      "nombre": "LAMBAYEQUE 1"
+    },
+    {
+      "id": "15-05",
+      "sede_regional_id": "15",
+      "sede_regional_nombre": "LAMBAYEQUE",
+      "codigo_juris": "05",
+      "nombre": "LAMBAYEQUE 2"
+    },
+    {
+      "id": "16-01",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "01",
+      "nombre": "LIMA MET 1"
+    },
+    {
+      "id": "16-02",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "02",
+      "nombre": "LIMA MET 2"
+    },
+    {
+      "id": "16-03",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "03",
+      "nombre": "LIMA MET 3"
+    },
+    {
+      "id": "16-04",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "04",
+      "nombre": "LIMA MET 4"
+    },
+    {
+      "id": "16-05",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "05",
+      "nombre": "LIMA MET 5"
+    },
+    {
+      "id": "16-06",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "06",
+      "nombre": "LIMA MET 6"
+    },
+    {
+      "id": "16-07",
+      "sede_regional_id": "16",
+      "sede_regional_nombre": "LIMA METROPOLITANA",
+      "codigo_juris": "07",
+      "nombre": "LIMA MET 7"
+    },
+    {
+      "id": "17-01",
+      "sede_regional_id": "17",
+      "sede_regional_nombre": "LIMA PROVINCIAS",
+      "codigo_juris": "01",
+      "nombre": "BARRANCA"
+    },
+    {
+      "id": "17-02",
+      "sede_regional_id": "17",
+      "sede_regional_nombre": "LIMA PROVINCIAS",
+      "codigo_juris": "02",
+      "nombre": "CAÑETE"
+    },
+    {
+      "id": "17-03",
+      "sede_regional_id": "17",
+      "sede_regional_nombre": "LIMA PROVINCIAS",
+      "codigo_juris": "03",
+      "nombre": "HUARAL"
+    },
+    {
+      "id": "17-04",
+      "sede_regional_id": "17",
+      "sede_regional_nombre": "LIMA PROVINCIAS",
+      "codigo_juris": "04",
+      "nombre": "HUAURA"
+    },
+    {
+      "id": "18-01",
+      "sede_regional_id": "18",
+      "sede_regional_nombre": "LORETO",
+      "codigo_juris": "01",
+      "nombre": "LORETO"
+    },
+    {
+      "id": "18-02",
+      "sede_regional_id": "18",
+      "sede_regional_nombre": "LORETO",
+      "codigo_juris": "02",
+      "nombre": "MARISCAL RAMON CASTILLA"
+    },
+    {
+      "id": "18-03",
+      "sede_regional_id": "18",
+      "sede_regional_nombre": "LORETO",
+      "codigo_juris": "03",
+      "nombre": "MAYNAS 1"
+    },
+    {
+      "id": "18-04",
+      "sede_regional_id": "18",
+      "sede_regional_nombre": "LORETO",
+      "codigo_juris": "04",
+      "nombre": "MAYNAS 2"
+    },
+    {
+      "id": "18-05",
+      "sede_regional_id": "18",
+      "sede_regional_nombre": "LORETO",
+      "codigo_juris": "05",
+      "nombre": "REQUENA"
+    },
+    {
+      "id": "19-01",
+      "sede_regional_id": "19",
+      "sede_regional_nombre": "MADRE DE DIOS",
+      "codigo_juris": "01",
+      "nombre": "TAMBOPATA 1"
+    },
+    {
+      "id": "19-02",
+      "sede_regional_id": "19",
+      "sede_regional_nombre": "MADRE DE DIOS",
+      "codigo_juris": "02",
+      "nombre": "TAMBOPATA 2"
+    },
+    {
+      "id": "20-01",
+      "sede_regional_id": "20",
+      "sede_regional_nombre": "MOQUEGUA",
+      "codigo_juris": "01",
+      "nombre": "ILO"
+    },
+    {
+      "id": "20-02",
+      "sede_regional_id": "20",
+      "sede_regional_nombre": "MOQUEGUA",
+      "codigo_juris": "02",
+      "nombre": "MARISCAL NIETO"
+    },
+    {
+      "id": "21-01",
+      "sede_regional_id": "21",
+      "sede_regional_nombre": "PASCO",
+      "codigo_juris": "01",
+      "nombre": "DANIEL ALCIDES CARRION"
+    },
+    {
+      "id": "21-02",
+      "sede_regional_id": "21",
+      "sede_regional_nombre": "PASCO",
+      "codigo_juris": "02",
+      "nombre": "OXAPAMPA (OXAPAMPA)"
+    },
+    {
+      "id": "21-03",
+      "sede_regional_id": "21",
+      "sede_regional_nombre": "PASCO",
+      "codigo_juris": "03",
+      "nombre": "OXAPAMPA (PUERTO BERMUDEZ)"
+    },
+    {
+      "id": "21-04",
+      "sede_regional_id": "21",
+      "sede_regional_nombre": "PASCO",
+      "codigo_juris": "04",
+      "nombre": "PASCO 1"
+    },
+    {
+      "id": "21-05",
+      "sede_regional_id": "21",
+      "sede_regional_nombre": "PASCO",
+      "codigo_juris": "05",
+      "nombre": "PASCO 2"
+    },
+    {
+      "id": "22-01",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "01",
+      "nombre": "AYABACA"
+    },
+    {
+      "id": "22-02",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "02",
+      "nombre": "HUANCABAMBA"
+    },
+    {
+      "id": "22-03",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "03",
+      "nombre": "MORROPON"
+    },
+    {
+      "id": "22-04",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "04",
+      "nombre": "PIURA 1"
+    },
+    {
+      "id": "22-05",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "05",
+      "nombre": "PIURA 2"
+    },
+    {
+      "id": "22-06",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "06",
+      "nombre": "PIURA 3"
+    },
+    {
+      "id": "22-07",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "07",
+      "nombre": "SULLANA"
+    },
+    {
+      "id": "22-08",
+      "sede_regional_id": "22",
+      "sede_regional_nombre": "PIURA",
+      "codigo_juris": "08",
+      "nombre": "TALARA"
+    },
+    {
+      "id": "23-01",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "01",
+      "nombre": "AZANGARO"
+    },
+    {
+      "id": "23-02",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "02",
+      "nombre": "CHUCUITO"
+    },
+    {
+      "id": "23-03",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "03",
+      "nombre": "EL COLLAO"
+    },
+    {
+      "id": "23-04",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "04",
+      "nombre": "HUANCANE"
+    },
+    {
+      "id": "23-05",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "05",
+      "nombre": "MELGAR"
+    },
+    {
+      "id": "23-06",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "06",
+      "nombre": "PUNO"
+    },
+    {
+      "id": "23-07",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "07",
+      "nombre": "SAN ANTONIO DE PUTINA"
+    },
+    {
+      "id": "23-08",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "08",
+      "nombre": "SAN ROMAN 1"
+    },
+    {
+      "id": "23-09",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "09",
+      "nombre": "SAN ROMAN 2"
+    },
+    {
+      "id": "23-10",
+      "sede_regional_id": "23",
+      "sede_regional_nombre": "PUNO",
+      "codigo_juris": "10",
+      "nombre": "SANDIA"
+    },
+    {
+      "id": "24-01",
+      "sede_regional_id": "24",
+      "sede_regional_nombre": "SAN MARTIN-MOYOBAMBA",
+      "codigo_juris": "01",
+      "nombre": "LAMAS"
+    },
+    {
+      "id": "24-02",
+      "sede_regional_id": "24",
+      "sede_regional_nombre": "SAN MARTIN-MOYOBAMBA",
+      "codigo_juris": "02",
+      "nombre": "MOYOBAMBA"
+    },
+    {
+      "id": "24-03",
+      "sede_regional_id": "24",
+      "sede_regional_nombre": "SAN MARTIN-MOYOBAMBA",
+      "codigo_juris": "03",
+      "nombre": "RIOJA"
+    },
+    {
+      "id": "25-01",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "01",
+      "nombre": "ALTO AMAZONAS"
+    },
+    {
+      "id": "25-02",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "02",
+      "nombre": "BELLAVISTA"
+    },
+    {
+      "id": "25-03",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "03",
+      "nombre": "DATEM DEL MARAÑON"
+    },
+    {
+      "id": "25-04",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "04",
+      "nombre": "HUALLAGA"
+    },
+    {
+      "id": "25-05",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "05",
+      "nombre": "MARISCAL CACERES"
+    },
+    {
+      "id": "25-06",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "06",
+      "nombre": "PICOTA"
+    },
+    {
+      "id": "25-07",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "07",
+      "nombre": "SAN MARTIN"
+    },
+    {
+      "id": "25-08",
+      "sede_regional_id": "25",
+      "sede_regional_nombre": "SAN MARTIN-TARAPOTO",
+      "codigo_juris": "08",
+      "nombre": "TOCACHE"
+    },
+    {
+      "id": "26-01",
+      "sede_regional_id": "26",
+      "sede_regional_nombre": "TACNA",
+      "codigo_juris": "01",
+      "nombre": "TACNA 1"
+    },
+    {
+      "id": "26-02",
+      "sede_regional_id": "26",
+      "sede_regional_nombre": "TACNA",
+      "codigo_juris": "02",
+      "nombre": "TACNA 2"
+    },
+    {
+      "id": "26-03",
+      "sede_regional_id": "26",
+      "sede_regional_nombre": "TACNA",
+      "codigo_juris": "03",
+      "nombre": "TACNA 3"
+    },
+    {
+      "id": "27-01",
+      "sede_regional_id": "27",
+      "sede_regional_nombre": "TUMBES",
+      "codigo_juris": "01",
+      "nombre": "TUMBES 1"
+    },
+    {
+      "id": "27-02",
+      "sede_regional_id": "27",
+      "sede_regional_nombre": "TUMBES",
+      "codigo_juris": "02",
+      "nombre": "TUMBES 2"
+    },
+    {
+      "id": "28-01",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "01",
+      "nombre": "ATALAYA"
+    },
+    {
+      "id": "28-02",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "02",
+      "nombre": "CORONEL PORTILLO 1"
+    },
+    {
+      "id": "28-03",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "03",
+      "nombre": "CORONEL PORTILLO 2"
+    },
+    {
+      "id": "28-04",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "04",
+      "nombre": "CORONEL PORTILLO 3"
+    },
+    {
+      "id": "28-05",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "05",
+      "nombre": "PADRE ABAD"
+    },
+    {
+      "id": "28-06",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "06",
+      "nombre": "PUERTO INCA"
+    },
+    {
+      "id": "28-07",
+      "sede_regional_id": "28",
+      "sede_regional_nombre": "UCAYALI",
+      "codigo_juris": "07",
+      "nombre": "UCAYALI"
+    }
+  ]
+}

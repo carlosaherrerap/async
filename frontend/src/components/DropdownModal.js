@@ -35,6 +35,7 @@ const DropdownModal = ({
   icon = 'chevron-down',
   activeColor = '#334155',
   style,
+  disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -42,18 +43,21 @@ const DropdownModal = ({
     <>
       {/* Botón de activación (trigger) */}
       <TouchableOpacity
-        style={[styles.trigger, style]}
-        onPress={() => setOpen(true)}
-        activeOpacity={0.8}
+        style={[styles.trigger, style, disabled && styles.triggerDisabled]}
+        onPress={() => !disabled && setOpen(true)}
+        activeOpacity={disabled ? 1 : 0.8}
+        disabled={disabled}
       >
-        <Text style={styles.triggerText} numberOfLines={1}>
+        <Text style={[styles.triggerText, disabled && styles.triggerTextDisabled]} numberOfLines={1}>
           {displayText || label || 'Seleccionar'}
         </Text>
-        <MaterialCommunityIcons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={activeColor}
-        />
+        {!disabled && (
+          <MaterialCommunityIcons
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={activeColor}
+          />
+        )}
       </TouchableOpacity>
 
       {/* Superposición de modal a pantalla completa */}
@@ -216,6 +220,13 @@ const styles = StyleSheet.create({
   optionTextActive: {
     color: '#FFFFFF',
     fontWeight: '900',
+  },
+  triggerDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  triggerTextDisabled: {
+    color: '#94A3B8',
   },
 });
 

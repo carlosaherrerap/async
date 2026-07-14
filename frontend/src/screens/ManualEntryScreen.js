@@ -49,7 +49,7 @@ const ManualEntryScreen = () => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/attendance/register`, {
+      const response = await fetch(`${API_URL}/api/asistencia/registrar-asistencia`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

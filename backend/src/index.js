@@ -14,9 +14,9 @@ const attendanceRoutes = require('./routes/attendance');
 const authRoutes = require('./routes/auth');
 const configRoutes = require('./routes/config');
 
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/config', configRoutes);
+app.use('/api/asistencia', attendanceRoutes);
+app.use('/api/autenticacion', authRoutes);
+app.use('/api/configuracion', configRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'API de Asistencia activa' });
@@ -47,6 +47,25 @@ app.get('/api/init-db-debug', async (req, res) => {
             )
         `);
         logs.push('Table parametros_asistencia created or verified.');
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS sede_regional (
+                id VARCHAR(10) PRIMARY KEY,
+                nombre VARCHAR(100) NOT NULL UNIQUE
+            )
+        `);
+        logs.push('Table sede_regional created or verified.');
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS sede_juris (
+                id VARCHAR(20) PRIMARY KEY,
+                sede_regional_nombre VARCHAR(100) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE,
+                codigo_juris VARCHAR(10) NOT NULL,
+                nombre VARCHAR(100) NOT NULL,
+                UNIQUE (sede_regional_nombre, nombre)
+            )
+        `);
+        logs.push('Table sede_juris created or verified.');
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS cargos (
@@ -110,10 +129,29 @@ app.get('/api/init-db-debug', async (req, res) => {
                 principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
                 estado CHAR(1) NOT NULL REFERENCES parametros_asistencia(estado),
                 fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                observaciones TEXT
+                observaciones TEXT,
+                usuario_registro_id INT REFERENCES usuarios(id) ON DELETE SET NULL
             )
         `);
         logs.push('Table asistencias created or verified.');
+
+        // Agregar columna usuario_registro_id a asistencias si no existe
+        const columnCheck = await db.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'asistencias' AND column_name = 'usuario_registro_id'
+        `);
+        if (columnCheck.rows.length === 0) {
+            try {
+                await db.query(`
+                    ALTER TABLE asistencias 
+                    ADD COLUMN usuario_registro_id INT REFERENCES usuarios(id) ON DELETE SET NULL
+                `);
+                logs.push('Column usuario_registro_id added to asistencias table.');
+            } catch (err) {
+                logs.push('Could not add usuario_registro_id column: ' + err.message);
+            }
+        }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS historial_cambios_sede (
@@ -141,6 +179,50 @@ app.get('/api/init-db-debug', async (req, res) => {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
         await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
         logs.push('Indexes created or verified.');
+
+        // Sembrar sedes
+        const sedesCheck = await db.query('SELECT COUNT(*) FROM sede_regional');
+        if (parseInt(sedesCheck.rows[0].count) === 0) {
+            const fs = require('fs');
+            const path = require('path');
+            const sedesData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sedes.json'), 'utf8'));
+
+            for (const reg of sedesData.regionals) {
+                await db.query(
+                    'INSERT INTO sede_regional (id, nombre) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+                    [reg.id, reg.nombre]
+                );
+            }
+
+            for (const j of sedesData.jurisdictions) {
+                await db.query(
+                    'INSERT INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+                    [j.id, j.sede_regional_nombre, j.codigo_juris, j.nombre]
+                );
+            }
+            logs.push('Sede regional and jurisdiction data seeded.');
+        }
+
+        // Agregar restricción FK a la tabla principal
+        const constraintCheck = await db.query(`
+            SELECT constraint_name 
+            FROM information_schema.table_constraints 
+            WHERE table_name = 'principal' AND constraint_name = 'fk_principal_sedes'
+        `);
+        if (constraintCheck.rows.length === 0) {
+            try {
+                await db.query(`
+                    ALTER TABLE principal 
+                    ADD CONSTRAINT fk_principal_sedes 
+                    FOREIGN KEY (sede_reg, sede_juris) 
+                    REFERENCES sede_juris(sede_regional_nombre, nombre) 
+                    ON UPDATE CASCADE
+                `);
+                logs.push('Foreign key constraint fk_principal_sedes added to principal table.');
+            } catch (err) {
+                logs.push('Could not add fk_principal_sedes constraint: ' + err.message);
+            }
+        }
 
         await db.query(`
             INSERT INTO parametros_asistencia (estado, descripcion) VALUES
@@ -226,6 +308,23 @@ const initDb = async (retries = 5) => {
 
             // 2. Tablas de referencia
             await db.query(`
+                CREATE TABLE IF NOT EXISTS sede_regional (
+                    id VARCHAR(10) PRIMARY KEY,
+                    nombre VARCHAR(100) NOT NULL UNIQUE
+                )
+            `);
+
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS sede_juris (
+                    id VARCHAR(20) PRIMARY KEY,
+                    sede_regional_nombre VARCHAR(100) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE,
+                    codigo_juris VARCHAR(10) NOT NULL,
+                    nombre VARCHAR(100) NOT NULL,
+                    UNIQUE (sede_regional_nombre, nombre)
+                )
+            `);
+
+            await db.query(`
                 CREATE TABLE IF NOT EXISTS cargos (
                     id SERIAL PRIMARY KEY,
                     nombre VARCHAR(100) NOT NULL UNIQUE
@@ -285,7 +384,8 @@ const initDb = async (retries = 5) => {
                     principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
                     estado CHAR(1) NOT NULL REFERENCES parametros_asistencia(estado),
                     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    observaciones TEXT
+                    observaciones TEXT,
+                    usuario_registro_id INT REFERENCES usuarios(id) ON DELETE SET NULL
                 )
             `);
 
@@ -314,6 +414,24 @@ const initDb = async (retries = 5) => {
             await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
             await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
 
+            // Agregar columna usuario_registro_id a asistencias si no existe
+            const columnCheckDb = await db.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'asistencias' AND column_name = 'usuario_registro_id'
+            `);
+            if (columnCheckDb.rows.length === 0) {
+                try {
+                    await db.query(`
+                        ALTER TABLE asistencias 
+                        ADD COLUMN usuario_registro_id INT REFERENCES usuarios(id) ON DELETE SET NULL
+                    `);
+                    console.log('--- Columna usuario_registro_id agregada a asistencias ---');
+                } catch (err) {
+                    console.log('No se pudo agregar columna usuario_registro_id:', err.message);
+                }
+            }
+
             // Datos base requeridos (parámetros y tipos)
             await db.query(`
                 INSERT INTO parametros_asistencia (estado, descripcion) VALUES
@@ -328,6 +446,50 @@ const initDb = async (retries = 5) => {
                 (2, 'Reserva')
                 ON CONFLICT (id) DO NOTHING
             `);
+
+            // Sembrar sedes regional y juris
+            const sedesCheck = await db.query('SELECT COUNT(*) FROM sede_regional');
+            if (parseInt(sedesCheck.rows[0].count) === 0) {
+                const fs = require('fs');
+                const path = require('path');
+                const sedesData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sedes.json'), 'utf8'));
+
+                for (const reg of sedesData.regionals) {
+                    await db.query(
+                        'INSERT INTO sede_regional (id, nombre) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+                        [reg.id, reg.nombre]
+                    );
+                }
+
+                for (const j of sedesData.jurisdictions) {
+                    await db.query(
+                        'INSERT INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+                        [j.id, j.sede_regional_nombre, j.codigo_juris, j.nombre]
+                    );
+                }
+                console.log('--- Sedes regional y jurisdiccional sembradas ---');
+            }
+
+            // Agregar restricción FK a principal
+            const constraintCheck = await db.query(`
+                SELECT constraint_name 
+                FROM information_schema.table_constraints 
+                WHERE table_name = 'principal' AND constraint_name = 'fk_principal_sedes'
+            `);
+            if (constraintCheck.rows.length === 0) {
+                try {
+                    await db.query(`
+                        ALTER TABLE principal 
+                        ADD CONSTRAINT fk_principal_sedes 
+                        FOREIGN KEY (sede_reg, sede_juris) 
+                        REFERENCES sede_juris(sede_regional_nombre, nombre) 
+                        ON UPDATE CASCADE
+                    `);
+                    console.log('--- Restricción FK de sedes agregada a principal ---');
+                } catch (err) {
+                    console.log('No se pudo agregar restricción FK de sedes a principal:', err.message);
+                }
+            }
 
             // Opcional: Insertar cargos iniciales si la tabla de cargos está vacía
             const cargosCheck = await db.query('SELECT COUNT(*) FROM cargos');
@@ -386,7 +548,10 @@ const initDb = async (retries = 5) => {
             console.error('Error durante la inicialización de la base de datos:', err);
             console.log(`Esperando a la base de datos... (${retries} reintentos restantes)`);
             retries -= 1;
-            if (retries === 0) break;
+            if (retries === 0 || process.env.NODE_ENV === 'test') {
+                console.log('Finalizando reintentos de base de datos debido a límite o entorno de test.');
+                break;
+            }
             await new Promise(res => setTimeout(res, 5000));
         }
     }

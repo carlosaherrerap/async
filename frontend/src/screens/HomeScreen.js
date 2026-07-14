@@ -135,7 +135,7 @@ const HomeScreen = ({ navigation }) => {
 
       if (online) {
         try {
-          const res = await fetch(`${API_URL}/api/attendance/stats`, {
+          const res = await fetch(`${API_URL}/api/asistencia/estadisticas`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.status === 401 || res.status === 403) { handleLogout(); return; }
@@ -183,12 +183,12 @@ const HomeScreen = ({ navigation }) => {
     if (!isOnline) { Alert.alert('Sin conexión', 'Se requiere internet para descargar.'); return; }
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch(`${API_URL}/api/attendance/sync-pull`, {
+      const res = await fetch(`${API_URL}/api/asistencia/sincronizar-descarga`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const d = await res.json();
-        await global.dbHelper.clearAndPopulate(d.cargos, d.metas_cargos, d.tipo_postulante, d.parametros_asistencia, d.workers, d.asistencias);
+        await global.dbHelper.clearAndPopulate(d.cargos, d.metas_cargos, d.tipo_postulante, d.parametros_asistencia, d.workers, d.asistencias, d.sede_regional, d.sede_juris);
         await fetchDebugData();
         fetchStats();
         Alert.alert('Completado', `Datos descargados: ${d.workers?.length ?? 0} postulantes`);
@@ -259,7 +259,7 @@ const HomeScreen = ({ navigation }) => {
           <Button mode="contained-tonal" buttonColor={COLORS.dangerSoft} textColor={COLORS.danger} icon="delete-sweep" labelStyle={{ fontWeight: '800' }}
             onPress={() => Alert.alert('¿LIMPIAR DB?', 'Se borrara toda la base de datos local.', [
               { text: 'CANCELAR', style: 'cancel' },
-              { text: 'LIMPIAR', style: 'destructive', onPress: async () => { await global.dbHelper.clearAndPopulate([], [], [], [], [], []); await fetchDebugData(); fetchStats(); } }
+              { text: 'LIMPIAR', style: 'destructive', onPress: async () => { await global.dbHelper.clearAndPopulate([], [], [], [], [], [], [], []); await fetchDebugData(); fetchStats(); } }
             ])}>
             LIMPIAR DB LOCAL
           </Button>
@@ -365,7 +365,7 @@ const HomeScreen = ({ navigation }) => {
                   try {
                     const token = await AsyncStorage.getItem('userToken');
                     if (!token) return;
-                    const url = `${API_URL}/api/attendance/export?token=${token}`;
+                    const url = `${API_URL}/api/asistencia/exportar-excel?token=${token}`;
                     const { Linking } = require('react-native');
                     await Linking.openURL(url);
                   } catch (err) {

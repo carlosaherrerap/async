@@ -100,6 +100,7 @@ global.dbHelper = {
           estado TEXT NOT NULL,
           fecha_hora TEXT NOT NULL,
           observaciones TEXT,
+          usuario_registro_id INTEGER,
           FOREIGN KEY(principal_id) REFERENCES principal(id) ON DELETE CASCADE ON UPDATE CASCADE,
           FOREIGN KEY(estado) REFERENCES parametros_asistencia(estado) ON UPDATE CASCADE
         );
@@ -118,6 +119,20 @@ global.dbHelper = {
           sede_destino TEXT NOT NULL,
           fecha_hora TEXT NOT NULL,
           usuario_cambio TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS sede_regional (
+          id TEXT PRIMARY KEY,
+          nombre TEXT UNIQUE NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS sede_juris (
+          id TEXT PRIMARY KEY,
+          sede_regional_nombre TEXT,
+          codigo_juris TEXT NOT NULL,
+          nombre TEXT NOT NULL,
+          UNIQUE (sede_regional_nombre, nombre),
+          FOREIGN KEY(sede_regional_nombre) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE
         );
       `);
 
@@ -139,7 +154,7 @@ global.dbHelper = {
     }
   },
 
-  async clearAndPopulate(cargos, metas_cargos, tipo_postulante, parametros_asistencia, workers, asistencias) {
+  async clearAndPopulate(cargos, metas_cargos, tipo_postulante, parametros_asistencia, workers, asistencias, sede_regional, sede_juris) {
     try {
       if (!db) return;
       await db.withTransactionAsync(async () => {
@@ -149,6 +164,8 @@ global.dbHelper = {
         await db.runAsync('DELETE FROM metas_cargos;');
         await db.runAsync('DELETE FROM cargos;');
         await db.runAsync('DELETE FROM parametros_asistencia;');
+        await db.runAsync('DELETE FROM sede_juris;');
+        await db.runAsync('DELETE FROM sede_regional;');
 
         for (const p of parametros_asistencia || []) {
           await db.runAsync('INSERT OR REPLACE INTO parametros_asistencia (estado, descripcion) VALUES (?, ?)', [p.estado, p.descripcion]);
@@ -166,6 +183,14 @@ global.dbHelper = {
           await db.runAsync('INSERT OR REPLACE INTO tipo_postulante (id, descripcion) VALUES (?, ?)', [tp.id, tp.descripcion]);
         }
 
+        for (const sr of sede_regional || []) {
+          await db.runAsync('INSERT OR REPLACE INTO sede_regional (id, nombre) VALUES (?, ?)', [sr.id, sr.nombre]);
+        }
+
+        for (const sj of sede_juris || []) {
+          await db.runAsync('INSERT OR REPLACE INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES (?, ?, ?, ?)', [sj.id, sj.sede_regional_nombre, sj.codigo_juris, sj.nombre]);
+        }
+
         for (const w of workers || []) {
           await db.runAsync(`
             INSERT OR REPLACE INTO principal (
@@ -177,8 +202,8 @@ global.dbHelper = {
         }
 
         for (const a of asistencias || []) {
-          await db.runAsync('INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?, ?)', [
-            a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones
+          await db.runAsync('INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones, usuario_registro_id) VALUES (?, ?, ?, ?, ?, ?)', [
+            a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id
           ]);
         }
       });
@@ -223,7 +248,7 @@ global.dbHelper = {
 
           try {
             if (item.action_type === 'REGISTER_WORKER') {
-              const res = await fetch(`${API_URL}/api/attendance/register-worker`, {
+              const res = await fetch(`${API_URL}/api/asistencia/registrar-postulante`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -237,7 +262,7 @@ global.dbHelper = {
                 await db.runAsync('UPDATE asistencias SET principal_id = ? WHERE principal_id = ?', [realId, payload.id]);
               }
             } else if (item.action_type === 'MARK_ATTENDANCE') {
-              const res = await fetch(`${API_URL}/api/attendance/register`, {
+              const res = await fetch(`${API_URL}/api/asistencia/registrar-asistencia`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -245,7 +270,7 @@ global.dbHelper = {
               responseStatus = res.status;
               success = res.ok;
             } else if (item.action_type === 'CREATE_CARGO') {
-              const res = await fetch(`${API_URL}/api/config/cargos`, {
+              const res = await fetch(`${API_URL}/api/configuracion/cargos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -263,7 +288,7 @@ global.dbHelper = {
               const cargoLocal = await db.getAllAsync('SELECT id FROM cargos WHERE nombre = ?', [payload.nombre]);
               const realId = cargoLocal[0]?.id || payload.id;
               
-              const res = await fetch(`${API_URL}/api/config/cargos/${realId}`, {
+              const res = await fetch(`${API_URL}/api/configuracion/cargos/${realId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ meta: payload.meta })
@@ -275,7 +300,7 @@ global.dbHelper = {
               const workerLocal = await db.getAllAsync('SELECT id FROM principal WHERE doc_identidad = ?', [payload.dni]);
               const realId = workerLocal[0]?.id || payload.id;
 
-              const res = await fetch(`${API_URL}/api/attendance/workers/${realId}`, {
+              const res = await fetch(`${API_URL}/api/asistencia/postulantes/${realId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -283,7 +308,7 @@ global.dbHelper = {
               responseStatus = res.status;
               success = res.ok;
             } else if (item.action_type === 'CHANGE_SEDE') {
-              const res = await fetch(`${API_URL}/api/attendance/change-sede`, {
+              const res = await fetch(`${API_URL}/api/asistencia/cambiar-sede`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -326,7 +351,7 @@ global.dbHelper = {
     try {
       if (!force) {
       console.log('[SYNC] Checking if updates exist via sync-check...');
-      const checkRes = await fetch(`${API_URL}/api/attendance/sync-check`, {
+      const checkRes = await fetch(`${API_URL}/api/asistencia/sincronizar-verificacion`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (checkRes.ok) {
@@ -338,7 +363,9 @@ global.dbHelper = {
             localCounts.cargosCount === checkData.cargos &&
             localCounts.metasCount === checkData.metas_cargos &&
             localCounts.tiposCount === checkData.tipo_postulante &&
-            localCounts.paramsCount === checkData.parametros_asistencia) {
+            localCounts.paramsCount === checkData.parametros_asistencia &&
+            localCounts.regionalCount === checkData.sede_regional &&
+            localCounts.jurisCount === checkData.sede_juris) {
           console.log('[SYNC] Los conteos locales coinciden con Render. Omitiendo la sincronización por descarga (sync-pull).');
           return true;
           }
@@ -346,7 +373,7 @@ global.dbHelper = {
       }
 
       console.log('[SYNC] SQLite counts differ. Performing sync-pull...');
-      const pullRes = await fetch(`${API_URL}/api/attendance/sync-pull`, {
+      const pullRes = await fetch(`${API_URL}/api/asistencia/sincronizar-descarga`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (pullRes.ok) {
@@ -357,7 +384,9 @@ global.dbHelper = {
           syncData.tipo_postulante,
           syncData.parametros_asistencia,
           syncData.workers,
-          syncData.asistencias
+          syncData.asistencias,
+          syncData.sede_regional,
+          syncData.sede_juris
         );
         console.log('[SYNC] Pull successful. Local SQLite database fully synchronized.');
         return true;
@@ -615,9 +644,11 @@ global.dbHelper = {
     if (workerRes.length === 0) throw new Error('Postulante no encontrado');
     const worker = workerRes[0];
 
+    let localUserId = null;
     const userData = await AsyncStorage.getItem('userData');
     if (userData) {
       const user = JSON.parse(userData);
+      localUserId = user.id;
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
       if (!isSU && worker.sede_reg !== user.rol) {
         throw new Error('Este postulante no pertenece a la sede actual');
@@ -641,11 +672,11 @@ global.dbHelper = {
     const fechaHora = now.toISOString();
 
     const insertRes = await db.runAsync(
-      'INSERT INTO asistencias (principal_id, estado, fecha_hora, observaciones) VALUES (?, ?, ?, ?)',
-      [worker.id, estado, fechaHora, observaciones]
+      'INSERT INTO asistencias (principal_id, estado, fecha_hora, observaciones, usuario_registro_id) VALUES (?, ?, ?, ?, ?)',
+      [worker.id, estado, fechaHora, observaciones, localUserId]
     );
 
-    await this.addPendingAction('MARK_ATTENDANCE', { dni, observaciones });
+    await this.addPendingAction('MARK_ATTENDANCE', { dni, observaciones, usuario_registro_id: localUserId });
 
     return {
       message: 'Ingreso registrado exitosamente (Guardado localmente sin conexión)',
@@ -802,6 +833,8 @@ global.dbHelper = {
       const metas = await db.getAllAsync('SELECT COUNT(*) as count FROM metas_cargos');
       const tipos = await db.getAllAsync('SELECT COUNT(*) as count FROM tipo_postulante');
       const params = await db.getAllAsync('SELECT COUNT(*) as count FROM parametros_asistencia');
+      const regionals = await db.getAllAsync('SELECT COUNT(*) as count FROM sede_regional');
+      const jurisdictions = await db.getAllAsync('SELECT COUNT(*) as count FROM sede_juris');
       const queue = await db.getAllAsync('SELECT * FROM sync_queue ORDER BY id ASC');
       return {
         principalCount: principal[0]?.count || 0,
@@ -810,6 +843,8 @@ global.dbHelper = {
         metasCount: metas[0]?.count || 0,
         tiposCount: tipos[0]?.count || 0,
         paramsCount: params[0]?.count || 0,
+        regionalCount: regionals[0]?.count || 0,
+        jurisCount: jurisdictions[0]?.count || 0,
         queue
       };
     } catch (e) {

@@ -30,7 +30,7 @@ const ConfigScreen = () => {
         return;
       }
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/config/cargos`, {
+      const response = await fetch(`${API_URL}/api/configuracion/cargos`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -76,13 +76,13 @@ const ConfigScreen = () => {
       const token = await AsyncStorage.getItem('userToken');
       let response;
       if (modalMode === 'create') {
-        response = await fetch(`${API_URL}/api/config/cargos`, {
+        response = await fetch(`${API_URL}/api/configuracion/cargos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ nombre, meta: parseInt(meta) || 0 })
         });
       } else {
-        response = await fetch(`${API_URL}/api/config/cargos/${selectedCargo.id}`, {
+        response = await fetch(`${API_URL}/api/configuracion/cargos/${selectedCargo.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ meta: parseInt(meta) || 0 })

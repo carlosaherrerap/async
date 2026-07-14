@@ -29,7 +29,7 @@ const AbsenteesScreen = ({ navigation }) => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/api/attendance/absentees`, {
+      const response = await fetch(`${API_URL}/api/asistencia/inasistencias`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
