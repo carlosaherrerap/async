@@ -182,9 +182,29 @@ const PersonalListScreen = ({ navigation }) => {
 
   const [cargos, setCargos] = useState([]);
   const [userRole, setUserRole] = useState('');
+  const [sedesRegionales, setSedesRegionales] = useState([]);
+  const [sedesJurisdiccionales, setSedesJurisdiccionales] = useState([]);
+  const [filteredJuris, setFilteredJuris] = useState([]);
+
+  const loadSedes = async () => {
+    try {
+      const db = global.dbHelper.db;
+      if (db) {
+        const regRows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        const jurRows = await db.getAllAsync('SELECT id, nombre, sede_regional_id, codigo_juris FROM sede_juris ORDER BY nombre ASC');
+        setSedesRegionales(regRows);
+        setSedesJurisdiccionales(jurRows);
+        return { regRows, jurRows };
+      }
+    } catch (e) {
+      console.error('Error loading sedes from SQLite:', e);
+    }
+    return { regRows: [], jurRows: [] };
+  };
 
   useEffect(() => {
-    const loadUserRole = async () => {
+    const loadUserRoleAndSedes = async () => {
+      const { regRows } = await loadSedes();
       try {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
@@ -194,15 +214,37 @@ const PersonalListScreen = ({ navigation }) => {
         console.error(e);
       }
     };
-    loadUserRole();
+    loadUserRoleAndSedes();
   }, []);
 
   const [editModal, setEditModal] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [editForm, setEditForm] = useState({
-    sede_reg: '', sede_juris: '', local: '', aula: '',
+    sede_reg: '', sede_juris: '', sede_juris_id: '', local: '', aula: '',
     cargo_id: '', turno: 'DIA', hora_ingreso: '08:00'
   });
+
+  useEffect(() => {
+    if (editForm.sede_reg) {
+      const matchedReg = sedesRegionales.find(
+        r => r.nombre?.toLowerCase() === editForm.sede_reg?.toLowerCase()
+      );
+      if (matchedReg) {
+        const filtered = sedesJurisdiccionales.filter(
+          j => j.sede_regional_id === matchedReg.id
+        );
+        setFilteredJuris(filtered);
+        // Si el sede_juris_id actual no pertenece a las jurisdicciones filtradas, resetear
+        if (!filtered.some(f => f.id === editForm.sede_juris_id)) {
+          setEditForm(prev => ({ ...prev, sede_juris: '', sede_juris_id: '' }));
+        }
+      } else {
+        setFilteredJuris([]);
+      }
+    } else {
+      setFilteredJuris([]);
+    }
+  }, [editForm.sede_reg, sedesJurisdiccionales, sedesRegionales]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
   const currentOffset = (page - 1) * LIMIT;
@@ -298,6 +340,7 @@ const PersonalListScreen = ({ navigation }) => {
     setEditForm({
       sede_reg: worker.sede_reg || '',
       sede_juris: worker.sede_juris || '',
+      sede_juris_id: worker.sede_juris_id || '',
       local: worker.local || worker.area || '',
       aula: worker.aula?.toString() || '',
       cargo_id: worker.cargo_id?.toString() || '',
@@ -337,8 +380,8 @@ const PersonalListScreen = ({ navigation }) => {
           const db = global.dbHelper.db;
           if (db) {
             await db.runAsync(
-              'UPDATE principal SET sede_reg=?, sede_juris=?, local=?, aula=?, cargo_id=?, turno=?, hora_ingreso=? WHERE id=?',
-              [editForm.sede_reg, editForm.sede_juris, editForm.local,
+              'UPDATE principal SET sede_juris_id=?, local=?, aula=?, cargo_id=?, turno=?, hora_ingreso=? WHERE id=?',
+              [editForm.sede_juris_id, editForm.local,
               editForm.aula ? parseInt(editForm.aula) : 99,
               editForm.cargo_id ? parseInt(editForm.cargo_id) : null,
               editForm.turno, editForm.hora_ingreso + ':00', selectedWorker.id]
@@ -492,9 +535,33 @@ const PersonalListScreen = ({ navigation }) => {
             style={{ maxHeight: 380 }} 
             showsVerticalScrollIndicator
           >
+            <Text style={styles.fieldLabel}>SEDE REGIONAL</Text>
+            <DropdownModal
+              label="Sede Regional"
+              value={editForm.sede_reg}
+              displayText={editForm.sede_reg || 'Seleccione Sede Regional'}
+              options={sedesRegionales.map(r => ({ value: r.nombre, label: r.nombre }))}
+              onSelect={(val) => setEditForm({ ...editForm, sede_reg: val })}
+              activeColor={COLORS.blue}
+              style={{ marginBottom: 10 }}
+              disabled={userRole?.toLowerCase() !== 'su' && userRole?.toLowerCase() !== 'admin'}
+            />
+
+            <Text style={styles.fieldLabel}>SEDE JURISDICCIONAL</Text>
+            <DropdownModal
+              label="Sede Jurisdiccional"
+              value={editForm.sede_juris_id}
+              displayText={editForm.sede_juris || 'Seleccione Sede Jurisdiccional'}
+              options={filteredJuris.map(j => ({ value: j.id, label: j.nombre }))}
+              onSelect={(val) => {
+                const selectedJ = filteredJuris.find(f => f.id === val);
+                setEditForm({ ...editForm, sede_juris_id: val, sede_juris: selectedJ ? selectedJ.nombre : '' });
+              }}
+              activeColor={COLORS.blue}
+              style={{ marginBottom: 10 }}
+            />
+
             {[
-              { label: 'Sede Regional', key: 'sede_reg', icon: 'map-marker', disabled: userRole?.toLowerCase() !== 'su' && userRole?.toLowerCase() !== 'admin' },
-              { label: 'Sede Jurisdiccional', key: 'sede_juris', icon: 'map-marker-radius' },
               { label: 'Local', key: 'local', icon: 'office-building-marker' },
               { label: 'Aula', key: 'aula', icon: 'door', numeric: true },
             ].map(field => (
@@ -510,7 +577,6 @@ const PersonalListScreen = ({ navigation }) => {
                 activeOutlineColor={COLORS.blue}
                 outlineColor={COLORS.border}
                 left={<TextInput.Icon icon={field.icon} color={COLORS.blue} />}
-                disabled={field.disabled}
               />
             ))}
 

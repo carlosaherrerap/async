@@ -51,19 +51,30 @@ app.get('/api/init-db-debug', async (req, res) => {
         await db.query(`
             CREATE TABLE IF NOT EXISTS sede_regional (
                 id VARCHAR(10) PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL UNIQUE
+                nombre VARCHAR(100) NOT NULL UNIQUE,
+                ubigeo VARCHAR(10)
             )
+        `);
+        await db.query(`
+            ALTER TABLE sede_regional ADD COLUMN IF NOT EXISTS ubigeo VARCHAR(10)
         `);
         logs.push('Table sede_regional created or verified.');
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS sede_juris (
                 id VARCHAR(20) PRIMARY KEY,
-                sede_regional_nombre VARCHAR(100) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE,
-                codigo_juris VARCHAR(10) NOT NULL,
                 nombre VARCHAR(100) NOT NULL,
-                UNIQUE (sede_regional_nombre, nombre)
+                sede_regional_id VARCHAR(10) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE,
+                codigo_juris VARCHAR(10) NOT NULL,
+                ubigeo VARCHAR(10),
+                UNIQUE (sede_regional_id, nombre)
             )
+        `);
+        await db.query(`
+            ALTER TABLE sede_juris ADD COLUMN IF NOT EXISTS sede_regional_id VARCHAR(10) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE
+        `);
+        await db.query(`
+            ALTER TABLE sede_juris ADD COLUMN IF NOT EXISTS ubigeo VARCHAR(10)
         `);
         logs.push('Table sede_juris created or verified.');
 
@@ -94,8 +105,7 @@ app.get('/api/init-db-debug', async (req, res) => {
         await db.query(`
             CREATE TABLE IF NOT EXISTS principal (
                 id SERIAL PRIMARY KEY,
-                sede_reg VARCHAR(100) NOT NULL,
-                sede_juris VARCHAR(100) NOT NULL,
+                sede_juris_id VARCHAR(20) REFERENCES sede_juris(id),
                 doc_identidad VARCHAR(12) NOT NULL UNIQUE,
                 ape_pat VARCHAR(35) NOT NULL,
                 ape_mat VARCHAR(35) NOT NULL,
@@ -109,6 +119,35 @@ app.get('/api/init-db-debug', async (req, res) => {
             )
         `);
         logs.push('Table principal created or verified.');
+
+        // Agregar columna sede_juris_id a principal si no existe
+        const colCheck = await db.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'principal' AND column_name = 'sede_juris_id'
+        `);
+        if (colCheck.rows.length === 0) {
+            await db.query(`ALTER TABLE principal ADD COLUMN sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)`);
+            
+            // Si existían las viejas columnas, migrar datos
+            const oldColCheck = await db.query(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'principal' AND column_name = 'sede_reg'
+            `);
+            if (oldColCheck.rows.length > 0) {
+                await db.query(`
+                    UPDATE principal p
+                    SET sede_juris_id = sj.id
+                    FROM sede_juris sj
+                    JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+                    WHERE LOWER(p.sede_reg) = LOWER(sr.nombre) AND LOWER(p.sede_juris) = LOWER(sj.nombre)
+                `);
+                
+                await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
+                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
+                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
+                logs.push('Table principal migrated to normalized sede_juris_id schema.');
+            }
+        }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
@@ -179,7 +218,6 @@ app.get('/api/init-db-debug', async (req, res) => {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
         await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
         logs.push('Indexes created or verified.');
-
         // Sembrar sedes
         const sedesCheck = await db.query('SELECT COUNT(*) FROM sede_regional');
         if (parseInt(sedesCheck.rows[0].count) === 0) {
@@ -196,32 +234,11 @@ app.get('/api/init-db-debug', async (req, res) => {
 
             for (const j of sedesData.jurisdictions) {
                 await db.query(
-                    'INSERT INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-                    [j.id, j.sede_regional_nombre, j.codigo_juris, j.nombre]
+                    'INSERT INTO sede_juris (id, nombre, sede_regional_id, codigo_juris, ubigeo) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+                    [j.id, j.nombre, j.sede_regional_id, j.codigo_juris, null]
                 );
             }
             logs.push('Sede regional and jurisdiction data seeded.');
-        }
-
-        // Agregar restricción FK a la tabla principal
-        const constraintCheck = await db.query(`
-            SELECT constraint_name 
-            FROM information_schema.table_constraints 
-            WHERE table_name = 'principal' AND constraint_name = 'fk_principal_sedes'
-        `);
-        if (constraintCheck.rows.length === 0) {
-            try {
-                await db.query(`
-                    ALTER TABLE principal 
-                    ADD CONSTRAINT fk_principal_sedes 
-                    FOREIGN KEY (sede_reg, sede_juris) 
-                    REFERENCES sede_juris(sede_regional_nombre, nombre) 
-                    ON UPDATE CASCADE
-                `);
-                logs.push('Foreign key constraint fk_principal_sedes added to principal table.');
-            } catch (err) {
-                logs.push('Could not add fk_principal_sedes constraint: ' + err.message);
-            }
         }
 
         await db.query(`
@@ -310,18 +327,29 @@ const initDb = async (retries = 5) => {
             await db.query(`
                 CREATE TABLE IF NOT EXISTS sede_regional (
                     id VARCHAR(10) PRIMARY KEY,
-                    nombre VARCHAR(100) NOT NULL UNIQUE
+                    nombre VARCHAR(100) NOT NULL UNIQUE,
+                    ubigeo VARCHAR(10)
                 )
+            `);
+            await db.query(`
+                ALTER TABLE sede_regional ADD COLUMN IF NOT EXISTS ubigeo VARCHAR(10)
             `);
 
             await db.query(`
                 CREATE TABLE IF NOT EXISTS sede_juris (
                     id VARCHAR(20) PRIMARY KEY,
-                    sede_regional_nombre VARCHAR(100) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE,
-                    codigo_juris VARCHAR(10) NOT NULL,
                     nombre VARCHAR(100) NOT NULL,
-                    UNIQUE (sede_regional_nombre, nombre)
+                    sede_regional_id VARCHAR(10) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE,
+                    codigo_juris VARCHAR(10) NOT NULL,
+                    ubigeo VARCHAR(10),
+                    UNIQUE (sede_regional_id, nombre)
                 )
+            `);
+            await db.query(`
+                ALTER TABLE sede_juris ADD COLUMN IF NOT EXISTS sede_regional_id VARCHAR(10) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE
+            `);
+            await db.query(`
+                ALTER TABLE sede_juris ADD COLUMN IF NOT EXISTS ubigeo VARCHAR(10)
             `);
 
             await db.query(`
@@ -349,8 +377,7 @@ const initDb = async (retries = 5) => {
             await db.query(`
                 CREATE TABLE IF NOT EXISTS principal (
                     id SERIAL PRIMARY KEY,
-                    sede_reg VARCHAR(100) NOT NULL,
-                    sede_juris VARCHAR(100) NOT NULL,
+                    sede_juris_id VARCHAR(20) REFERENCES sede_juris(id),
                     doc_identidad VARCHAR(12) NOT NULL UNIQUE,
                     ape_pat VARCHAR(35) NOT NULL,
                     ape_mat VARCHAR(35) NOT NULL,
@@ -363,6 +390,34 @@ const initDb = async (retries = 5) => {
                     hora_ingreso TIME NOT NULL DEFAULT '08:00:00'
                 )
             `);
+
+            // Agregar columna sede_juris_id a principal si no existe
+            const colCheck = await db.query(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'principal' AND column_name = 'sede_juris_id'
+            `);
+            if (colCheck.rows.length === 0) {
+                await db.query(`ALTER TABLE principal ADD COLUMN sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)`);
+                
+                // Si existían las viejas columnas, migrar datos
+                const oldColCheck = await db.query(`
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'principal' AND column_name = 'sede_reg'
+                `);
+                if (oldColCheck.rows.length > 0) {
+                    await db.query(`
+                        UPDATE principal p
+                        SET sede_juris_id = sj.id
+                        FROM sede_juris sj
+                        JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+                        WHERE LOWER(p.sede_reg) = LOWER(sr.nombre) AND LOWER(p.sede_juris) = LOWER(sj.nombre)
+                    `);
+                    
+                    await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
+                    await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
+                    await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
+                }
+            }
 
             // 4. Tabla de usuarios
             await db.query(`
@@ -463,32 +518,11 @@ const initDb = async (retries = 5) => {
 
                 for (const j of sedesData.jurisdictions) {
                     await db.query(
-                        'INSERT INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-                        [j.id, j.sede_regional_nombre, j.codigo_juris, j.nombre]
+                        'INSERT INTO sede_juris (id, nombre, sede_regional_id, codigo_juris, ubigeo) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+                        [j.id, j.nombre, j.sede_regional_id, j.codigo_juris, null]
                     );
                 }
                 console.log('--- Sedes regional y jurisdiccional sembradas ---');
-            }
-
-            // Agregar restricción FK a principal
-            const constraintCheck = await db.query(`
-                SELECT constraint_name 
-                FROM information_schema.table_constraints 
-                WHERE table_name = 'principal' AND constraint_name = 'fk_principal_sedes'
-            `);
-            if (constraintCheck.rows.length === 0) {
-                try {
-                    await db.query(`
-                        ALTER TABLE principal 
-                        ADD CONSTRAINT fk_principal_sedes 
-                        FOREIGN KEY (sede_reg, sede_juris) 
-                        REFERENCES sede_juris(sede_regional_nombre, nombre) 
-                        ON UPDATE CASCADE
-                    `);
-                    console.log('--- Restricción FK de sedes agregada a principal ---');
-                } catch (err) {
-                    console.log('No se pudo agregar restricción FK de sedes a principal:', err.message);
-                }
             }
 
             // Opcional: Insertar cargos iniciales si la tabla de cargos está vacía

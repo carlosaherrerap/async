@@ -11,10 +11,13 @@ const registerAttendance = async (req, res) => {
     try {
         // 1. Buscar al postulante por doc_identidad
         const workerRes = await db.query(
-            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+                    sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
              FROM principal p 
              JOIN cargos c ON p.cargo_id = c.id 
              JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             JOIN sede_juris sj ON p.sede_juris_id = sj.id
+             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
              WHERE p.doc_identidad = $1`,
             [dni]
         );
@@ -25,7 +28,7 @@ const registerAttendance = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
+        if (!isSU && worker.sede_regional_id !== userRole) {
             return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
@@ -87,10 +90,13 @@ const verifyWorker = async (req, res) => {
 
     try {
         const workerRes = await db.query(
-            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+                    sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
              FROM principal p 
              JOIN cargos c ON p.cargo_id = c.id 
              JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             JOIN sede_juris sj ON p.sede_juris_id = sj.id
+             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
              WHERE p.doc_identidad = $1`,
             [dni]
         );
@@ -101,7 +107,7 @@ const verifyWorker = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
+        if (!isSU && worker.sede_regional_id !== userRole) {
             return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
@@ -137,14 +143,21 @@ const verifyWorker = async (req, res) => {
 };
 
 const registerWorker = async (req, res) => {
-    const { dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = req.body;
+    const { dni, ape_pat, ape_mat, nombres, sede_juris_id, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = req.body;
     const userRole = req.user.rol;
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
-        if (!isSU && sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
+        const jurisCheck = await db.query('SELECT * FROM sede_juris WHERE id = $1', [sede_juris_id]);
+        if (jurisCheck.rows.length === 0) {
+            return res.status(400).json({ message: 'Sede jurisdiccional no válida' });
+        }
+        const sedeRegionalId = jurisCheck.rows[0].sede_regional_id;
+
+        if (!isSU && sedeRegionalId !== userRole) {
             return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede del usuario activo' });
         }
+
         const exists = await db.query('SELECT id FROM principal WHERE doc_identidad = $1', [dni]);
         if (exists.rows.length > 0) {
             return res.status(400).json({ message: 'El DNI ya esta registrado.' });
@@ -172,12 +185,12 @@ const registerWorker = async (req, res) => {
 
         const insertQuery = `
             INSERT INTO principal 
-            (doc_identidad, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *
+            (doc_identidad, ape_pat, ape_mat, nombres, sede_juris_id, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *
         `;
 
         const newWorker = await db.query(insertQuery, [
-            dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula || 99, cargo_id, finalTipoPostulante,
+            dni, ape_pat, ape_mat, nombres, sede_juris_id, local, aula || 99, cargo_id, finalTipoPostulante,
             turno || 'DIA', hora_ingreso || '08:00:00'
         ]);
 
@@ -200,13 +213,20 @@ const getAllWorkers = async (req, res) => {
     try {
         let query = `
             SELECT p.id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
-                   p.sede_reg, p.sede_juris, p.aula, p.turno, p.hora_ingreso,
-                   c.nombre as cargo, tp.descripcion as tipo_postulante, p.cargo_id
+                   sr.nombre as sede_reg, sj.nombre as sede_juris, p.aula, p.turno, p.hora_ingreso,
+                   c.nombre as cargo, tp.descripcion as tipo_postulante, p.cargo_id, p.sede_juris_id
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
         `;
-        let countQuery = 'SELECT COUNT(*) FROM principal p JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id';
+        let countQuery = `
+            SELECT COUNT(*) 
+            FROM principal p 
+            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
+        `;
         const params = [];
 
         const conditions = [];
@@ -215,7 +235,7 @@ const getAllWorkers = async (req, res) => {
             params.push(tipo);
         }
         if (!isSU) {
-            conditions.push(`p.sede_reg = $${conditions.length + 1}`);
+            conditions.push(`sj.sede_regional_id = $${conditions.length + 1}`);
             params.push(userRole);
         }
 
@@ -225,7 +245,7 @@ const getAllWorkers = async (req, res) => {
             countQuery += whereClause;
         }
 
-        query += ` ORDER BY p.sede_reg, p.sede_juris, p.local, c.nombre, p.ape_pat LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        query += ` ORDER BY sr.nombre, sj.nombre, p.local, c.nombre, p.ape_pat LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
         const result = await db.query(query, [...params, limit, offset]);
         const countRes = await db.query(countQuery, params);
@@ -242,32 +262,39 @@ const getAllWorkers = async (req, res) => {
 
 const updateWorker = async (req, res) => {
     const { id } = req.params;
-    const { sede_reg, sede_juris, local, aula, cargo_id, turno, hora_ingreso } = req.body;
+    const { sede_juris_id, local, aula, cargo_id, turno, hora_ingreso } = req.body;
     const userRole = req.user.rol;
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
     try {
         if (!isSU) {
-            const checkWorker = await db.query('SELECT sede_reg FROM principal WHERE id = $1', [id]);
+            const checkWorker = await db.query(`
+                SELECT sj.sede_regional_id 
+                FROM principal p 
+                JOIN sede_juris sj ON p.sede_juris_id = sj.id 
+                WHERE p.id = $1
+            `, [id]);
             if (checkWorker.rows.length === 0) return res.status(404).json({ message: 'Postulante no encontrado' });
-            if (checkWorker.rows[0].sede_reg !== userRole) {
+            if (checkWorker.rows[0].sede_regional_id !== userRole) {
                 return res.status(403).json({ message: 'No tiene permisos para modificar este postulante' });
             }
-            if (sede_reg && sede_reg !== userRole) {
-                return res.status(400).json({ message: 'No puede cambiar la sede del postulante a otra diferente de la suya' });
+            if (sede_juris_id) {
+                const newJurisCheck = await db.query('SELECT sede_regional_id FROM sede_juris WHERE id = $1', [sede_juris_id]);
+                if (newJurisCheck.rows.length === 0 || newJurisCheck.rows[0].sede_regional_id !== userRole) {
+                    return res.status(400).json({ message: 'No puede cambiar la sede del postulante a otra diferente de la suya' });
+                }
             }
         }
         const updateQuery = `
             UPDATE principal 
-            SET sede_reg = COALESCE($1, sede_reg), 
-                sede_juris = COALESCE($2, sede_juris), 
-                local = COALESCE($3, local), 
-                aula = COALESCE($4, aula), 
-                cargo_id = COALESCE($5, cargo_id), 
-                turno = COALESCE($6, turno),
-                hora_ingreso = COALESCE($7, hora_ingreso)
-            WHERE id = $8 RETURNING *
+            SET sede_juris_id = COALESCE($1, sede_juris_id), 
+                local = COALESCE($2, local), 
+                aula = COALESCE($3, aula), 
+                cargo_id = COALESCE($4, cargo_id), 
+                turno = COALESCE($5, turno),
+                hora_ingreso = COALESCE($6, hora_ingreso)
+            WHERE id = $7 RETURNING *
         `;
-        const result = await db.query(updateQuery, [sede_reg, sede_juris, local, aula, cargo_id, turno, hora_ingreso, id]);
+        const result = await db.query(updateQuery, [sede_juris_id, local, aula, cargo_id, turno, hora_ingreso, id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Postulante no encontrado' });
@@ -287,11 +314,11 @@ const getSyncPull = async (req, res) => {
         const metasCargosRes = await db.query('SELECT cargo_id, limite_vacantes FROM metas_cargos');
         const tipoPostulanteRes = await db.query('SELECT id, descripcion FROM tipo_postulante');
         const parametrosAsistenciaRes = await db.query('SELECT estado, descripcion FROM parametros_asistencia');
-        const regionalRes = await db.query('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
-        const jurisRes = await db.query('SELECT id, sede_regional_nombre, codigo_juris, nombre FROM sede_juris ORDER BY nombre ASC');
+        const regionalRes = await db.query('SELECT id, nombre, ubigeo FROM sede_regional ORDER BY nombre ASC');
+        const jurisRes = await db.query('SELECT id, nombre, sede_regional_id, codigo_juris, ubigeo FROM sede_juris ORDER BY nombre ASC');
 
         let queryWorkers = `
-            SELECT id, sede_reg, sede_juris, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
+            SELECT id, sede_juris_id, doc_identidad as dni, ape_pat, ape_mat, nombres, local as area, 
                    aula, tipo_postulante_id, cargo_id, turno, hora_ingreso 
             FROM principal
         `;
@@ -302,12 +329,19 @@ const getSyncPull = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            queryWorkers += ` WHERE LOWER(sede_reg) = LOWER($1)`;
+            queryWorkers = `
+                SELECT p.id, p.sede_juris_id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
+                       p.aula, p.tipo_postulante_id, p.cargo_id, p.turno, p.hora_ingreso 
+                FROM principal p
+                JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                WHERE sj.sede_regional_id = $1
+            `;
             queryAsistencias = `
                 SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
                 FROM asistencias a
                 JOIN principal p ON a.principal_id = p.id
-                WHERE a.fecha_hora::date = CURRENT_DATE AND LOWER(p.sede_reg) = LOWER($1)
+                JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1
             `;
             params.push(userRole);
         }
@@ -347,8 +381,8 @@ const getSyncCheck = async (req, res) => {
         const params = [];
 
         if (!isSU) {
-            queryWorkers += ' WHERE LOWER(sede_reg) = LOWER($1)';
-            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND LOWER(p.sede_reg) = LOWER($1)';
+            queryWorkers = 'SELECT COUNT(*) FROM principal p JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE sj.sede_regional_id = $1';
+            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1';
             params.push(userRole);
         }
 
@@ -410,10 +444,13 @@ const scanDniImage = async (req, res) => {
 
             // Buscar postulante en la base de datos
             const workerRes = await db.query(
-                `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+                `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+                        sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
                  FROM principal p 
                  JOIN cargos c ON p.cargo_id = c.id 
                  JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+                 JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                 JOIN sede_regional sr ON sj.sede_regional_id = sr.id
                  WHERE p.doc_identidad = $1`,
                 [dni]
             );
@@ -430,7 +467,7 @@ const scanDniImage = async (req, res) => {
             const userRole = req.user.rol;
             const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
-            if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
+            if (!isSU && worker.sede_regional_id !== userRole) {
                 return res.json({
                     status: 'not_found',
                     dni,
@@ -490,21 +527,39 @@ const changeSede = async (req, res) => {
     }
 
     try {
-        const workerCheck = await db.query('SELECT * FROM principal WHERE id = $1', [workerId]);
+        const workerCheck = await db.query(`
+            SELECT p.*, sj.nombre as old_juris_nombre, sr.nombre as old_regional_nombre
+            FROM principal p
+            LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            WHERE p.id = $1
+        `, [workerId]);
         if (workerCheck.rows.length === 0) {
             return res.status(404).json({ message: 'Postulante no encontrado.' });
         }
 
         const worker = workerCheck.rows[0];
-        const oldSede = worker.sede_reg;
+        const oldSede = `${worker.old_regional_nombre || ''} - ${worker.old_juris_nombre || ''}`;
+
+        // Obtener nombres de nueva sede
+        const newSedeCheck = await db.query(`
+            SELECT sj.nombre as new_juris_nombre, sr.nombre as new_regional_nombre
+            FROM sede_juris sj
+            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            WHERE sj.id = $1
+        `, [nuevaSede]);
+        if (newSedeCheck.rows.length === 0) {
+            return res.status(400).json({ message: 'Nueva sede jurisdiccional no válida.' });
+        }
+        const newSedeName = `${newSedeCheck.rows[0].new_regional_nombre} - ${newSedeCheck.rows[0].new_juris_nombre}`;
 
         // Actualizar la sede
-        await db.query('UPDATE principal SET sede_reg = $1 WHERE id = $2', [nuevaSede, workerId]);
+        await db.query('UPDATE principal SET sede_juris_id = $1 WHERE id = $2', [nuevaSede, workerId]);
 
         // Registrar en historial
         await db.query(
             'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, usuario_cambio) VALUES ($1, $2, $3, $4)',
-            [workerId, oldSede, nuevaSede, username]
+            [workerId, oldSede, newSedeName, username]
         );
 
         res.json({
@@ -513,7 +568,7 @@ const changeSede = async (req, res) => {
                 id: worker.id,
                 nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
                 sede_origen: oldSede,
-                sede_destino: nuevaSede
+                sede_destino: newSedeName
             }
         });
     } catch (error) {

@@ -78,8 +78,7 @@ global.dbHelper = {
 
         CREATE TABLE IF NOT EXISTS principal (
           id INTEGER PRIMARY KEY,
-          sede_reg TEXT NOT NULL DEFAULT '',
-          sede_juris TEXT NOT NULL DEFAULT '',
+          sede_juris_id TEXT,
           doc_identidad TEXT UNIQUE NOT NULL,
           ape_pat TEXT NOT NULL,
           ape_mat TEXT NOT NULL,
@@ -90,6 +89,7 @@ global.dbHelper = {
           cargo_id INTEGER NOT NULL,
           turno TEXT NOT NULL DEFAULT 'DIA',
           hora_ingreso TEXT NOT NULL DEFAULT '08:00:00',
+          FOREIGN KEY(sede_juris_id) REFERENCES sede_juris(id) ON UPDATE CASCADE,
           FOREIGN KEY(tipo_postulante_id) REFERENCES tipo_postulante(id) ON UPDATE CASCADE,
           FOREIGN KEY(cargo_id) REFERENCES cargos(id) ON UPDATE CASCADE
         );
@@ -123,18 +123,26 @@ global.dbHelper = {
 
         CREATE TABLE IF NOT EXISTS sede_regional (
           id TEXT PRIMARY KEY,
-          nombre TEXT UNIQUE NOT NULL
+          nombre TEXT UNIQUE NOT NULL,
+          ubigeo TEXT
         );
 
         CREATE TABLE IF NOT EXISTS sede_juris (
           id TEXT PRIMARY KEY,
-          sede_regional_nombre TEXT,
-          codigo_juris TEXT NOT NULL,
           nombre TEXT NOT NULL,
-          UNIQUE (sede_regional_nombre, nombre),
-          FOREIGN KEY(sede_regional_nombre) REFERENCES sede_regional(nombre) ON UPDATE CASCADE ON DELETE CASCADE
+          sede_regional_id TEXT,
+          codigo_juris TEXT NOT NULL,
+          ubigeo TEXT,
+          UNIQUE (sede_regional_id, nombre),
+          FOREIGN KEY(sede_regional_id) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE
         );
       `);
+
+      // Realizar migraciones manuales si ya existían las tablas de la app
+      try { await db.runAsync('ALTER TABLE sede_regional ADD COLUMN ubigeo TEXT;'); } catch(_) {}
+      try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN sede_regional_id TEXT;'); } catch(_) {}
+      try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN ubigeo TEXT;'); } catch(_) {}
+      try { await db.runAsync('ALTER TABLE principal ADD COLUMN sede_juris_id TEXT;'); } catch(_) {}
 
       // Sembrar datos de referencia inmutables
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
@@ -184,20 +192,20 @@ global.dbHelper = {
         }
 
         for (const sr of sede_regional || []) {
-          await db.runAsync('INSERT OR REPLACE INTO sede_regional (id, nombre) VALUES (?, ?)', [sr.id, sr.nombre]);
+          await db.runAsync('INSERT OR REPLACE INTO sede_regional (id, nombre, ubigeo) VALUES (?, ?, ?)', [sr.id, sr.nombre, sr.ubigeo || null]);
         }
 
         for (const sj of sede_juris || []) {
-          await db.runAsync('INSERT OR REPLACE INTO sede_juris (id, sede_regional_nombre, codigo_juris, nombre) VALUES (?, ?, ?, ?)', [sj.id, sj.sede_regional_nombre, sj.codigo_juris, sj.nombre]);
+          await db.runAsync('INSERT OR REPLACE INTO sede_juris (id, nombre, sede_regional_id, codigo_juris, ubigeo) VALUES (?, ?, ?, ?, ?)', [sj.id, sj.nombre, sj.sede_regional_id, sj.codigo_juris, sj.ubigeo || null]);
         }
 
         for (const w of workers || []) {
           await db.runAsync(`
             INSERT OR REPLACE INTO principal (
-              id, sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              id, sede_juris_id, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            w.id, w.sede_reg, w.sede_juris, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
+            w.id, w.sede_juris_id, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
           ]);
         }
 
@@ -412,11 +420,13 @@ global.dbHelper = {
     if (!db) return { data: [], total: 0 };
     let query = `
       SELECT p.id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area,
-             p.sede_reg, p.sede_juris, p.aula, p.turno, p.hora_ingreso,
+             p.sede_juris_id, sj.nombre as sede_juris, sr.nombre as sede_reg, p.aula, p.turno, p.hora_ingreso,
              c.nombre as cargo, tp.descripcion as tipo_postulante, p.cargo_id
       FROM principal p
       JOIN cargos c ON p.cargo_id = c.id
       JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
     `;
     let countQuery = 'SELECT COUNT(*) as count FROM principal p JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id';
     const params = [];
@@ -427,7 +437,7 @@ global.dbHelper = {
       params.push(filterTipo);
       countParams.push(filterTipo);
     }
-    query += ' ORDER BY p.sede_reg, p.sede_juris, p.local, c.nombre, p.ape_pat LIMIT ? OFFSET ?';
+    query += ' ORDER BY sr.nombre, sj.nombre, p.local, c.nombre, p.ape_pat LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
     const rows = await db.getAllAsync(query, params);
@@ -465,9 +475,10 @@ global.dbHelper = {
 
       const metasPorCargo = await db.getAllAsync(`
         SELECT c.nombre as cargo,
-               COALESCE(c.meta, 0) as meta,
+               COALESCE(m.limite_vacantes, 0) as meta,
                (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as registrados
         FROM cargos c
+        LEFT JOIN metas_cargos m ON c.id = m.cargo_id
         ORDER BY c.id ASC
       `);
 
@@ -520,23 +531,27 @@ global.dbHelper = {
       let presentesQuery = `
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
-               p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
+               sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
                p.hora_ingreso, a.estado, a.fecha_hora
         FROM asistencias a
         JOIN principal p ON a.principal_id = p.id
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+        LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+        LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
         WHERE date(a.fecha_hora, 'localtime') = date(?)
       `;
 
       let ausentesQuery = `
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
-               p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
+               sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
                p.hora_ingreso
         FROM principal p
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+        LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+        LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
         WHERE NOT EXISTS (
           SELECT 1 FROM asistencias a 
           WHERE a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = date(?)
@@ -547,10 +562,10 @@ global.dbHelper = {
       const ausentesParams = [targetDate];
 
       if (!isSU && userRole) {
-        presentesQuery += ` AND LOWER(p.sede_reg) = LOWER(?)`;
+        presentesQuery += ` AND sj.sede_regional_id = ?`;
         presentesParams.push(userRole);
 
-        ausentesQuery += ` AND LOWER(p.sede_reg) = LOWER(?)`;
+        ausentesQuery += ` AND sj.sede_regional_id = ?`;
         ausentesParams.push(userRole);
       }
 
@@ -587,10 +602,13 @@ global.dbHelper = {
   async verifyWorkerOffline(dni) {
     if (!db) return null;
     const workerRes = await db.getAllAsync(`
-      SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante 
+      SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+             sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
       FROM principal p 
       JOIN cargos c ON p.cargo_id = c.id 
       JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
       WHERE p.doc_identidad = ?
     `, [dni]);
 
@@ -602,7 +620,7 @@ global.dbHelper = {
     if (userData) {
       const user = JSON.parse(userData);
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
-      if (!isSU && worker.sede_reg !== user.rol) {
+      if (!isSU && worker.sede_regional_id !== user.rol) {
         return {
           error: 'Este postulante no pertenece a la sede actual',
           worker: { dni: worker.doc_identidad, sede_reg: worker.sede_reg }
@@ -635,9 +653,12 @@ global.dbHelper = {
     if (!db) throw new Error('Base de datos no inicializada');
     
     const workerRes = await db.getAllAsync(`
-      SELECT p.*, c.nombre as cargo 
+      SELECT p.*, c.nombre as cargo,
+             sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
       FROM principal p 
       JOIN cargos c ON p.cargo_id = c.id 
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
       WHERE p.doc_identidad = ?
     `, [dni]);
 
@@ -650,7 +671,7 @@ global.dbHelper = {
       const user = JSON.parse(userData);
       localUserId = user.id;
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
-      if (!isSU && worker.sede_reg !== user.rol) {
+      if (!isSU && worker.sede_regional_id !== user.rol) {
         throw new Error('Este postulante no pertenece a la sede actual');
       }
     }
@@ -700,13 +721,17 @@ global.dbHelper = {
 
   async registerWorkerOffline(payload) {
     if (!db) throw new Error('Base de datos no inicializada');
-    const { dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = payload;
+    const { dni, ape_pat, ape_mat, nombres, sede_juris_id, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso } = payload;
+
+    const jurisRes = await db.getAllAsync('SELECT * FROM sede_juris WHERE id = ?', [sede_juris_id]);
+    if (jurisRes.length === 0) throw new Error('Sede jurisdiccional no válida');
+    const sedeRegionalId = jurisRes[0].sede_regional_id;
 
     const userData = await AsyncStorage.getItem('userData');
     if (userData) {
       const user = JSON.parse(userData);
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
-      if (!isSU && sede_reg !== user.rol) {
+      if (!isSU && sedeRegionalId !== user.rol) {
         throw new Error('Solo se permite registrar postulantes para la sede del usuario activo');
       }
     }
@@ -739,14 +764,18 @@ global.dbHelper = {
 
     await db.runAsync(`
       INSERT INTO principal (
-        id, doc_identidad, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, doc_identidad, ape_pat, ape_mat, nombres, sede_juris_id, local, aula, cargo_id, tipo_postulante_id, turno, hora_ingreso
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      tempId, dni, ape_pat, ape_mat, nombres, sede_reg, sede_juris, local, aula ? parseInt(aula) : 99, 
+      tempId, dni, ape_pat, ape_mat, nombres, sede_juris_id, local, aula ? parseInt(aula) : 99, 
       parseInt(cargo_id), finalTipoPostulante, turno || 'DIA', hora_ingreso || '08:00:00'
     ]);
 
     await this.addPendingAction('REGISTER_WORKER', { ...payload, id: tempId });
+
+    const srRes = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [sedeRegionalId]);
+    const sedeRegName = srRes[0]?.nombre || '';
+    const sedeJurisName = jurisRes[0].nombre;
 
     return {
       message: 'Postulante registrado exitosamente (Guardado localmente sin conexión)',
@@ -756,8 +785,8 @@ global.dbHelper = {
         ape_pat,
         ape_mat,
         nombres,
-        sede_reg,
-        sede_juris,
+        sede_reg: sedeRegName,
+        sede_juris: sedeJurisName,
         local,
         aula: aula ? parseInt(aula) : 99,
         cargo_id: parseInt(cargo_id),
@@ -771,14 +800,14 @@ global.dbHelper = {
 
   async updateWorkerOffline(id, editForm, dni) {
     if (!db) throw new Error('Base de datos no inicializada');
-    const { sede_reg, sede_juris, local, aula, cargo_id, turno, hora_ingreso } = editForm;
+    const { sede_juris_id, local, aula, cargo_id, turno, hora_ingreso } = editForm;
 
     await db.runAsync(`
       UPDATE principal 
-      SET sede_reg = ?, sede_juris = ?, local = ?, aula = ?, cargo_id = ?, turno = ?, hora_ingreso = ?
+      SET sede_juris_id = ?, local = ?, aula = ?, cargo_id = ?, turno = ?, hora_ingreso = ?
       WHERE id = ?
     `, [
-      sede_reg, sede_juris, local, aula ? parseInt(aula) : 99, 
+      sede_juris_id, local, aula ? parseInt(aula) : 99, 
       cargo_id ? parseInt(cargo_id) : null, turno, hora_ingreso, id
     ]);
 
@@ -809,19 +838,33 @@ global.dbHelper = {
 
   async changeSedeOffline(workerId, nuevaSede, username) {
     if (!db) throw new Error('Base de datos no inicializada');
-    const workerRes = await db.getAllAsync('SELECT * FROM principal WHERE id = ?', [workerId]);
+    const workerRes = await db.getAllAsync(`
+      SELECT p.*, sj.nombre as old_juris_nombre, sr.nombre as old_regional_nombre
+      FROM principal p
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+      WHERE p.id = ?
+    `, [workerId]);
     if (workerRes.length === 0) throw new Error('Postulante no encontrado');
     const worker = workerRes[0];
-    const oldSede = worker.sede_reg;
+    const oldSede = `${worker.old_regional_nombre || ''} - ${worker.old_juris_nombre || ''}`;
 
-    await db.runAsync('UPDATE principal SET sede_reg = ? WHERE id = ?', [nuevaSede, workerId]);
+    const newSedeRes = await db.getAllAsync(`
+      SELECT sj.nombre as new_juris_nombre, sr.nombre as new_regional_nombre
+      FROM sede_juris sj
+      JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+      WHERE sj.id = ?
+    `, [nuevaSede]);
+    const newSedeName = newSedeRes[0] ? `${newSedeRes[0].new_regional_nombre} - ${newSedeRes[0].new_juris_nombre}` : nuevaSede;
+
+    await db.runAsync('UPDATE principal SET sede_juris_id = ? WHERE id = ?', [nuevaSede, workerId]);
     const now = new Date().toISOString();
     await db.runAsync(
       'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, fecha_hora, usuario_cambio) VALUES (?, ?, ?, ?, ?)',
-      [workerId, oldSede, nuevaSede, now, username]
+      [workerId, oldSede, newSedeName, now, username]
     );
     await this.addPendingAction('CHANGE_SEDE', { workerId, nuevaSede });
-    return { workerId, oldSede, nuevaSede };
+    return { workerId, oldSede, nuevaSede: newSedeName };
   },
 
   async getDbDiagnostics() {

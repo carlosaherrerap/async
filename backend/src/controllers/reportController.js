@@ -13,8 +13,8 @@ const exportAttendanceToExcel = async (req, res) => {
                 p.ape_pat as "apellido_paterno",
                 p.ape_mat as "apellido_materno",
                 p.nombres as "nombres",
-                p.sede_reg as "sede_regional",
-                p.sede_juris as "sede_provincial_id",
+                sr.nombre as "sede_regional",
+                sj.nombre as "sede_provincial_id",
                 p.local as "local_id",
                 p.aula as "num_aula",
                 tp.descripcion as "tipo_postulante_id",
@@ -30,11 +30,13 @@ const exportAttendanceToExcel = async (req, res) => {
             JOIN principal p ON asist.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             LEFT JOIN usuarios u ON asist.usuario_registro_id = u.id
         `;
         const params = [];
         if (!isSU) {
-            query += ` WHERE LOWER(p.sede_reg) = LOWER($1)`;
+            query += ` WHERE sj.sede_regional_id = $1`;
             params.push(userRole);
         }
         query += ` ORDER BY asist.fecha_hora DESC`;
@@ -70,6 +72,7 @@ const getAbsentees = async (req, res) => {
                    p.local as area, c.nombre as puesto, p.turno, p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias asist 
                 WHERE asist.principal_id = p.id 
@@ -78,7 +81,7 @@ const getAbsentees = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            query += ` AND LOWER(p.sede_reg) = LOWER($1)`;
+            query += ` AND sj.sede_regional_id = $1`;
             params.push(userRole);
         }
         const result = await db.query(query, params);
@@ -106,10 +109,10 @@ const getStats = async (req, res) => {
         } else {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal WHERE LOWER(sede_reg) = LOWER($1)) as total_postulantes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND LOWER(p.sede_reg) = LOWER($1)) as presentes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'T' AND LOWER(p.sede_reg) = LOWER($1)) as tardanzas,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'P' AND LOWER(p.sede_reg) = LOWER($1)) as temprano
+                    (SELECT COUNT(*) FROM principal p JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE sj.sede_regional_id = $1) as total_postulantes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND sj.sede_regional_id = $1) as presentes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'T' AND sj.sede_regional_id = $1) as tardanzas,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'P' AND sj.sede_regional_id = $1) as temprano
             `;
             params.push(userRole);
         }
@@ -141,17 +144,18 @@ const getStats = async (req, res) => {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
                        COUNT(a.id) as presentes,
-                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND LOWER(sede_reg) = LOWER($1)) as total_cargo
+                       (SELECT COUNT(*) FROM principal p2 JOIN sede_juris sj2 ON p2.sede_juris_id = sj2.id WHERE p2.cargo_id = c.id AND sj2.sede_regional_id = $1) as total_cargo
                 FROM cargos c
-                LEFT JOIN principal p ON p.cargo_id = c.id AND LOWER(p.sede_reg) = LOWER($1)
-                LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                LEFT JOIN principal p ON p.cargo_id = c.id
+                LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id AND sj.sede_regional_id = $1
+                LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND sj.id IS NOT NULL
                 GROUP BY c.id, c.nombre
                 ORDER BY c.id ASC
             `;
             queryMetasPorCargo = `
                 SELECT c.nombre as cargo,
                        COALESCE(m.limite_vacantes, 0) as meta,
-                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND LOWER(sede_reg) = LOWER($1)) as registrados
+                       (SELECT COUNT(*) FROM principal p2 JOIN sede_juris sj2 ON p2.sede_juris_id = sj2.id WHERE p2.cargo_id = c.id AND sj2.sede_regional_id = $1) as registrados
                 FROM cargos c
                 LEFT JOIN metas_cargos m ON m.cargo_id = c.id
                 ORDER BY c.id ASC
@@ -185,22 +189,26 @@ const getDailyAttendance = async (req, res) => {
         let queryPresentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                    c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
+                   sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
         `;
         let queryAusentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                    c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
+                   sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso
             FROM principal p
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias a 
                 WHERE a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
@@ -210,10 +218,10 @@ const getDailyAttendance = async (req, res) => {
         const paramsAusentes = [targetDate];
 
         if (!isSU) {
-            queryPresentes += ` AND LOWER(p.sede_reg) = LOWER($2)`;
+            queryPresentes += ` AND sj.sede_regional_id = $2`;
             paramsPresentes.push(userRole);
 
-            queryAusentes += ` AND LOWER(p.sede_reg) = LOWER($2)`;
+            queryAusentes += ` AND sj.sede_regional_id = $2`;
             paramsAusentes.push(userRole);
         }
 

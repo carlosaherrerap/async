@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Animated, ScrollView, Alert } from 'react-native';
 import { Modal, Portal, Surface, Avatar, ActivityIndicator, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { COLORS } from '../theme/colors';
 import { API_URL } from '../config';
+import DropdownModal from './DropdownModal';
 
 // ─── Paleta de colores por tipo ─────────────────────────────────────────────
 const TIPO_COLORS = {
@@ -48,19 +49,68 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   const [showSedePicker, setShowSedePicker] = useState(false);
   const [selectedNewSede, setSelectedNewSede] = useState('');
   const [updatingSede, setUpdatingSede] = useState(false);
-  const sedesDisponibles = ['AMAZONAS', 'LIMA', 'AREQUIPA', 'CUSCO', 'LAMBAYEQUE', 'LA LIBERTAD'];
+
+  const [sedesRegionales, setSedesRegionales] = useState([]);
+  const [sedesJurisdiccionales, setSedesJurisdiccionales] = useState([]);
+  const [filteredJuris, setFilteredJuris] = useState([]);
+  const [selectedReg, setSelectedReg] = useState('');
 
   useEffect(() => {
-    const checkRole = async () => {
+    const loadSedesData = async () => {
       try {
-        const userData = await AsyncStorage.getItem('userData');
-        if (userData) {
-          setUserRole(JSON.parse(userData).rol);
+        const db = global.dbHelper.db;
+        if (db) {
+          const regRows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+          const jurRows = await db.getAllAsync('SELECT id, nombre, sede_regional_id, codigo_juris FROM sede_juris ORDER BY nombre ASC');
+          setSedesRegionales(regRows);
+          setSedesJurisdiccionales(jurRows);
+
+          // Pre-seleccionar la sede regional del usuario si no es SU
+          const userData = await AsyncStorage.getItem('userData');
+          if (userData) {
+            const u = JSON.parse(userData);
+            setUserRole(u.rol);
+            const isSU = u.rol?.toLowerCase() === 'su' || u.rol?.toLowerCase() === 'admin';
+            if (!isSU) {
+              const matchedReg = regRows.find(r => r.id === u.rol);
+              if (matchedReg) {
+                setSelectedReg(matchedReg.nombre);
+              }
+            } else if (data?.worker) {
+              setSelectedReg(data.worker.sede_reg || '');
+            }
+          }
         }
-      } catch (_) {}
+      } catch (e) {
+        console.error(e);
+      }
     };
-    checkRole();
-  }, [visible]);
+    if (visible && data?.worker) {
+      loadSedesData();
+    }
+  }, [visible, data]);
+
+  useEffect(() => {
+    if (selectedReg) {
+      const matchedReg = sedesRegionales.find(
+        r => r.nombre?.toLowerCase() === selectedReg?.toLowerCase()
+      );
+      if (matchedReg) {
+        const filtered = sedesJurisdiccionales.filter(
+          j => j.sede_regional_id === matchedReg.id
+        );
+        setFilteredJuris(filtered);
+        // Si el selectedNewSede actual no pertenece a las jurisdicciones filtradas, resetear
+        if (!filtered.some(f => f.id === selectedNewSede)) {
+          setSelectedNewSede('');
+        }
+      } else {
+        setFilteredJuris([]);
+      }
+    } else {
+      setFilteredJuris([]);
+    }
+  }, [selectedReg, sedesJurisdiccionales, sedesRegionales]);
 
   const handleConfirmChangeSede = async () => {
     if (!selectedNewSede) {
@@ -83,11 +133,20 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
         if (res.ok) {
           const db = global.dbHelper.db;
           if (db) {
-            await db.runAsync('UPDATE principal SET sede_reg = ? WHERE id = ?', [selectedNewSede, worker.id]);
+            const srRes = await db.getAllAsync(`
+              SELECT sj.nombre as new_juris, sr.nombre as new_regional
+              FROM sede_juris sj
+              JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+              WHERE sj.id = ?
+            `, [selectedNewSede]);
+            const newSedeName = srRes[0] ? `${srRes[0].new_regional} - ${srRes[0].new_juris}` : selectedNewSede;
+            const oldSede = `${worker.sede_reg || ''} - ${worker.sede_juris || ''}`;
+
+            await db.runAsync('UPDATE principal SET sede_juris_id = ? WHERE id = ?', [selectedNewSede, worker.id]);
             const now = new Date().toISOString();
             await db.runAsync(
               'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, fecha_hora, usuario_cambio) VALUES (?, ?, ?, ?, ?)',
-              [worker.id, worker.sede_reg, selectedNewSede, now, username]
+              [worker.id, oldSede, newSedeName, now, username]
             );
           }
           Alert.alert('Éxito', 'Sede cambiada correctamente.');
@@ -363,30 +422,47 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                     <TouchableOpacity
                       style={styles.btnCambiarSede}
                       onPress={() => {
-                        setSelectedNewSede(worker.sede_reg);
+                        setSelectedReg(worker.sede_reg || '');
+                        const matchJ = sedesJurisdiccionales.find(j => j.nombre === worker.sede_juris);
+                        setSelectedNewSede(worker.sede_juris_id || matchJ?.id || '');
                         setShowSedePicker(true);
                       }}
                     >
                       <MaterialCommunityIcons name="office-building" size={20} color="#1E293B" />
-                      <Text style={styles.btnCambiarSedeText}>CAMBIAR SEDE REGIONAL</Text>
+                      <Text style={styles.btnCambiarSedeText}>CAMBIAR SEDE</Text>
                     </TouchableOpacity>
                   ) : (
                     <View style={styles.pickerContainer}>
                       <Text style={styles.pickerTitle}>SELECCIONE NUEVA SEDE:</Text>
-                      <View style={styles.pickerGrid}>
-                        {sedesDisponibles.map(s => {
-                          const isSelected = selectedNewSede === s;
-                          return (
-                            <TouchableOpacity
-                              key={s}
-                              style={[styles.pickerItem, isSelected && styles.pickerItemActive]}
-                              onPress={() => setSelectedNewSede(s)}
-                            >
-                              <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextActive]}>{s}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                      
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#475569', marginBottom: 4, marginTop: 6 }}>
+                        SEDE REGIONAL:
+                      </Text>
+                      <DropdownModal
+                        label="Sede Regional"
+                        value={selectedReg}
+                        displayText={selectedReg || 'Seleccione Sede Regional'}
+                        options={sedesRegionales.map(r => ({ value: r.nombre, label: r.nombre }))}
+                        onSelect={(val) => setSelectedReg(val)}
+                        activeColor={COLORS.blue}
+                        style={{ marginBottom: 10, width: '100%' }}
+                      />
+
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#475569', marginBottom: 4, marginTop: 6 }}>
+                        SEDE JURISDICCIONAL:
+                      </Text>
+                      <DropdownModal
+                        label="Sede Jurisdiccional"
+                        value={selectedNewSede}
+                        displayText={
+                          sedesJurisdiccionales.find(j => j.id === selectedNewSede)?.nombre || 'Seleccione Sede Jurisdiccional'
+                        }
+                        options={filteredJuris.map(j => ({ value: j.id, label: j.nombre }))}
+                        onSelect={(val) => setSelectedNewSede(val)}
+                        activeColor={COLORS.blue}
+                        style={{ marginBottom: 15, width: '100%' }}
+                      />
+
                       <View style={styles.pickerActions}>
                         <TouchableOpacity
                           style={[styles.pickerBtn, styles.pickerBtnCancel]}
@@ -397,7 +473,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                         <TouchableOpacity
                           style={[styles.pickerBtn, styles.pickerBtnConfirm]}
                           onPress={handleConfirmChangeSede}
-                          disabled={updatingSede}
+                          disabled={updatingSede || !selectedNewSede}
                         >
                           {updatingSede ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.pickerBtnConfirmText}>CONFIRMAR</Text>}
                         </TouchableOpacity>

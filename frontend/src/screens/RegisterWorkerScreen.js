@@ -18,6 +18,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
     ape_mat: '',
     sede_reg: '',
     sede_juris: '',
+    sede_juris_id: '',
     local: '',
     aula: '',
     cargo_id: '',
@@ -42,18 +43,20 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
       const db = global.dbHelper.db;
       if (db) {
         const regRows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
-        const jurRows = await db.getAllAsync('SELECT id, sede_regional_nombre, codigo_juris, nombre FROM sede_juris ORDER BY nombre ASC');
+        const jurRows = await db.getAllAsync('SELECT id, nombre, sede_regional_id, codigo_juris FROM sede_juris ORDER BY nombre ASC');
         setSedesRegionales(regRows);
         setSedesJurisdiccionales(jurRows);
+        return { regRows, jurRows };
       }
     } catch (e) {
       console.error('Error loading sedes from SQLite:', e);
     }
+    return { regRows: [], jurRows: [] };
   };
 
   useEffect(() => {
     const loadUserRoleAndSedes = async () => {
-      await loadSedes();
+      const { regRows } = await loadSedes();
       try {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
@@ -61,7 +64,10 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           setUserRole(user.rol);
           const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
           if (!isSU) {
-            setFormData(prev => ({ ...prev, sede_reg: user.rol.toUpperCase() }));
+            const matchedReg = regRows.find(r => r.id === user.rol);
+            if (matchedReg) {
+              setFormData(prev => ({ ...prev, sede_reg: matchedReg.nombre }));
+            }
           }
         }
       } catch (e) {
@@ -75,18 +81,25 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   // Filtrar jurisdicciones según la sede regional seleccionada
   useEffect(() => {
     if (formData.sede_reg) {
-      const filtered = sedesJurisdiccionales.filter(
-        j => j.sede_regional_nombre?.toLowerCase() === formData.sede_reg?.toLowerCase()
+      const matchedReg = sedesRegionales.find(
+        r => r.nombre?.toLowerCase() === formData.sede_reg?.toLowerCase()
       );
-      setFilteredJuris(filtered);
-      // Si la jurisdicción actual no pertenece a la nueva sede, resetearla
-      if (!filtered.some(f => f.nombre === formData.sede_juris)) {
-        setFormData(prev => ({ ...prev, sede_juris: '' }));
+      if (matchedReg) {
+        const filtered = sedesJurisdiccionales.filter(
+          j => j.sede_regional_id === matchedReg.id
+        );
+        setFilteredJuris(filtered);
+        // Si el sede_juris_id actual no pertenece a las jurisdicciones filtradas, resetearlo
+        if (!filtered.some(f => f.id === formData.sede_juris_id)) {
+          setFormData(prev => ({ ...prev, sede_juris: '', sede_juris_id: '' }));
+        }
+      } else {
+        setFilteredJuris([]);
       }
     } else {
       setFilteredJuris([]);
     }
-  }, [formData.sede_reg, sedesJurisdiccionales]);
+  }, [formData.sede_reg, sedesJurisdiccionales, sedesRegionales]);
 
   // Cuando cambia el turno, resetear la hora de ingreso al primer horario disponible
   useEffect(() => {
@@ -130,13 +143,14 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   };
 
   const handleRegister = async () => {
-    if (!formData.dni || !formData.nombres || !formData.ape_pat || !formData.ape_mat || !formData.sede_reg || !formData.local) {
+    if (!formData.dni || !formData.nombres || !formData.ape_pat || !formData.ape_mat || !formData.sede_juris_id || !formData.local) {
       Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
       return;
     }
 
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
-    if (!isSU && formData.sede_reg !== userRole) {
+    const matchedReg = sedesRegionales.find(r => r.nombre?.toLowerCase() === formData.sede_reg?.toLowerCase());
+    if (!isSU && matchedReg && matchedReg.id !== userRole) {
       Alert.alert('Error', 'Solo se permite registrar postulantes para la sede del usuario activo');
       return;
     }
@@ -187,10 +201,10 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           if (db) {
             await db.runAsync(`
               INSERT OR REPLACE INTO principal (
-                id, sede_reg, sede_juris, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, sede_juris_id, doc_identidad, ape_pat, ape_mat, nombres, local, aula, tipo_postulante_id, cargo_id, turno, hora_ingreso
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-              w.id, w.sede_reg, w.sede_juris, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
+              w.id, w.sede_juris_id, w.dni || w.doc_identidad, w.ape_pat, w.ape_mat, w.nombres, w.area || w.local, w.aula, w.tipo_postulante_id, w.cargo_id, w.turno, w.hora_ingreso
             ]);
           }
         } catch (dbErr) {
@@ -259,7 +273,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
   }));
 
   const jurisOptions = filteredJuris.map(j => ({
-    value: j.nombre,
+    value: j.id,
     label: j.nombre
   }));
 
@@ -329,10 +343,13 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           <Text style={styles.label}>SEDE JURISDICCIONAL:</Text>
           <DropdownModal
             label="Sede Jurisdiccional"
-            value={formData.sede_juris}
+            value={formData.sede_juris_id}
             displayText={formData.sede_juris || 'Seleccione Sede Jurisdiccional'}
             options={jurisOptions}
-            onSelect={(val) => setFormData({ ...formData, sede_juris: val })}
+            onSelect={(val) => {
+              const selectedJ = filteredJuris.find(f => f.id === val);
+              setFormData({ ...formData, sede_juris_id: val, sede_juris: selectedJ ? selectedJ.nombre : '' });
+            }}
             activeColor="#334155"
             style={styles.dropdownTrigger}
           />
