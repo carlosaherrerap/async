@@ -37,10 +37,79 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
       try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch (_) {}
       setAulaReserva('');
       setAulaError(false);
+      setShowSedePicker(false);
+      setSelectedNewSede('');
     } else {
       fadeAnim.setValue(0);
     }
   }, [visible]);
+
+  const [userRole, setUserRole] = useState('');
+  const [showSedePicker, setShowSedePicker] = useState(false);
+  const [selectedNewSede, setSelectedNewSede] = useState('');
+  const [updatingSede, setUpdatingSede] = useState(false);
+  const sedesDisponibles = ['AMAZONAS', 'LIMA', 'AREQUIPA', 'CUSCO', 'LAMBAYEQUE', 'LA LIBERTAD'];
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          setUserRole(JSON.parse(userData).rol);
+        }
+      } catch (_) {}
+    };
+    checkRole();
+  }, [visible]);
+
+  const handleConfirmChangeSede = async () => {
+    if (!selectedNewSede) {
+      Alert.alert('Error', 'Debe seleccionar una sede.');
+      return;
+    }
+    setUpdatingSede(true);
+    const isOnline = global.dbHelper.isOnline();
+    const token = await AsyncStorage.getItem('userToken');
+    const userData = await AsyncStorage.getItem('userData');
+    const username = userData ? JSON.parse(userData).username : 'admin';
+
+    try {
+      if (isOnline) {
+        const res = await fetch(`${API_URL}/api/attendance/change-sede`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ workerId: worker.id, nuevaSede: selectedNewSede })
+        });
+        if (res.ok) {
+          const db = global.dbHelper.db;
+          if (db) {
+            await db.runAsync('UPDATE principal SET sede_reg = ? WHERE id = ?', [selectedNewSede, worker.id]);
+            const now = new Date().toISOString();
+            await db.runAsync(
+              'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, fecha_hora, usuario_cambio) VALUES (?, ?, ?, ?, ?)',
+              [worker.id, worker.sede_reg, selectedNewSede, now, username]
+            );
+          }
+          Alert.alert('Éxito', 'Sede cambiada correctamente.');
+          onClose();
+          if (onRegisterSuccess) onRegisterSuccess();
+        } else {
+          const errData = await res.json();
+          Alert.alert('Error', errData.message || 'No se pudo cambiar la sede.');
+        }
+      } else {
+        await global.dbHelper.changeSedeOffline(worker.id, selectedNewSede, username);
+        Alert.alert('Éxito', 'Sede cambiada correctamente (Local).');
+        onClose();
+        if (onRegisterSuccess) onRegisterSuccess();
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Error al cambiar la sede.');
+    } finally {
+      setUpdatingSede(false);
+      setShowSedePicker(false);
+    }
+  };
 
   if (!data) return null;
 
@@ -284,6 +353,58 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                   <MaterialCommunityIcons name="check-circle" size={32} color="#15803D" />
                   <Text style={styles.completedTitle}>INGRESO YA REGISTRADO POR HOY</Text>
                   <Text style={styles.completedSub}>SE HABILITARA NUEVAMENTE MANANA</Text>
+                </View>
+              )}
+
+              {/* Solo para admin y SU - Sección Cambiar Sede */}
+              {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
+                <View style={styles.changeSedeSection}>
+                  {!showSedePicker ? (
+                    <TouchableOpacity
+                      style={styles.btnCambiarSede}
+                      onPress={() => {
+                        setSelectedNewSede(worker.sede_reg);
+                        setShowSedePicker(true);
+                      }}
+                    >
+                      <MaterialCommunityIcons name="office-building" size={20} color="#1E293B" />
+                      <Text style={styles.btnCambiarSedeText}>CAMBIAR SEDE REGIONAL</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.pickerContainer}>
+                      <Text style={styles.pickerTitle}>SELECCIONE NUEVA SEDE:</Text>
+                      <View style={styles.pickerGrid}>
+                        {sedesDisponibles.map(s => {
+                          const isSelected = selectedNewSede === s;
+                          return (
+                            <TouchableOpacity
+                              key={s}
+                              style={[styles.pickerItem, isSelected && styles.pickerItemActive]}
+                              onPress={() => setSelectedNewSede(s)}
+                            >
+                              <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextActive]}>{s}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                      <View style={styles.pickerActions}>
+                        <TouchableOpacity
+                          style={[styles.pickerBtn, styles.pickerBtnCancel]}
+                          onPress={() => setShowSedePicker(false)}
+                        >
+                          <Text style={styles.pickerBtnCancelText}>CANCELAR</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.pickerBtn, styles.pickerBtnConfirm]}
+                          onPress={handleConfirmChangeSede}
+                          disabled={updatingSede}
+                        >
+                          {updatingSede ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.pickerBtnConfirmText}>CONFIRMAR</Text>}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                  <View style={styles.divider} />
                 </View>
               )}
 
@@ -558,6 +679,102 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 14,
     letterSpacing: 0.5,
+  },
+  changeSedeSection: {
+    width: '100%',
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  btnCambiarSede: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    width: '100%',
+    justifyContent: 'center',
+  },
+  btnCambiarSedeText: {
+    color: '#1E293B',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  pickerContainer: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  pickerTitle: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '950',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  pickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  pickerItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  pickerItemActive: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0284C7',
+  },
+  pickerItemText: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  pickerItemTextActive: {
+    color: '#0369A1',
+    fontWeight: '900',
+  },
+  pickerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    justifyContent: 'space-between',
+  },
+  pickerBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerBtnCancel: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  pickerBtnCancelText: {
+    color: '#475569',
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  pickerBtnConfirm: {
+    backgroundColor: '#0284C7',
+  },
+  pickerBtnConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 11,
   },
 });
 

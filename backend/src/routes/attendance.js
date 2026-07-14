@@ -25,4 +25,7 @@ router.get('/absentees', verifyToken, reportController.getAbsentees);
 router.get('/stats', verifyToken, reportController.getStats);
 router.get('/daily', verifyToken, reportController.getDailyAttendance);
 
+router.post('/change-sede', [verifyToken, isAdmin], attendanceController.changeSede);
+router.get('/history', [verifyToken, isAdmin], attendanceController.getSedeHistory);
+
 module.exports = router;

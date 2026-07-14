@@ -17,6 +17,7 @@ import PersonalListScreen from './src/screens/PersonalListScreen';
 import AttendanceControlScreen from './src/screens/AttendanceControlScreen';
 import ConfigScreen from './src/screens/ConfigScreen';
 import RegisterWorkerScreen from './src/screens/RegisterWorkerScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 import { API_URL } from './src/config';
 
 const Stack = createStackNavigator();
@@ -108,6 +109,15 @@ global.dbHelper = {
           action_type TEXT NOT NULL,
           payload TEXT NOT NULL,
           created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS historial_cambios_sede (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          principal_id INTEGER NOT NULL,
+          sede_origen TEXT NOT NULL,
+          sede_destino TEXT NOT NULL,
+          fecha_hora TEXT NOT NULL,
+          usuario_cambio TEXT NOT NULL
         );
       `);
 
@@ -267,6 +277,14 @@ global.dbHelper = {
 
               const res = await fetch(`${API_URL}/api/attendance/workers/${realId}`, {
                 method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+            } else if (item.action_type === 'CHANGE_SEDE') {
+              const res = await fetch(`${API_URL}/api/attendance/change-sede`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
               });
@@ -461,7 +479,16 @@ global.dbHelper = {
       };
       const targetDate = selectedDate || getLocalDateString();
 
-      const presentes = await db.getAllAsync(`
+      const userDataStr = await AsyncStorage.getItem('userData');
+      let userRole = '';
+      let isSU = false;
+      if (userDataStr) {
+        const u = JSON.parse(userDataStr);
+        userRole = u.rol;
+        isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+      }
+
+      let presentesQuery = `
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
                p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
@@ -471,10 +498,9 @@ global.dbHelper = {
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         WHERE date(a.fecha_hora, 'localtime') = date(?)
-        ORDER BY a.fecha_hora DESC
-      `, [targetDate]);
+      `;
 
-      const ausentes = await db.getAllAsync(`
+      let ausentesQuery = `
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
                p.sede_reg, p.sede_juris, p.local, p.turno, p.aula,
@@ -486,8 +512,24 @@ global.dbHelper = {
           SELECT 1 FROM asistencias a 
           WHERE a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = date(?)
         )
-        ORDER BY p.ape_pat, p.ape_mat
-      `, [targetDate]);
+      `;
+
+      const presentesParams = [targetDate];
+      const ausentesParams = [targetDate];
+
+      if (!isSU && userRole) {
+        presentesQuery += ` AND LOWER(p.sede_reg) = LOWER(?)`;
+        presentesParams.push(userRole);
+
+        ausentesQuery += ` AND LOWER(p.sede_reg) = LOWER(?)`;
+        ausentesParams.push(userRole);
+      }
+
+      presentesQuery += ` ORDER BY a.fecha_hora DESC`;
+      ausentesQuery += ` ORDER BY p.ape_pat, p.ape_mat`;
+
+      const presentes = await db.getAllAsync(presentesQuery, presentesParams);
+      const ausentes = await db.getAllAsync(ausentesQuery, ausentesParams);
 
       return { presentes, ausentes };
     } catch (e) {
@@ -734,6 +776,23 @@ global.dbHelper = {
     return { message: 'Meta actualizada correctamente (Local)' };
   },
 
+  async changeSedeOffline(workerId, nuevaSede, username) {
+    if (!db) throw new Error('Base de datos no inicializada');
+    const workerRes = await db.getAllAsync('SELECT * FROM principal WHERE id = ?', [workerId]);
+    if (workerRes.length === 0) throw new Error('Postulante no encontrado');
+    const worker = workerRes[0];
+    const oldSede = worker.sede_reg;
+
+    await db.runAsync('UPDATE principal SET sede_reg = ? WHERE id = ?', [nuevaSede, workerId]);
+    const now = new Date().toISOString();
+    await db.runAsync(
+      'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, fecha_hora, usuario_cambio) VALUES (?, ?, ?, ?, ?)',
+      [workerId, oldSede, nuevaSede, now, username]
+    );
+    await this.addPendingAction('CHANGE_SEDE', { workerId, nuevaSede });
+    return { workerId, oldSede, nuevaSede };
+  },
+
   async getDbDiagnostics() {
     if (!db) return null;
     try {
@@ -869,13 +928,14 @@ export default function App() {
         >
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'MARCACION DNI' }} />
+          <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'SISTEMA DE MARCACION' }} />
           <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'INSCRIPCION DE POSTULANTE' }} />
           <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'INGRESO MANUAL' }} />
           <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'FALTAS DE HOY' }} />
           <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'PERSONAL' }} />
-          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'EVALUACION CURRICULAR' }} />
+          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'ASISTENCIA DIARIA' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />
+          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'HISTORIAL DE CAMBIOS' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>

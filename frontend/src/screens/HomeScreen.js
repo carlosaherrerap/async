@@ -280,7 +280,9 @@ const HomeScreen = ({ navigation }) => {
       >
         <View style={styles.topHeaderInner}>
           <View>
-            <Text style={styles.welcomeLabel}>BIENVENIDO DE NUEVO,</Text>
+            <Text style={styles.welcomeLabel}>
+              SEDE: {((userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? 'GLOBAL' : (userRole || 'NO ASIGNADA')).toUpperCase()}
+            </Text>
             <Text style={styles.userName} numberOfLines={1}>{(userName || 'Administrador').toUpperCase()}</Text>
           </View>
           <View style={styles.headerActions}>
@@ -348,13 +350,37 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => navigation.navigate('AttendanceControl')}
           />
           {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
-            <MenuBtn
-              title="CONFIG."
-              icon="tune-vertical"
-              themeColor={COLORS.magenta}
-              onPress={() => navigation.navigate('Config')}
-              fullWidth
-            />
+            <>
+              <MenuBtn
+                title="HISTORIAL"
+                icon="history"
+                themeColor={COLORS.magenta}
+                onPress={() => navigation.navigate('History')}
+              />
+              <MenuBtn
+                title="EXPORTAR EXCEL"
+                icon="file-excel"
+                themeColor={COLORS.success}
+                onPress={async () => {
+                  try {
+                    const token = await AsyncStorage.getItem('userToken');
+                    if (!token) return;
+                    const url = `${API_URL}/api/attendance/export?token=${token}`;
+                    const { Linking } = require('react-native');
+                    await Linking.openURL(url);
+                  } catch (err) {
+                    Alert.alert('Error', 'No se pudo descargar el reporte.');
+                  }
+                }}
+              />
+              <MenuBtn
+                title="CONFIG."
+                icon="tune-vertical"
+                themeColor={COLORS.inkLight}
+                onPress={() => navigation.navigate('Config')}
+                fullWidth
+              />
+            </>
           )}
         </View>
 

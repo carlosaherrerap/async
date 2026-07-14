@@ -115,6 +115,29 @@ app.get('/api/init-db-debug', async (req, res) => {
         `);
         logs.push('Table asistencias created or verified.');
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS historial_cambios_sede (
+                id SERIAL PRIMARY KEY,
+                principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
+                sede_origen VARCHAR(100) NOT NULL,
+                sede_destino VARCHAR(100) NOT NULL,
+                fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                usuario_cambio VARCHAR(50) NOT NULL
+            )
+        `);
+        logs.push('Table historial_cambios_sede created or verified.');
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS intentos_login (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL,
+                ip_address VARCHAR(45) NOT NULL,
+                fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                exitoso BOOLEAN NOT NULL
+            )
+        `);
+        logs.push('Table intentos_login created or verified.');
+
         await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
         await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
         logs.push('Indexes created or verified.');
@@ -168,7 +191,7 @@ app.get('/api/init-db-debug', async (req, res) => {
         }
         logs.push('Admin user created or verified.');
 
-        const tablesToSync = ['cargos', 'tipo_postulante', 'principal', 'usuarios', 'asistencias'];
+        const tablesToSync = ['cargos', 'tipo_postulante', 'principal', 'usuarios', 'asistencias', 'historial_cambios_sede', 'intentos_login'];
         for (const table of tablesToSync) {
             await db.query(`
                 SELECT setval(
@@ -266,6 +289,27 @@ const initDb = async (retries = 5) => {
                 )
             `);
 
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS historial_cambios_sede (
+                    id SERIAL PRIMARY KEY,
+                    principal_id INT NOT NULL REFERENCES principal(id) ON DELETE CASCADE,
+                    sede_origen VARCHAR(100) NOT NULL,
+                    sede_destino VARCHAR(100) NOT NULL,
+                    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    usuario_cambio VARCHAR(50) NOT NULL
+                )
+            `);
+
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS intentos_login (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) NOT NULL,
+                    ip_address VARCHAR(45) NOT NULL,
+                    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    exitoso BOOLEAN NOT NULL
+                )
+            `);
+
             // Índices
             await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
             await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
@@ -323,7 +367,7 @@ const initDb = async (retries = 5) => {
             }
 
             // Sincronizar secuencias para todas las tablas SERIAL para prevenir Unique Key Violations
-            const tablesToSync = ['cargos', 'tipo_postulante', 'principal', 'usuarios', 'asistencias'];
+            const tablesToSync = ['cargos', 'tipo_postulante', 'principal', 'usuarios', 'asistencias', 'historial_cambios_sede', 'intentos_login'];
             for (const table of tablesToSync) {
                 try {
                     await db.query(`

@@ -32,7 +32,7 @@ const exportAttendanceToExcel = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            query += ` WHERE p.sede_reg = $1`;
+            query += ` WHERE LOWER(p.sede_reg) = LOWER($1)`;
             params.push(userRole);
         }
         query += ` ORDER BY asist.fecha_hora DESC`;
@@ -71,12 +71,12 @@ const getAbsentees = async (req, res) => {
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias asist 
                 WHERE asist.principal_id = p.id 
-                AND asist.fecha_hora::date = CURRENT_DATE
+                AND (asist.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
             )
         `;
         const params = [];
         if (!isSU) {
-            query += ` AND p.sede_reg = $1`;
+            query += ` AND LOWER(p.sede_reg) = LOWER($1)`;
             params.push(userRole);
         }
         const result = await db.query(query, params);
@@ -97,17 +97,17 @@ const getStats = async (req, res) => {
             statsQuery = `
                 SELECT 
                     (SELECT COUNT(*) FROM principal) as total_postulantes,
-                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE) as presentes,
-                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'T') as tardanzas,
-                    (SELECT COUNT(*) FROM asistencias WHERE fecha_hora::date = CURRENT_DATE AND estado = 'P') as temprano
+                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date) as presentes,
+                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND estado = 'T') as tardanzas,
+                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND estado = 'P') as temprano
             `;
         } else {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal WHERE sede_reg = $1) as total_postulantes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1) as presentes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND a.estado = 'T' AND p.sede_reg = $1) as tardanzas,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND a.estado = 'P' AND p.sede_reg = $1) as temprano
+                    (SELECT COUNT(*) FROM principal WHERE LOWER(sede_reg) = LOWER($1)) as total_postulantes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND LOWER(p.sede_reg) = LOWER($1)) as presentes,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'T' AND LOWER(p.sede_reg) = LOWER($1)) as tardanzas,
+                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'P' AND LOWER(p.sede_reg) = LOWER($1)) as temprano
             `;
             params.push(userRole);
         }
@@ -122,7 +122,7 @@ const getStats = async (req, res) => {
                    (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
             FROM cargos c
             LEFT JOIN principal p ON p.cargo_id = c.id
-            LEFT JOIN asistencias a ON a.principal_id = p.id AND a.fecha_hora::date = CURRENT_DATE
+            LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
             GROUP BY c.id, c.nombre
             ORDER BY c.id ASC
         `;
@@ -139,17 +139,17 @@ const getStats = async (req, res) => {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
                        COUNT(a.id) as presentes,
-                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND sede_reg = $1) as total_cargo
+                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND LOWER(sede_reg) = LOWER($1)) as total_cargo
                 FROM cargos c
-                LEFT JOIN principal p ON p.cargo_id = c.id AND p.sede_reg = $1
-                LEFT JOIN asistencias a ON a.principal_id = p.id AND a.fecha_hora::date = CURRENT_DATE
+                LEFT JOIN principal p ON p.cargo_id = c.id AND LOWER(p.sede_reg) = LOWER($1)
+                LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                 GROUP BY c.id, c.nombre
                 ORDER BY c.id ASC
             `;
             queryMetasPorCargo = `
                 SELECT c.nombre as cargo,
                        COALESCE(m.limite_vacantes, 0) as meta,
-                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND sede_reg = $1) as registrados
+                       (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id AND LOWER(sede_reg) = LOWER($1)) as registrados
                 FROM cargos c
                 LEFT JOIN metas_cargos m ON m.cargo_id = c.id
                 ORDER BY c.id ASC
@@ -189,7 +189,7 @@ const getDailyAttendance = async (req, res) => {
             JOIN principal p ON a.principal_id = p.id
             JOIN cargos c ON p.cargo_id = c.id
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-            WHERE a.fecha_hora::date = $1
+            WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
         `;
         let queryAusentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
@@ -201,17 +201,17 @@ const getDailyAttendance = async (req, res) => {
             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias a 
-                WHERE a.principal_id = p.id AND a.fecha_hora::date = $1
+                WHERE a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
             )
         `;
         const paramsPresentes = [targetDate];
         const paramsAusentes = [targetDate];
 
         if (!isSU) {
-            queryPresentes += ` AND p.sede_reg = $2`;
+            queryPresentes += ` AND LOWER(p.sede_reg) = LOWER($2)`;
             paramsPresentes.push(userRole);
 
-            queryAusentes += ` AND p.sede_reg = $2`;
+            queryAusentes += ` AND LOWER(p.sede_reg) = LOWER($2)`;
             paramsAusentes.push(userRole);
         }
 

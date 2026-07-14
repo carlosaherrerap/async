@@ -375,8 +375,22 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   // Filtros Asistencia Diaria
   const [filterCargo, setFilterCargo] = useState('TODOS');
-  const [filterTurno, setFilterTurno] = useState('TODOS');
+  const [filterSede, setFilterSede] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
+  const [userRole, setUserRole] = useState('');
+  const sedesDisponibles = ['AMAZONAS', 'LIMA', 'AREQUIPA', 'CUSCO', 'LAMBAYEQUE', 'LA LIBERTAD'];
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          setUserRole(JSON.parse(userData).rol);
+        }
+      } catch (_) {}
+    };
+    checkRole();
+  }, []);
 
   // Calendario de estados
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -695,17 +709,17 @@ const AttendanceControlScreen = ({ navigation }) => {
     const filteredData = {
       presentes: dailyData.presentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
+        const matchSede = filterSede === 'TODOS' || item.sede_reg === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        return matchCargo && matchTurno && matchTipo && matchDni;
+        return matchCargo && matchSede && matchTipo && matchDni;
       }),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        const matchTurno = filterTurno === 'TODOS' || item.turno === filterTurno;
+        const matchSede = filterSede === 'TODOS' || item.sede_reg === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        return matchCargo && matchTurno && matchTipo && matchDni;
+        return matchCargo && matchSede && matchTipo && matchDni;
       }),
     };
 
@@ -732,7 +746,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           })}
         </View>
 
-        {/* Filtros de Cargo y Turno — usando DropdownModal para un correcto soporte de desplazamiento */}
+        {/* Filtros de Cargo y Sede — usando DropdownModal para un correcto soporte de desplazamiento */}
         <View style={styles.filterRow}>
           <View style={{ flex: 1 }}>
             <DropdownModal
@@ -745,21 +759,22 @@ const AttendanceControlScreen = ({ navigation }) => {
               style={styles.filterDropdownHeader}
             />
           </View>
-          <View style={{ flex: 1 }}>
-            <DropdownModal
-              label="Turno"
-              value={filterTurno}
-              displayText={filterTurno === 'TODOS' ? 'Todos los Turnos' : (filterTurno === 'DIA' ? 'DIURNO' : 'TARDE')}
-              options={[
-                { value: 'TODOS', label: 'Todos los Turnos' },
-                { value: 'DIA', label: 'DIURNO', icon: 'weather-sunny' },
-                { value: 'TARDE', label: 'TARDE', icon: 'weather-night' },
-              ]}
-              onSelect={(val) => setFilterTurno(val)}
-              activeColor="#334155"
-              style={styles.filterDropdownHeader}
-            />
-          </View>
+          {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
+            <View style={{ flex: 1 }}>
+              <DropdownModal
+                label="Sede Regional"
+                value={filterSede}
+                displayText={filterSede === 'TODOS' ? 'Todas las sedes Regionales' : filterSede}
+                options={[
+                  { value: 'TODOS', label: 'Todas las sedes Regionales' },
+                  ...sedesDisponibles.map(s => ({ value: s, label: s }))
+                ]}
+                onSelect={(val) => setFilterSede(val)}
+                activeColor="#334155"
+                style={styles.filterDropdownHeader}
+              />
+            </View>
+          )}
         </View>
 
         {/* Búsqueda por DNI input */}
@@ -788,7 +803,7 @@ const AttendanceControlScreen = ({ navigation }) => {
             onPress={() => setAttendanceTab('PRESENTES')}
           >
             <Text style={[styles.subTabText, attendanceTab === 'PRESENTES' && styles.subTabTextActive]}>
-              EVALUADOS ({filteredData.presentes.length})
+              ASISTIERON ({filteredData.presentes.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -796,7 +811,7 @@ const AttendanceControlScreen = ({ navigation }) => {
             onPress={() => setAttendanceTab('AUSENTES')}
           >
             <Text style={[styles.subTabText, attendanceTab === 'AUSENTES' && { color: '#B91C1C' }]}>
-              No evaluados ({filteredData.ausentes.length})
+              NO ASISTIERON ({filteredData.ausentes.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -900,16 +915,14 @@ const AttendanceControlScreen = ({ navigation }) => {
               item.aula ? `AULA ${item.aula}` : 'AULA NO ASIGNADA'
             ].filter(Boolean).join(' · ').toUpperCase()}
           </Text>
-          <View style={{ width: 1.5, height: 12, backgroundColor: COLORS.border, marginHorizontal: 6 }} />
-          <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.muted} />
-          {isPresent ? (
-            <Text style={styles.cardFooterText}>
-              MARCA: {item.fecha_hora ? new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-            </Text>
-          ) : (
-            <Text style={styles.cardFooterText}>
-              HORA LIMITE: {item.hora_ingreso?.substring(0, 5) || '—'}
-            </Text>
+          {isPresent && (
+            <>
+              <View style={{ width: 1.5, height: 12, backgroundColor: COLORS.border, marginHorizontal: 6 }} />
+              <MaterialCommunityIcons name="clock-outline" size={16} color={COLORS.muted} />
+              <Text style={styles.cardFooterText}>
+                MARCA: {item.fecha_hora ? new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+              </Text>
+            </>
           )}
         </View>
       </Surface>
@@ -978,18 +991,6 @@ const AttendanceControlScreen = ({ navigation }) => {
 
     return (
       <View style={{ flex: 1 }}>
-        {/* Selector de fecha */}
-        <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="calendar" size={24} color="#1565C0" />
-            <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: 'bold' }}>FECHA (CLICK PARA CAMBIAR):</Text>
-              <Text style={{ color: '#1565C0', fontWeight: 'bold', fontSize: 16 }}>{selectedDate}</Text>
-            </View>
-          </View>
-          <MaterialCommunityIcons name="chevron-down" size={24} color="#1565C0" />
-        </TouchableOpacity>
-
         {/* Gráfico comparativo */}
         <Surface style={styles.chartCard} elevation={0}>
           <Text style={styles.chartTitle}>CANTIDAD EXISTENTE vs ASISTIERON</Text>
@@ -1036,6 +1037,18 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Selector de fecha Global */}
+      <TouchableOpacity style={styles.dateSelectorGlobal} onPress={() => setShowDatePicker(true)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="calendar" size={24} color="#1565C0" />
+          <View style={{ marginLeft: 10 }}>
+            <Text style={{ color: '#64748B', fontSize: 10, fontWeight: 'bold' }}>FECHA (CLICK PARA CAMBIAR):</Text>
+            <Text style={{ color: '#1565C0', fontWeight: 'bold', fontSize: 16 }}>{selectedDate}</Text>
+          </View>
+        </View>
+        <MaterialCommunityIcons name="chevron-down" size={24} color="#1565C0" />
+      </TouchableOpacity>
+
       {renderTabs()}
       {activeTab === 'RESUMEN' ? (
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -1055,6 +1068,18 @@ const AttendanceControlScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F6F8' },
+  dateSelectorGlobal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 6,
+    margin: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
   scrollContent: { padding: 12 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   tabContainer: {

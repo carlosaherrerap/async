@@ -49,7 +49,7 @@ const ScanScreen = ({ route, navigation }) => {
   const [manualDni, setManualDni] = useState('');
 
   const [scanStatus, setScanStatus] = useState('searching');
-  const [statusMessage, setStatusMessage] = useState('Apunte el REVERSO del DNI — código de barras en el recuadro');
+  const [statusMessage, setStatusMessage] = useState('ESCANEO DNI EN TIEMPO REAL');
   const [isOnline, setIsOnline] = useState(true);
   const [userRole, setUserRole] = useState('');
 
@@ -121,7 +121,7 @@ const ScanScreen = ({ route, navigation }) => {
   const resetScanner = () => {
     setScanned(false);
     setScanStatus('searching');
-    setStatusMessage('Apunte el REVERSO del DNI — código de barras en el recuadro');
+    setStatusMessage('ESCANEO DNI EN TIEMPO REAL');
   };
 
   // ─── Búsqueda de postulante (online → backend, offline → SQLite) ──────────────────
@@ -242,7 +242,7 @@ const ScanScreen = ({ route, navigation }) => {
         <View style={styles.topOverlay}>
           <View style={styles.header}>
             <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
-            <Text style={styles.headerTitle}>MARCACIÓN DNI</Text>
+            <Text style={styles.headerTitle}>SISTEMA DE MARCACIÓN</Text>
             <View style={{ width: 40 }} />
           </View>
 
@@ -292,7 +292,7 @@ const ScanScreen = ({ route, navigation }) => {
         <View style={styles.hintContainer}>
           <MaterialCommunityIcons name="barcode-scan" size={20} color="rgba(255,255,255,0.8)" />
           <Text style={styles.hintText}>
-            Acerque el código de barras vertical{'\n'}(esquina superior derecha del reverso)
+            Capture imagen de su documento oficial de identidad de la cara donde está el código de barras
           </Text>
         </View>
 

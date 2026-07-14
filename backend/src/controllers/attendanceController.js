@@ -25,7 +25,7 @@ const registerAttendance = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_reg !== userRole) {
+        if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
             return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
@@ -100,7 +100,7 @@ const verifyWorker = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_reg !== userRole) {
+        if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
             return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
@@ -141,7 +141,7 @@ const registerWorker = async (req, res) => {
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
     try {
-        if (!isSU && sede_reg !== userRole) {
+        if (!isSU && sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
             return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede del usuario activo' });
         }
         const exists = await db.query('SELECT id FROM principal WHERE doc_identidad = $1', [dni]);
@@ -299,12 +299,12 @@ const getSyncPull = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            queryWorkers += ` WHERE sede_reg = $1`;
+            queryWorkers += ` WHERE LOWER(sede_reg) = LOWER($1)`;
             queryAsistencias = `
                 SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones 
                 FROM asistencias a
                 JOIN principal p ON a.principal_id = p.id
-                WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1
+                WHERE a.fecha_hora::date = CURRENT_DATE AND LOWER(p.sede_reg) = LOWER($1)
             `;
             params.push(userRole);
         }
@@ -340,8 +340,8 @@ const getSyncCheck = async (req, res) => {
         const params = [];
 
         if (!isSU) {
-            queryWorkers += ' WHERE sede_reg = $1';
-            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_reg = $1';
+            queryWorkers += ' WHERE LOWER(sede_reg) = LOWER($1)';
+            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND LOWER(p.sede_reg) = LOWER($1)';
             params.push(userRole);
         }
 
@@ -421,7 +421,7 @@ const scanDniImage = async (req, res) => {
             const userRole = req.user.rol;
             const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
-            if (!isSU && worker.sede_reg !== userRole) {
+            if (!isSU && worker.sede_reg?.toLowerCase() !== userRole?.toLowerCase()) {
                 return res.json({
                     status: 'not_found',
                     dni,
@@ -472,6 +472,63 @@ const scanDniImage = async (req, res) => {
     }
 };
 
+const changeSede = async (req, res) => {
+    const { workerId, nuevaSede } = req.body;
+    const username = req.user.username;
+
+    if (!workerId || !nuevaSede) {
+        return res.status(400).json({ message: 'workerId y nuevaSede son requeridos.' });
+    }
+
+    try {
+        const workerCheck = await db.query('SELECT * FROM principal WHERE id = $1', [workerId]);
+        if (workerCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'Postulante no encontrado.' });
+        }
+
+        const worker = workerCheck.rows[0];
+        const oldSede = worker.sede_reg;
+
+        // Actualizar la sede
+        await db.query('UPDATE principal SET sede_reg = $1 WHERE id = $2', [nuevaSede, workerId]);
+
+        // Registrar en historial
+        await db.query(
+            'INSERT INTO historial_cambios_sede (principal_id, sede_origen, sede_destino, usuario_cambio) VALUES ($1, $2, $3, $4)',
+            [workerId, oldSede, nuevaSede, username]
+        );
+
+        res.json({
+            message: 'Sede cambiada correctamente.',
+            worker: {
+                id: worker.id,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                sede_origen: oldSede,
+                sede_destino: nuevaSede
+            }
+        });
+    } catch (error) {
+        console.error('Error in changeSede:', error);
+        res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+};
+
+const getSedeHistory = async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT h.id, h.principal_id, h.sede_origen, h.sede_destino, h.fecha_hora, h.usuario_cambio,
+                   p.doc_identidad as dni, (p.ape_pat || ' ' || p.ape_mat || ', ' || p.nombres) as nombre_completo
+            FROM historial_cambios_sede h
+            JOIN principal p ON h.principal_id = p.id
+            ORDER BY h.fecha_hora DESC
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error in getSedeHistory:', error);
+        res.status(500).json({ message: 'Error al obtener el historial de cambios.' });
+    }
+};
+
 module.exports = {
     registerAttendance,
     verifyWorker,
@@ -480,5 +537,7 @@ module.exports = {
     updateWorker,
     getSyncPull,
     getSyncCheck,
-    scanDniImage
+    scanDniImage,
+    changeSede,
+    getSedeHistory
 };
