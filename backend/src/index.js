@@ -120,33 +120,35 @@ app.get('/api/init-db-debug', async (req, res) => {
         `);
         logs.push('Table principal created or verified.');
 
-        // Agregar columna sede_juris_id a principal si no existe
-        const colCheck = await db.query(`
-            SELECT column_name FROM information_schema.columns 
-            WHERE table_name = 'principal' AND column_name = 'sede_juris_id'
+        // ── Migración incondicional: asegurar sede_juris_id y eliminar columnas obsoletas ────
+        // Agregar sede_juris_id si no existe
+        await db.query(`
+            ALTER TABLE principal ADD COLUMN IF NOT EXISTS sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)
         `);
-        if (colCheck.rows.length === 0) {
-            await db.query(`ALTER TABLE principal ADD COLUMN sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)`);
-            
-            // Si existían las viejas columnas, migrar datos
-            const oldColCheck = await db.query(`
-                SELECT column_name FROM information_schema.columns 
-                WHERE table_name = 'principal' AND column_name = 'sede_reg'
+        logs.push('Column sede_juris_id ensured in principal.');
+
+        // Migrar datos viejos de sede_reg/sede_juris a sede_juris_id si las columnas aún existen
+        const oldRegCheck = await db.query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'principal' AND column_name = 'sede_reg'
+        `);
+        if (oldRegCheck.rows.length > 0) {
+            logs.push('Columnas antiguas sede_reg/sede_juris detectadas. Migrando datos...');
+            await db.query(`
+                UPDATE principal p
+                SET sede_juris_id = sj.id
+                FROM sede_juris sj
+                JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+                WHERE p.sede_juris_id IS NULL
+                  AND LOWER(p.sede_reg) = LOWER(sr.nombre)
+                  AND LOWER(p.sede_juris) = LOWER(sj.nombre)
             `);
-            if (oldColCheck.rows.length > 0) {
-                await db.query(`
-                    UPDATE principal p
-                    SET sede_juris_id = sj.id
-                    FROM sede_juris sj
-                    JOIN sede_regional sr ON sj.sede_regional_id = sr.id
-                    WHERE LOWER(p.sede_reg) = LOWER(sr.nombre) AND LOWER(p.sede_juris) = LOWER(sj.nombre)
-                `);
-                
-                await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
-                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
-                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
-                logs.push('Table principal migrated to normalized sede_juris_id schema.');
-            }
+            await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
+            await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
+            await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
+            logs.push('Columnas sede_reg y sede_juris eliminadas de principal correctamente.');
+        } else {
+            logs.push('principal ya usa esquema normalizado (sin sede_reg/sede_juris).');
         }
 
         await db.query(`
@@ -391,32 +393,32 @@ const initDb = async (retries = 5) => {
                 )
             `);
 
-            // Agregar columna sede_juris_id a principal si no existe
-            const colCheck = await db.query(`
-                SELECT column_name FROM information_schema.columns 
-                WHERE table_name = 'principal' AND column_name = 'sede_juris_id'
+            // ── Migración incondicional: asegurar sede_juris_id y eliminar columnas obsoletas ────
+            // Agregar sede_juris_id si no existe
+            await db.query(`
+                ALTER TABLE principal ADD COLUMN IF NOT EXISTS sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)
             `);
-            if (colCheck.rows.length === 0) {
-                await db.query(`ALTER TABLE principal ADD COLUMN sede_juris_id VARCHAR(20) REFERENCES sede_juris(id)`);
-                
-                // Si existían las viejas columnas, migrar datos
-                const oldColCheck = await db.query(`
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name = 'principal' AND column_name = 'sede_reg'
+
+            // Migrar datos viejos de sede_reg/sede_juris a sede_juris_id si las columnas aún existen
+            const oldRegCheck = await db.query(`
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'principal' AND column_name = 'sede_reg'
+            `);
+            if (oldRegCheck.rows.length > 0) {
+                console.log('--- Migrando columnas antiguas sede_reg/sede_juris a sede_juris_id ---');
+                await db.query(`
+                    UPDATE principal p
+                    SET sede_juris_id = sj.id
+                    FROM sede_juris sj
+                    JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+                    WHERE p.sede_juris_id IS NULL
+                      AND LOWER(p.sede_reg) = LOWER(sr.nombre)
+                      AND LOWER(p.sede_juris) = LOWER(sj.nombre)
                 `);
-                if (oldColCheck.rows.length > 0) {
-                    await db.query(`
-                        UPDATE principal p
-                        SET sede_juris_id = sj.id
-                        FROM sede_juris sj
-                        JOIN sede_regional sr ON sj.sede_regional_id = sr.id
-                        WHERE LOWER(p.sede_reg) = LOWER(sr.nombre) AND LOWER(p.sede_juris) = LOWER(sj.nombre)
-                    `);
-                    
-                    await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
-                    await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
-                    await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
-                }
+                await db.query(`ALTER TABLE principal DROP CONSTRAINT IF EXISTS fk_principal_sedes`);
+                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_reg`);
+                await db.query(`ALTER TABLE principal DROP COLUMN IF EXISTS sede_juris`);
+                console.log('--- Columnas sede_reg y sede_juris eliminadas de principal ---');
             }
 
             // 4. Tabla de usuarios
