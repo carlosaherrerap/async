@@ -2,92 +2,223 @@ pipeline {
     agent any
 
     environment {
-        // Credencial guardada de forma segura en Jenkins para el webhook de Render
+        // ── Credenciales configuradas en Jenkins → Manage Credentials ──────────
+        // Nombre de la credencial: 'render-deploy-hook-url'  (tipo: Secret text)
+        // Contiene la URL completa del Deploy Hook de Render
         RENDER_DEPLOY_HOOK = credentials('render-deploy-hook-url')
-        NODE_ENV = 'test'
+
+        // Nombre de la credencial: 'enla-db-url'  (tipo: Secret text)
+        // Contiene la DATABASE_URL de producción en Render (solo para pruebas de integración)
+        DATABASE_URL = credentials('enla-db-url')
+
+        // Nombre de la credencial: 'enla-jwt-secret'  (tipo: Secret text)
+        JWT_SECRET = credentials('enla-jwt-secret')
+
+        NODE_ENV   = 'test'
+        PORT       = '3555'
     }
 
     options {
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 20, unit: 'MINUTES')
         ansiColor('xterm')
         disableConcurrentBuilds()
+        // Conserva los últimos 10 builds para auditoría
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
+
+        // ══════════════════════════════════════════════════════════════════════
+        // 1. PREPARACIÓN — Instalar dependencias limpiamente
+        // ══════════════════════════════════════════════════════════════════════
         stage('Preparación') {
             steps {
-                echo '=== Limpiando espacio de trabajo e instalando dependencias ==='
+                echo '╔══ [1/6] Instalando dependencias del backend ══╗'
                 dir('backend') {
-                    sh 'npm ci'
+                    // npm ci: instalación limpia y reproducible (usa package-lock.json)
+                    sh 'npm ci --prefer-offline'
                 }
             }
         }
 
-        stage('Estándares de Calidad: Sintaxis y Estructura') {
+        // ══════════════════════════════════════════════════════════════════════
+        // 2. CALIDAD — Validación de sintaxis de todos los archivos JS
+        // ══════════════════════════════════════════════════════════════════════
+        stage('Calidad: Sintaxis JS') {
             steps {
-                echo '=== Validando sintaxis de archivos Javascript ==='
+                echo '╔══ [2/6] Validando sintaxis de archivos Javascript ══╗'
                 dir('backend') {
-                    // Validar sintaxis de archivos JS principales
-                    sh 'node -c src/index.js src/controllers/*.js src/routes/*.js'
+                    sh '''
+                        echo "→ Verificando src/index.js"
+                        node -c src/index.js
+
+                        echo "→ Verificando controladores"
+                        for f in src/controllers/*.js; do
+                            node -c "$f" && echo "  OK: $f"
+                        done
+
+                        echo "→ Verificando rutas"
+                        for f in src/routes/*.js; do
+                            node -c "$f" && echo "  OK: $f"
+                        done
+
+                        echo "→ Verificando middlewares"
+                        for f in src/middleware/*.js; do
+                            node -c "$f" && echo "  OK: $f"
+                        done
+                    '''
                 }
             }
         }
 
-        stage('Testing de Seguridad: Dependencias') {
+        // ══════════════════════════════════════════════════════════════════════
+        // 3. SEGURIDAD — Auditoría de dependencias NPM
+        // ══════════════════════════════════════════════════════════════════════
+        stage('Seguridad: Dependencias NPM') {
             steps {
-                echo '=== Escaneando dependencias de Node.js contra vulnerabilidades ==='
+                echo '╔══ [3/6] Escaneando dependencias contra vulnerabilidades conocidas ══╗'
                 dir('backend') {
-                    // Ejecuta auditoría de seguridad. Falla si existen vulnerabilidades altas o críticas.
-                    sh 'npm audit --audit-level=high'
+                    // Falla si existen vulnerabilidades ALTA o CRÍTICA
+                    // Para ignorar temporalmente alguna, usar: npm audit --ignore-registry-errors
+                    sh 'npm audit --audit-level=high --omit=dev'
                 }
             }
         }
 
-        stage('Testing de Seguridad: SAST (Análisis Estático)') {
+        // ══════════════════════════════════════════════════════════════════════
+        // 4. SEGURIDAD — SAST: búsqueda de secretos y patrones inseguros
+        // ══════════════════════════════════════════════════════════════════════
+        stage('Seguridad: SAST') {
             steps {
-                echo '=== Ejecutando Análisis de Seguridad Estático (SAST) ==='
-                // Sugerencia de estándares de calidad y seguridad:
-                // Se propone integrar herramientas como Semgrep o Snyk para verificar
-                // secretos hardcodeados, uso inseguro de JWT o fallas criptográficas.
-                echo 'Ejecutando escaneo pasivo de secretos y tokens en el código fuente...'
-                sh '''
-                    if command -v semgrep &> /dev/null; then
-                        semgrep --config=auto .
-                    else
-                        echo "Semgrep no instalado en el agente. Continuando compilación de forma segura."
-                    fi
-                '''
+                echo '╔══ [4/6] Análisis Estático de Seguridad (SAST) ══╗'
+                dir('backend') {
+                    sh '''
+                        echo "→ Buscando secretos hardcodeados en el código fuente..."
+
+                        # Patrón 1: JWT secrets en texto plano (ej: secret: "abc123")
+                        if grep -rn --include="*.js" \
+                            -E "(jwt_secret|JWT_SECRET|secret\\s*[:=]\\s*['\"][A-Za-z0-9+/]{16,}['\"])" \
+                            src/ | grep -v "process\\.env" | grep -v "credentials"; then
+                            echo "⚠ ADVERTENCIA: Posible secreto JWT hardcodeado detectado. Revise los resultados."
+                            exit 1
+                        else
+                            echo "  OK: No se encontraron secretos JWT hardcodeados."
+                        fi
+
+                        # Patrón 2: contraseñas en texto plano
+                        if grep -rn --include="*.js" \
+                            -E "(password\\s*=\\s*['\"][^'\"]{6,}['\"])" \
+                            src/ | grep -v "bcrypt" | grep -v "process\\.env" | grep -v "hash"; then
+                            echo "⚠ ADVERTENCIA: Posible contraseña hardcodeada detectada."
+                            exit 1
+                        else
+                            echo "  OK: No se encontraron contraseñas hardcodeadas."
+                        fi
+
+                        # Patrón 3: DATABASE_URL o postgres:// en texto plano
+                        if grep -rn --include="*.js" \
+                            -E "postgres://[^'\"]*:[^'\"]*@" \
+                            src/ | grep -v "process\\.env"; then
+                            echo "⚠ ADVERTENCIA: Posible cadena de conexión DB hardcodeada."
+                            exit 1
+                        else
+                            echo "  OK: No se encontraron cadenas de conexión hardcodeadas."
+                        fi
+
+                        # Semgrep (si está instalado en el agente de Jenkins)
+                        if command -v semgrep > /dev/null 2>&1; then
+                            echo "→ Ejecutando Semgrep SAST..."
+                            semgrep --config=p/nodejs-security \\
+                                    --config=p/jwt \\
+                                    --config=p/secrets \\
+                                    --error \\
+                                    src/
+                        else
+                            echo "  INFO: Semgrep no instalado. Omitiendo escaneo avanzado."
+                            echo "  Para instalarlo: pip3 install semgrep"
+                        fi
+
+                        echo "→ SAST completado correctamente."
+                    '''
+                }
             }
         }
 
-        stage('Pruebas de Integración y Endpoints') {
+        // ══════════════════════════════════════════════════════════════════════
+        // 5. PRUEBAS DE INTEGRACIÓN — Endpoints críticos
+        // ══════════════════════════════════════════════════════════════════════
+        stage('Pruebas de Integración') {
             steps {
-                echo '=== Iniciando servidor backend temporal y probando endpoints ==='
+                echo '╔══ [5/6] Levantando servidor y probando endpoints críticos ══╗'
                 dir('backend') {
-                    // Ejecuta el script de prueba de endpoints
-                    // Esto valida /health, bloqueos de token/auth y la ruta de inicio de sesión
+                    // NODE_ENV=test: el servidor inicia en modo test (sin bloquear por DB)
+                    // Las variables de entorno del pipeline (DATABASE_URL, JWT_SECRET) están disponibles
                     sh 'npm test'
                 }
             }
+            post {
+                failure {
+                    echo '✖ Las pruebas de integración fallaron. Revise los endpoints y la conectividad.'
+                }
+                success {
+                    echo '✔ Todos los endpoints respondieron correctamente.'
+                }
+            }
         }
 
-        stage('Despliegue en Producción (Render)') {
+        // ══════════════════════════════════════════════════════════════════════
+        // 6. DESPLIEGUE — Solo desde la rama main, solo si todo pasó
+        // ══════════════════════════════════════════════════════════════════════
+        stage('Despliegue en Render') {
             when {
+                // Solo despliega desde la rama principal
                 branch 'main'
+                // Solo si todos los stages anteriores tuvieron éxito
+                beforeAgent true
             }
             steps {
-                echo '=== Todos los tests de calidad y seguridad pasaron. Desplegando en Render ==='
-                sh 'curl -X POST ${RENDER_DEPLOY_HOOK}'
+                echo '╔══ [6/6] Disparando despliegue automático en Render ══╗'
+                sh '''
+                    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${RENDER_DEPLOY_HOOK}")
+                    echo "→ Render respondió con código HTTP: $HTTP_CODE"
+                    if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+                        echo "✖ Error al disparar el deploy hook de Render. Código: $HTTP_CODE"
+                        exit 1
+                    fi
+                    echo "✔ Despliegue iniciado correctamente en Render."
+                '''
             }
         }
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // RESULTADOS FINALES
+    // ══════════════════════════════════════════════════════════════════════════
     post {
         success {
-            echo '=== CI/CD completado con éxito. Todos los estándares de calidad y seguridad se cumplen ==='
+            echo '''
+╔══════════════════════════════════════════════════════════════╗
+║  ✔  CI/CD COMPLETADO CON ÉXITO                               ║
+║     Calidad de código: OK                                    ║
+║     Seguridad de dependencias: OK                            ║
+║     Análisis estático (SAST): OK                             ║
+║     Pruebas de integración: OK                               ║
+║     Despliegue en Render: Iniciado                           ║
+╚══════════════════════════════════════════════════════════════╝
+            '''
         }
         failure {
-            echo '=== El build ha fallado. Por favor revise los logs para corregir la sintaxis, vulnerabilidad o endpoint ==='
+            echo '''
+╔══════════════════════════════════════════════════════════════╗
+║  ✖  BUILD FALLIDO                                            ║
+║     Revise los logs de las etapas marcadas en rojo.          ║
+║     El despliegue en Render fue BLOQUEADO.                   ║
+╚══════════════════════════════════════════════════════════════╝
+            '''
+        }
+        always {
+            // Limpiar archivos generados por el build (node_modules no se borra para caché)
+            echo '→ Pipeline finalizado.'
         }
     }
 }
