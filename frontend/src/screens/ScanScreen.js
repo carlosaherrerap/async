@@ -52,6 +52,7 @@ const ScanScreen = ({ route, navigation }) => {
   const [statusMessage, setStatusMessage] = useState('ESCANEO DNI EN TIEMPO REAL');
   const [isOnline, setIsOnline] = useState(true);
   const [userRole, setUserRole] = useState('');
+  const [sedeName, setSedeName] = useState('');
 
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
@@ -67,7 +68,9 @@ const ScanScreen = ({ route, navigation }) => {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
-          setUserRole(JSON.parse(userData).rol);
+          const parsed = JSON.parse(userData);
+          setUserRole(parsed.rol);
+          setSedeName(parsed.sede_nombre || '');
         }
       } catch (e) {
         console.error(e);
@@ -244,6 +247,14 @@ const ScanScreen = ({ route, navigation }) => {
             <IconButton icon="chevron-left" iconColor="#334155" size={30} onPress={() => navigation.goBack()} style={styles.backBtn} />
             <Text style={styles.headerTitle}>SISTEMA DE MARCACIÓN</Text>
             <View style={{ width: 40 }} />
+          </View>
+
+          {/* Banner de Sede Informativo */}
+          <View style={styles.sedeBanner}>
+            <MaterialCommunityIcons name="office-building" size={16} color="#1E40AF" style={{ marginRight: 6 }} />
+            <Text style={styles.sedeBannerText}>
+              SEDE REGIONAL: {((userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? 'GLOBAL' : (sedeName || userRole || 'NO ASIGNADA')).toUpperCase()}
+            </Text>
           </View>
 
           <View style={[
@@ -438,6 +449,24 @@ const styles = StyleSheet.create({
   permissionText: { color: '#FFFFFF', fontSize: 16, marginTop: 20, marginBottom: 20, fontWeight: '700' },
   permissionButton: { backgroundColor: COLORS.blue, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   permissionButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 14 },
+  sedeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
+  sedeBannerText: {
+    color: '#1E40AF',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
 });
 
 export default ScanScreen;

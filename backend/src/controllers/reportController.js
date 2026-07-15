@@ -24,12 +24,16 @@ const exportAttendanceToExcel = async (req, res) => {
                 to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'YYYY-MM-DD') as "FECHA_REGISTRO",
                 to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'HH24:MI:SS') as "HORA_REGISTRO",
                 asist.estado as "ESTADO_ASISTENCIA",
+                CASE 
+                    WHEN asist.estado IN ('P', 'T') THEN 'A'
+                    ELSE 'NA'
+                END as "ESTADO",
                 COALESCE(asist.observaciones, '') as "OBSERVACIONES",
                 COALESCE(u.username, 'desconocido') as "USUARIO_REGISTRO"
-            FROM asistencias asist
-            JOIN principal p ON asist.principal_id = p.id
-            JOIN cargos c ON p.cargo_id = c.id
-            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            FROM principal p
+            LEFT JOIN asistencias asist ON asist.principal_id = p.id
+            LEFT JOIN cargos c ON p.cargo_id = c.id
+            LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             JOIN sede_juris sj ON p.sede_juris_id = sj.id
             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             LEFT JOIN usuarios u ON asist.usuario_registro_id = u.id
@@ -39,7 +43,7 @@ const exportAttendanceToExcel = async (req, res) => {
             query += ` WHERE sj.sede_regional_id = $1`;
             params.push(userRole);
         }
-        query += ` ORDER BY asist.fecha_hora DESC`;
+        query += ` ORDER BY p.ape_pat ASC, p.ape_mat ASC, asist.fecha_hora DESC`;
 
         const result = await db.query(query, params);
 
