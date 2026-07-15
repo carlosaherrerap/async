@@ -188,25 +188,27 @@ const getDailyAttendance = async (req, res) => {
     try {
         let queryPresentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
+                   COALESCE(c.nombre, 'Sin Cargo') as cargo, COALESCE(tp.descripcion, 'Sin Tipo') as tipo_postulante,
+                   sr.nombre as sede_reg, sr.nombre as sede_regional, sj.nombre as sede_juris,
+                   p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
-            JOIN cargos c ON p.cargo_id = c.id
-            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            LEFT JOIN cargos c ON p.cargo_id = c.id
+            LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             JOIN sede_juris sj ON p.sede_juris_id = sj.id
             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
         `;
         let queryAusentes = `
             SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
-                   c.nombre as cargo, tp.descripcion as tipo_postulante,
-                   sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
+                   COALESCE(c.nombre, 'Sin Cargo') as cargo, COALESCE(tp.descripcion, 'Sin Tipo') as tipo_postulante,
+                   sr.nombre as sede_reg, sr.nombre as sede_regional, sj.nombre as sede_juris,
+                   p.local, p.turno, p.aula,
                    p.hora_ingreso::text as hora_ingreso
             FROM principal p
-            JOIN cargos c ON p.cargo_id = c.id
-            JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
+            LEFT JOIN cargos c ON p.cargo_id = c.id
+            LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
             JOIN sede_juris sj ON p.sede_juris_id = sj.id
             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             WHERE NOT EXISTS (

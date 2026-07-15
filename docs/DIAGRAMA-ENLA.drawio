@@ -1,0 +1,136 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Página-1" id="QWHinWmEWe5hgcWl3b8K">
+    <mxGraphModel dx="2054" dy="2272" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-26" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-5" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="USUARIOS" vertex="1">
+          <mxGeometry height="200" width="580" x="460" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-34" parent="5ymBiINyPLjWPF43Ga7d-5" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ID | USUARIO | CLAVE | NOMBRE | ROL | ESTADO" vertex="1">
+          <mxGeometry height="30" width="380" x="15" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-35" parent="5ymBiINyPLjWPF43Ga7d-5" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="01 | CAPACITACION | ****** | ADMINISTRADOR | admin | activo" vertex="1">
+          <mxGeometry height="30" width="410" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-39" parent="5ymBiINyPLjWPF43Ga7d-5" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="02 | administrador | ****** | SUPERUSUARIO | SU | activo" vertex="1">
+          <mxGeometry height="30" width="410" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-40" parent="5ymBiINyPLjWPF43Ga7d-5" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="03 | AMAZONAS_1 | ****** | Cesar V. | id_sede_reg| activo" vertex="1">
+          <mxGeometry height="30" width="410" x="-5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-41" parent="5ymBiINyPLjWPF43Ga7d-5" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="04 | AMAZONAS_2 | ****** | Eder M. | id_sede_reg | activo" vertex="1">
+          <mxGeometry height="30" width="410" x="-15" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-6" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="PRINCIPAL" vertex="1">
+          <mxGeometry height="200" width="635" x="446.25" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-56" parent="5ymBiINyPLjWPF43Ga7d-6" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="id |id_sedej | documento |&amp;nbsp; nombres | local |aula | tipo_postulante | cargo_id | turno | hora_ingreso" vertex="1">
+          <mxGeometry height="30" width="635" x="-27.5" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-63" parent="5ymBiINyPLjWPF43Ga7d-6" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="0001 | 04 | 75747335 | carlos herrera palma | av.abc | titular |&amp;nbsp;" vertex="1">
+          <mxGeometry height="30" width="635" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-61" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-7" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="TIPO_POSTULANTE" vertex="1">
+          <mxGeometry height="90" width="190" x="1200" y="-60" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-8" parent="5ymBiINyPLjWPF43Ga7d-7" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;TITULAR&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;RESERVA&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="180" x="10" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-43" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="445" />
+              <mxPoint x="380" y="345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-48" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="750" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-10" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="ASISTENCIA" vertex="1">
+          <mxGeometry height="200" width="580" x="460" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-54" parent="5ymBiINyPLjWPF43Ga7d-10" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ID | ID_PRINCIPAL | FECHA | ID_USUARIO | OBSERVACIONES" vertex="1">
+          <mxGeometry height="30" width="520" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-55" parent="5ymBiINyPLjWPF43Ga7d-10" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="001 | 0001 | 14-07-2026 | 01 | Llegó tarde porque no tenia donde dejar sus llaves" vertex="1">
+          <mxGeometry height="30" width="520" x="15" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-23" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="555" />
+              <mxPoint x="1120" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-29" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="540" />
+              <mxPoint x="1120" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-11" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="SEDER" vertex="1">
+          <mxGeometry height="130" width="200" x="1200" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-13" parent="5ymBiINyPLjWPF43Ga7d-11" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ID | NOMBRE | UBIGEO" vertex="1">
+          <mxGeometry height="30" width="180" x="10" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-14" parent="5ymBiINyPLjWPF43Ga7d-11" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="01 | AMAZONAS | 010201" vertex="1">
+          <mxGeometry height="30" width="160" x="20" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-19" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;endSize=8;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-12" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="SEDEJ" vertex="1">
+          <mxGeometry height="200" width="320" x="1560" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-15" parent="5ymBiINyPLjWPF43Ga7d-12" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="ID | NOMBRE | ID_SEDE_REGIONAL | UBIGEO" vertex="1">
+          <mxGeometry height="30" width="270" x="25" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-17" parent="5ymBiINyPLjWPF43Ga7d-12" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="01 |&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;BAGUA&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; | 01 | 010205&lt;div&gt;02| BANGORA(JAZAN) | 01 | | 010301&lt;/div&gt;&lt;div&gt;03 |&amp;nbsp; &amp;nbsp;CHACHAPOYAS&amp;nbsp; |01 |&amp;nbsp; 010101&lt;/div&gt;&lt;div&gt;04 | CONDORCANQUI | 01 | 010401&lt;/div&gt;" vertex="1">
+          <mxGeometry height="50" width="290" x="10" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-20" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="PARAMETROS_ASISTENCIA" vertex="1">
+          <mxGeometry height="90" width="200" x="110" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-21" parent="5ymBiINyPLjWPF43Ga7d-20" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;PUNTUAL&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;TARDE&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="180" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-44" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="CARGOS" vertex="1">
+          <mxGeometry height="90" width="200" x="150" y="-60" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-45" parent="5ymBiINyPLjWPF43Ga7d-44" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;span style=&quot;font-size: 16px;&quot;&gt;MONITOR NACIONAL&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="180" x="10" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-65" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-49" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1080" y="155" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-49" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="CAMBIO_SEDE" vertex="1">
+          <mxGeometry height="90" width="360" x="1200" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-50" parent="5ymBiINyPLjWPF43Ga7d-49" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;sede_inicial | sede_actual | fecha_cambio&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="345" x="5" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-64" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-63">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="-15" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

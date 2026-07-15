@@ -378,7 +378,8 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [filterSede, setFilterSede] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
   const [userRole, setUserRole] = useState('');
-  const sedesDisponibles = ['AMAZONAS', 'LIMA', 'AREQUIPA', 'CUSCO', 'LAMBAYEQUE', 'LA LIBERTAD'];
+  // Sedes regionales cargadas desde la API/SQLite (no hardcodeadas)
+  const [sedesDisponibles, setSedesDisponibles] = useState([]);
 
   useEffect(() => {
     const checkRole = async () => {
@@ -404,6 +405,7 @@ const AttendanceControlScreen = ({ navigation }) => {
   useEffect(() => {
     fetchData();
     fetchCargos();
+    fetchSedesRegionales();
   }, [selectedDate]);
 
   useEffect(() => {
@@ -494,6 +496,32 @@ const AttendanceControlScreen = ({ navigation }) => {
     }
   };
 
+  // Cargar sedes regionales desde la BD local (SQLite) o la API
+  const fetchSedesRegionales = async () => {
+    try {
+      // Primero intentar desde SQLite local (siempre disponible tras sincronización)
+      const db = global.dbHelper?.db;
+      if (db) {
+        const rows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        if (rows && rows.length > 0) {
+          setSedesDisponibles(rows.map(r => r.nombre));
+          return;
+        }
+      }
+      // Fallback: cargar desde la API
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/api/configuracion/sedes-regionales`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSedesDisponibles((data || []).map(s => s.nombre));
+      }
+    } catch (e) {
+      console.error('Error cargando sedes regionales:', e);
+    }
+  };
+
   const getBarChartData = () => {
     if (!stats || !stats.metasPorCargo) return [];
 
@@ -533,7 +561,7 @@ const AttendanceControlScreen = ({ navigation }) => {
         style={[styles.tabButton, activeTab === 'ASISTENCIA' && styles.tabActive]}
         onPress={() => setActiveTab('ASISTENCIA')}
       >
-        <Text style={[styles.tabText, activeTab === 'ASISTENCIA' && styles.tabTextActive]}>ASISTENCIA DIARIA</Text>
+        <Text style={[styles.tabText, activeTab === 'ASISTENCIA' && styles.tabTextActive]}>ASISTENCIA</Text>
       </TouchableOpacity>
     </View>
   );
@@ -709,14 +737,17 @@ const AttendanceControlScreen = ({ navigation }) => {
     const filteredData = {
       presentes: dailyData.presentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        const matchSede = filterSede === 'TODOS' || item.sede_reg === filterSede;
+        // Usar sede_regional (nombre del JOIN) o sede_reg como fallback
+        const sedeItem = item.sede_regional || item.sede_reg || '';
+        const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
         return matchCargo && matchSede && matchTipo && matchDni;
       }),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        const matchSede = filterSede === 'TODOS' || item.sede_reg === filterSede;
+        const sedeItem = item.sede_regional || item.sede_reg || '';
+        const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
         return matchCargo && matchSede && matchTipo && matchDni;

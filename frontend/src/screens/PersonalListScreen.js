@@ -55,7 +55,7 @@ const SedePill = ({ icon, label, value }) => (
 );
 
 // ─── Card de postulante ───────────────────────────────────────────────────────
-const WorkerCard = ({ item, onPress }) => {
+const WorkerCard = ({ item, onPress, canEdit }) => {
   const tipo = item.tipo_postulante;
   const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -84,7 +84,15 @@ const WorkerCard = ({ item, onPress }) => {
                 {(item.cargo || '—').toUpperCase()}
               </Text>
             </View>
-            <TipoBadge tipo={tipo} />
+            <View style={{ alignItems: 'center', gap: 4 }}>
+              <TipoBadge tipo={tipo} />
+              {/* Icono que indica si puede editar o solo ver */}
+              <MaterialCommunityIcons
+                name={canEdit ? 'pencil-circle-outline' : 'eye-circle-outline'}
+                size={20}
+                color={canEdit ? COLORS.blue : COLORS.muted}
+              />
+            </View>
           </View>
 
           <Divider style={styles.cardDivider} />
@@ -489,7 +497,26 @@ const PersonalListScreen = ({ navigation }) => {
         <FlatList
           data={workers}
           keyExtractor={item => (item.dni || item.doc_identidad || item.id?.toString() || Math.random().toString())}
-          renderItem={({ item }) => <WorkerCard item={item} onPress={openEdit} />}
+          renderItem={({ item }) => {
+            const canEdit = userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su';
+            return (
+              <WorkerCard
+                item={item}
+                canEdit={canEdit}
+                onPress={canEdit ? openEdit : (w) => {
+                  // Solo lectura: mostrar alerta informativa
+                  const fullName = (w.nombres || w.ape_pat)
+                    ? `${w.nombres || ''} ${w.ape_pat || ''} ${w.ape_mat || ''}`.trim()
+                    : (w.nombre || '');
+                  Alert.alert(
+                    'Solo lectura',
+                    `${fullName.toUpperCase()}\n\nDNI: ${w.dni || w.doc_identidad || '—'}\nCargo: ${w.cargo || '—'}\nSede: ${w.sede_juris || '—'}`,
+                    [{ text: 'Cerrar' }]
+                  );
+                }}
+              />
+            );
+          }}
           contentContainerStyle={styles.listContent}
           ListFooterComponent={() => (
             <PaginationBar
@@ -621,13 +648,20 @@ const PersonalListScreen = ({ navigation }) => {
 
           <View style={styles.modalActions}>
             <Button textColor={COLORS.muted} labelStyle={{ fontWeight: '900' }} onPress={() => setEditModal(false)}>CANCELAR</Button>
-            <TouchableOpacity 
-              onPress={saveEdit}
-              style={{ borderWidth: 2.5, borderColor: COLORS.blue, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', gap: 8 }}
-            >
-              <MaterialCommunityIcons name="content-save" size={20} color={COLORS.blue} />
-              <Text style={{ color: COLORS.blue, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>GUARDAR</Text>
-            </TouchableOpacity>
+            {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? (
+              <TouchableOpacity
+                onPress={saveEdit}
+                style={{ borderWidth: 2.5, borderColor: COLORS.blue, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <MaterialCommunityIcons name="content-save" size={20} color={COLORS.blue} />
+                <Text style={{ color: COLORS.blue, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>GUARDAR</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10 }}>
+                <MaterialCommunityIcons name="eye-outline" size={18} color={COLORS.muted} />
+                <Text style={{ color: COLORS.muted, fontWeight: '700', fontSize: 12 }}>SOLO LECTURA</Text>
+              </View>
+            )}
           </View>
         </Modal>
       </Portal>
