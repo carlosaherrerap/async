@@ -135,13 +135,12 @@ const HomeScreen = ({ navigation }) => {
         setSedeName(currentSedeName);
       }
 
-      // Si no tenemos el nombre de la sede y el rol es numérico, buscarlo en SQLite
-      const rolNum = parseInt(currentRole);
-      if (!currentSedeName && !isNaN(rolNum)) {
+      // Si no tenemos el nombre de la sede y el rol es el ID de la sede (ej. '01')
+      if (!currentSedeName && currentRole && currentRole.toLowerCase() !== 'admin' && currentRole.toLowerCase() !== 'su') {
         try {
           const db = global.dbHelper?.db;
           if (db) {
-            const rows = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [rolNum]);
+            const rows = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [currentRole]);
             if (rows && rows.length > 0) {
               setSedeName(rows[0].nombre);
             }
@@ -301,11 +300,13 @@ const HomeScreen = ({ navigation }) => {
         style={[styles.topHeader, { backgroundColor: COLORS.blue }]}
       >
         <View style={styles.topHeaderInner}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.welcomeLabel}>
+              {(userName || 'OPERADOR').toUpperCase()}
+            </Text>
+            <Text style={styles.userName} numberOfLines={1}>
               SEDE: {((userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? 'GLOBAL' : (sedeName || userRole || 'NO ASIGNADA')).toUpperCase()}
             </Text>
-            <Text style={styles.userName} numberOfLines={1}>{(userName || 'Administrador').toUpperCase()}</Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -438,8 +439,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  welcomeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '800' },
-  userName: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', maxWidth: width * 0.55 },
+  welcomeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '800', marginBottom: 4 },
+  userName: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', maxWidth: width * 0.70 },
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: {
     width: 44, height: 44, borderRadius: 22,

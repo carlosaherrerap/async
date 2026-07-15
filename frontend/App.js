@@ -139,11 +139,25 @@ global.dbHelper = {
       `);
 
       // Realizar migraciones manuales si ya existían las tablas de la app
-      try { await db.runAsync('ALTER TABLE sede_regional ADD COLUMN ubigeo TEXT;'); } catch(_) {}
-      try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN sede_regional_id TEXT;'); } catch(_) {}
-      try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN ubigeo TEXT;'); } catch(_) {}
-      try { await db.runAsync('ALTER TABLE principal ADD COLUMN sede_juris_id TEXT;'); } catch(_) {}
-      try { await db.runAsync('ALTER TABLE asistencias ADD COLUMN usuario_registro_id INTEGER;'); } catch(_) {}
+      try {
+        if (db) {
+          const tableInfo = await db.getAllAsync("PRAGMA table_info(principal);");
+          const hasSedeReg = tableInfo && tableInfo.some(col => col.name === 'sede_reg');
+          if (hasSedeReg) {
+            console.log('[MIGRATION] Detectada columna obsoleta sede_reg. Recreando tablas principal y asistencias...');
+            await db.runAsync('DROP TABLE IF EXISTS asistencias;');
+            await db.runAsync('DROP TABLE IF EXISTS principal;');
+          }
+        }
+      } catch(migErr) {
+        console.error('[MIGRATION] Error al validar columnas obsoletas:', migErr);
+      }
+
+      await db.runAsync('ALTER TABLE sede_regional ADD COLUMN ubigeo TEXT;').catch(() => {});
+      await db.runAsync('ALTER TABLE sede_juris ADD COLUMN sede_regional_id TEXT;').catch(() => {});
+      await db.runAsync('ALTER TABLE sede_juris ADD COLUMN ubigeo TEXT;').catch(() => {});
+      await db.runAsync('ALTER TABLE principal ADD COLUMN sede_juris_id TEXT;').catch(() => {});
+      await db.runAsync('ALTER TABLE asistencias ADD COLUMN usuario_registro_id INTEGER;').catch(() => {});
 
       // Sembrar datos de referencia inmutables
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
