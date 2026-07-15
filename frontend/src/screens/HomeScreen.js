@@ -98,6 +98,7 @@ const HomeScreen = ({ navigation }) => {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [isOnline, setIsOnline] = useState(true);
+  const [sedeName, setSedeName] = useState('');   // nombre legible de la sede regional
 
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugData, setDebugData] = useState(null);
@@ -127,6 +128,8 @@ const HomeScreen = ({ navigation }) => {
         const user = JSON.parse(userData);
         setUserName(user.nombre);
         setUserRole(user.rol);
+        // sede_nombre viene del backend al hacer login (null si es admin/SU)
+        setSedeName(user.sede_nombre || '');
       }
 
       const netState = await NetInfo.fetch();
@@ -281,7 +284,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.topHeaderInner}>
           <View>
             <Text style={styles.welcomeLabel}>
-              SEDE: {((userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? 'GLOBAL' : (userRole || 'NO ASIGNADA')).toUpperCase()}
+              SEDE: {((userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') ? 'GLOBAL' : (sedeName || userRole || 'NO ASIGNADA')).toUpperCase()}
             </Text>
             <Text style={styles.userName} numberOfLines={1}>{(userName || 'Administrador').toUpperCase()}</Text>
           </View>
@@ -349,6 +352,22 @@ const HomeScreen = ({ navigation }) => {
             themeColor={COLORS.orange}
             onPress={() => navigation.navigate('AttendanceControl')}
           />
+          <MenuBtn
+            title="EXPORTAR DATA"
+            icon="file-excel"
+            themeColor={COLORS.success}
+            onPress={async () => {
+              try {
+                const token = await AsyncStorage.getItem('userToken');
+                if (!token) return;
+                const url = `${API_URL}/api/asistencia/exportar-excel?token=${token}`;
+                const { Linking } = require('react-native');
+                await Linking.openURL(url);
+              } catch (err) {
+                Alert.alert('Error', 'No se pudo descargar el reporte.');
+              }
+            }}
+          />
           {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
             <>
               <MenuBtn
@@ -356,22 +375,6 @@ const HomeScreen = ({ navigation }) => {
                 icon="history"
                 themeColor={COLORS.magenta}
                 onPress={() => navigation.navigate('History')}
-              />
-              <MenuBtn
-                title="EXPORTAR EXCEL"
-                icon="file-excel"
-                themeColor={COLORS.success}
-                onPress={async () => {
-                  try {
-                    const token = await AsyncStorage.getItem('userToken');
-                    if (!token) return;
-                    const url = `${API_URL}/api/asistencia/exportar-excel?token=${token}`;
-                    const { Linking } = require('react-native');
-                    await Linking.openURL(url);
-                  } catch (err) {
-                    Alert.alert('Error', 'No se pudo descargar el reporte.');
-                  }
-                }}
               />
               <MenuBtn
                 title="CONFIG."

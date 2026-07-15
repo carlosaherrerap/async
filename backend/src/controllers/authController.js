@@ -61,13 +61,24 @@ const login = async (req, res) => {
             { expiresIn: secondsRemaining }
         );
 
+        // Obtener nombre de sede si el rol es un ID numérico (usuario regional)
+        let sedeName = null;
+        const rolNum = parseInt(user.rol);
+        if (!isNaN(rolNum)) {
+            try {
+                const sedeRes = await db.query('SELECT nombre FROM sede_regional WHERE id = $1', [rolNum]);
+                if (sedeRes.rows.length > 0) sedeName = sedeRes.rows[0].nombre;
+            } catch (_) {}
+        }
+
         res.json({
             token,
             user: {
                 id: user.id,
                 username: user.username,
                 nombre: user.nombre,
-                rol: user.rol
+                rol: user.rol,
+                sede_nombre: sedeName  // nombre legible de la sede regional (null si es admin/SU)
             }
         });
     } catch (error) {

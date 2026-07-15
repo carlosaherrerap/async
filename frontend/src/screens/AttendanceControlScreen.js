@@ -361,12 +361,9 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [cargos, setCargos] = useState([]);
 
   const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | ASISTENCIA
+  // Usar timezone America/Lima explícitamente para evitar desfase UTC en el emulador
   const getLocalDateString = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
   };
 
   const [attendanceTab, setAttendanceTab] = useState('PRESENTES'); // PRESENTES | AUSENTES

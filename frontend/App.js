@@ -1011,7 +1011,7 @@ export default function App() {
           <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'INGRESO MANUAL' }} />
           <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'FALTAS DE HOY' }} />
           <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'PERSONAL' }} />
-          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'ASISTENCIA DIARIA' }} />
+          <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'EVALUACION' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />
           <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'HISTORIAL DE CAMBIOS' }} />
         </Stack.Navigator>

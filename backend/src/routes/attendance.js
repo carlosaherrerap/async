@@ -20,7 +20,7 @@ router.get('/postulantes', verifyToken, attendanceController.getAllWorkers);
 router.put('/postulantes/:id', verifyToken, attendanceController.updateWorker);
 router.get('/sincronizar-descarga', verifyToken, attendanceController.getSyncPull);
 router.get('/sincronizar-verificacion', verifyToken, attendanceController.getSyncCheck);
-router.get('/exportar-excel', [verifyToken, isAdmin], reportController.exportAttendanceToExcel);
+router.get('/exportar-excel', verifyToken, reportController.exportAttendanceToExcel);
 router.get('/inasistencias', verifyToken, reportController.getAbsentees);
 router.get('/estadisticas', verifyToken, reportController.getStats);
 router.get('/reporte-diario', verifyToken, reportController.getDailyAttendance);
