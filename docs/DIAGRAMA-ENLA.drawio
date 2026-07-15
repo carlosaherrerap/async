@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram name="Página-1" id="QWHinWmEWe5hgcWl3b8K">
-    <mxGraphModel dx="2054" dy="2272" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2416" dy="2467" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -129,6 +129,15 @@
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="350" y="-15" as="sourcePoint" />
           </mxGeometry>
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-69" edge="1" parent="1" source="5ymBiINyPLjWPF43Ga7d-67" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;" target="5ymBiINyPLjWPF43Ga7d-44">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-67" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="METAS_CARGOS" vertex="1">
+          <mxGeometry height="90" width="290" x="40" y="-220" as="geometry" />
+        </mxCell>
+        <mxCell id="5ymBiINyPLjWPF43Ga7d-68" parent="5ymBiINyPLjWPF43Ga7d-67" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;span style=&quot;font-size: 16px;&quot;&gt;MONITOR NACIONAL | 50&lt;/span&gt;" vertex="1">
+          <mxGeometry height="40" width="260" x="10" y="25" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

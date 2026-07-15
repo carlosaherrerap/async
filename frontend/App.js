@@ -143,6 +143,7 @@ global.dbHelper = {
       try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN sede_regional_id TEXT;'); } catch(_) {}
       try { await db.runAsync('ALTER TABLE sede_juris ADD COLUMN ubigeo TEXT;'); } catch(_) {}
       try { await db.runAsync('ALTER TABLE principal ADD COLUMN sede_juris_id TEXT;'); } catch(_) {}
+      try { await db.runAsync('ALTER TABLE asistencias ADD COLUMN usuario_registro_id INTEGER;'); } catch(_) {}
 
       // Sembrar datos de referencia inmutables
       await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);

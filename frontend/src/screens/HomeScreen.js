@@ -124,12 +124,31 @@ const HomeScreen = ({ navigation }) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const userData = await AsyncStorage.getItem('userData');
+      let currentRole = '';
+      let currentSedeName = '';
       if (userData) {
         const user = JSON.parse(userData);
         setUserName(user.nombre);
         setUserRole(user.rol);
-        // sede_nombre viene del backend al hacer login (null si es admin/SU)
-        setSedeName(user.sede_nombre || '');
+        currentRole = user.rol;
+        currentSedeName = user.sede_nombre || '';
+        setSedeName(currentSedeName);
+      }
+
+      // Si no tenemos el nombre de la sede y el rol es numérico, buscarlo en SQLite
+      const rolNum = parseInt(currentRole);
+      if (!currentSedeName && !isNaN(rolNum)) {
+        try {
+          const db = global.dbHelper?.db;
+          if (db) {
+            const rows = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [rolNum]);
+            if (rows && rows.length > 0) {
+              setSedeName(rows[0].nombre);
+            }
+          }
+        } catch (dbErr) {
+          console.error('Error buscando sede en SQLite:', dbErr);
+        }
       }
 
       const netState = await NetInfo.fetch();
