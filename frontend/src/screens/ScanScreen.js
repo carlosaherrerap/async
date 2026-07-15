@@ -134,19 +134,35 @@ const ScanScreen = ({ route, navigation }) => {
     setLoading(true);
 
     const showNotFoundAlert = () => {
-      Alert.alert(
-        'REGISTRAR PERSONAL',
-        '¿Quieres registrar un nuevo personal?',
-        [
-          {
-            text: 'NO', style: 'cancel', onPress: () => {
-              setLoading(false);
-              resetScanner();
+      const isAdminOrSU = userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su';
+      if (isAdminOrSU) {
+        Alert.alert(
+          'REGISTRAR PERSONAL',
+          '¿Quieres registrar un nuevo personal?',
+          [
+            {
+              text: 'NO', style: 'cancel', onPress: () => {
+                setLoading(false);
+                resetScanner();
+              }
+            },
+            { text: 'SI', onPress: () => navigation.navigate('RegisterWorker', { dni }) }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Postulante inhabito',
+          'El DNI ingresado no se encuentra registrado y no tiene permisos para crear nuevos postulantes.',
+          [
+            {
+              text: 'OK', onPress: () => {
+                setLoading(false);
+                resetScanner();
+              }
             }
-          },
-          { text: 'SI', onPress: () => navigation.navigate('RegisterWorker', { dni }) }
-        ]
-      );
+          ]
+        );
+      }
     };
 
     try {
@@ -236,7 +252,7 @@ const ScanScreen = ({ route, navigation }) => {
         style={StyleSheet.absoluteFillObject}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['pdf417', 'code128', 'code39', 'code93', 'qr'],
+          barcodeTypes: ['pdf417'], // Optimizado solo para PDF417 (DNI) para garantizar detección inmediata en iOS/iPhones
         }}
       />
 

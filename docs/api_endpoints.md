@@ -7,24 +7,26 @@ Este documento describe de forma exhaustiva cada uno de los endpoints de la API 
 ## Índice de Endpoints
 
 1. [Autenticación](#1-autenticación)
-   * `POST /api/auth/login` - Iniciar sesión de usuarios
+   * `POST /api/autenticacion/iniciar-sesion` - Iniciar sesión de usuarios
+   * `POST /api/autenticacion/cerrar-sesion` - Cerrar sesión de usuarios
 2. [Configuración y Parámetros](#2-configuración-y-parámetros)
-   * `GET /api/config/cargos` - Obtener cargos y sus metas
-   * `POST /api/config/cargos` - Registrar un nuevo cargo (Admin)
-   * `PUT /api/config/cargos/:id` - Actualizar meta de un cargo (Admin)
+   * `GET /api/configuracion/cargos` - Obtener cargos y sus metas
+   * `POST /api/configuracion/cargos` - Registrar un nuevo cargo (Admin)
+   * `PUT /api/configuracion/cargos/:id` - Actualizar meta de un cargo (Admin)
+   * `GET /api/configuracion/sedes` - Obtener lista de sedes jurisdiccionales
 3. [Control de Asistencia](#3-control-de-asistencia)
-   * `GET /api/attendance/verify` - Consultar estado de un postulante por DNI
-   * `POST /api/attendance/scan-dni` - Escanear DNI mediante imagen Base64
-   * `POST /api/attendance/register` - Registrar marcación de ingreso de postulante
-   * `POST /api/attendance/register-worker` - Registrar nuevo postulante
-   * `GET /api/attendance/workers` - Listar todos los postulantes con paginación
-   * `PUT /api/attendance/workers/:id` - Actualizar datos de un postulante
-   * `GET /api/attendance/sync-pull` - Descargar toda la base de datos para sincronización
-   * `GET /api/attendance/sync-check` - Obtener conteos de control para validar sincronización
-   * `GET /api/attendance/export` - Exportar reporte de asistencias a Excel (Admin)
-   * `GET /api/attendance/absentees` - Listar faltantes del día actual
-   * `GET /api/attendance/stats` - Obtener estadísticas generales de asistencia y metas
-   * `GET /api/attendance/daily` - Obtener listas diarias de presentes y ausentes
+   * `GET /api/asistencia/verificar` - Consultar estado de un postulante por DNI
+   * `POST /api/asistencia/escanear-dni` - Escanear DNI mediante imagen Base64
+   * `POST /api/asistencia/registrar-asistencia` - Registrar marcación de ingreso de postulante
+   * `POST /api/asistencia/registrar-postulante` - Registrar nuevo postulante
+   * `GET /api/asistencia/postulantes` - Listar todos los postulantes con paginación
+   * `PUT /api/asistencia/postulantes/:id` - Actualizar datos de un postulante
+   * `GET /api/asistencia/sincronizar-descarga` - Descargar toda la base de datos para sincronización
+   * `GET /api/asistencia/sincronizar-verificacion` - Obtener conteos de control para validar sincronización
+   * `GET /api/asistencia/exportar-excel` - Exportar reporte consolidado a Excel (Todos los autenticados)
+   * `GET /api/asistencia/inasistencias` - Listar faltantes del día actual
+   * `GET /api/asistencia/estadisticas` - Obtener estadísticas generales de asistencia y metas
+   * `GET /api/asistencia/reporte-diario` - Obtener listas de presentes y ausentes para un día específico
 4. [Rutas de Sistema / Diagnóstico](#4-rutas-de-sistema--diagnóstico)
    * `GET /` - Comprobación de servicio activo
    * `GET /health` - Healthcheck de la aplicación y la BD
@@ -34,8 +36,8 @@ Este documento describe de forma exhaustiva cada uno de los endpoints de la API 
 
 ## 1. Autenticación
 
-### `POST /api/auth/login`
-Inicia sesión en el sistema y retorna un token JWT válido por 24 horas.
+### `POST /api/autenticacion/iniciar-sesion`
+Inicia sesión en el sistema y retorna un token JWT válido hasta el final del día actual.
 
 * **Método de Seguridad**: Ninguno (Público).
 * **HEADERS**:
@@ -49,7 +51,7 @@ Inicia sesión en el sistema y retorna un token JWT válido por 24 horas.
   ```
 * **Ejemplo de Petición (cURL)**:
   ```bash
-  curl -X POST http://localhost:3000/api/auth/login \
+  curl -X POST http://localhost:3000/api/autenticacion/iniciar-sesion \
        -H "Content-Type: application/json" \
        -d '{"username": "admin", "password": "password"}'
   ```
@@ -62,20 +64,36 @@ Inicia sesión en el sistema y retorna un token JWT válido por 24 horas.
         "id": 1,
         "username": "admin",
         "nombre": "Administrador",
-        "rol": "admin"
+        "rol": "admin",
+        "sede_nombre": null
       }
     }
     ```
+    > [!NOTE]
+    > Si el usuario no es `admin` o `SU`, `sede_nombre` contendrá el nombre legible de su sede regional asignada (obtenida desde la BD), de lo contrario será `null`.
   * **401 Unauthorized (Error de credenciales)**:
     ```json
     {
       "message": "Usuario o contraseña incorrectos"
     }
     ```
-  * **500 Internal Server Error**:
+  * **403 Forbidden (Usuario bloqueado tras 3 intentos fallidos consecutivos)**:
     ```json
     {
-      "message": "Error en el servidor"
+      "message": "El usuario está bloqueado por seguridad."
+    }
+    ```
+
+### `POST /api/autenticacion/cerrar-sesion`
+Cierra la sesión activa del usuario.
+
+* **Método de Seguridad**: Ninguno.
+* **Ejemplos de Respuesta**:
+  * **200 OK**:
+    ```json
+    {
+      "success": true,
+      "message": "Sesión cerrada correctamente"
     }
     ```
 
@@ -83,17 +101,12 @@ Inicia sesión en el sistema y retorna un token JWT válido por 24 horas.
 
 ## 2. Configuración y Parámetros
 
-### `GET /api/config/cargos`
+### `GET /api/configuracion/cargos`
 Retorna el catálogo de cargos del sistema, junto con sus metas de vacantes asignadas.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
   * `Authorization: Bearer <TOKEN>`
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       http://localhost:3000/api/config/cargos
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK (Éxito)**:
     ```json
@@ -111,8 +124,8 @@ Retorna el catálogo de cargos del sistema, junto con sus metas de vacantes asig
     ]
     ```
 
-### `POST /api/config/cargos`
-Crea un nuevo cargo en el sistema y opcionalmente define su meta inicial de vacantes.
+### `POST /api/configuracion/cargos`
+Crea un nuevo cargo en el sistema y define su meta inicial de vacantes.
 
 * **Método de Seguridad**: `verifyToken` + `isAdmin` (Requiere rol 'admin' o 'su').
 * **HEADERS**:
@@ -125,13 +138,6 @@ Crea un nuevo cargo en el sistema y opcionalmente define su meta inicial de vaca
     "meta": 8
   }
   ```
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -X POST http://localhost:3000/api/config/cargos \
-       -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       -H "Content-Type: application/json" \
-       -d '{"nombre": "Coordinador de Aula", "meta": 8}'
-  ```
 * **Ejemplos de Respuesta**:
   * **201 Created (Éxito)**:
     ```json
@@ -141,14 +147,8 @@ Crea un nuevo cargo en el sistema y opcionalmente define su meta inicial de vaca
       "meta": 8
     }
     ```
-  * **403 Forbidden (Sin rol de administrador)**:
-    ```json
-    {
-      "message": "Requiere rol de Administrador"
-    }
-    ```
 
-### `PUT /api/config/cargos/:id`
+### `PUT /api/configuracion/cargos/:id`
 Actualiza el número límite de vacantes (meta) asignadas a un cargo específico.
 
 * **Método de Seguridad**: `verifyToken` + `isAdmin` (Requiere rol 'admin' o 'su').
@@ -161,13 +161,6 @@ Actualiza el número límite de vacantes (meta) asignadas a un cargo específico
     "meta": 15
   }
   ```
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -X PUT http://localhost:3000/api/config/cargos/1 \
-       -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       -H "Content-Type: application/json" \
-       -d '{"meta": 15}'
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK (Éxito)**:
     ```json
@@ -176,11 +169,30 @@ Actualiza el número límite de vacantes (meta) asignadas a un cargo específico
     }
     ```
 
+### `GET /api/configuracion/sedes`
+Obtiene la lista de todas las sedes jurisdiccionales del sistema.
+
+* **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
+* **HEADERS**:
+  * `Authorization: Bearer <TOKEN>`
+* **Ejemplos de Respuesta**:
+  * **200 OK (Éxito)**:
+    ```json
+    [
+      {
+        "id": "010100",
+        "nombre": "Chachapoyas",
+        "sede_regional_id": "01",
+        "codigo_juris": "0101"
+      }
+    ]
+    ```
+
 ---
 
 ## 3. Control de Asistencia
 
-### `GET /api/attendance/verify`
+### `GET /api/asistencia/verificar`
 Consulta la información de un postulante a partir de su DNI y verifica si ya registró su ingreso el día de hoy.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
@@ -188,16 +200,11 @@ Consulta la información de un postulante a partir de su DNI y verifica si ya re
   * `Authorization: Bearer <TOKEN>`
 * **Parámetros de Consulta (Query Params)**:
   * `dni` (Requerido, string de 8 caracteres)
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       "http://localhost:3000/api/attendance/verify?dni=70932665"
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK (Éxito)**:
     ```json
     {
-      "worker": {
+      "postulante": {
         "id": 1,
         "dni": "70932665",
         "nombre": "MIRIAM JENNIFER ABAD LLONTOP",
@@ -219,17 +226,11 @@ Consulta la información de un postulante a partir de su DNI y verifica si ya re
       "message": "Postulante no encontrado"
     }
     ```
-  * **400 Bad Request (Postulante de otra sede regional, para operadores)**:
-    ```json
-    {
-      "message": "Este postulante no pertenece a la sede actual"
-    }
-    ```
 
-### `POST /api/attendance/scan-dni`
-Procesa la imagen del reverso del DNI para extraer el código de barras y ubicar al postulante en el sistema. Realiza detección de rostro para asegurar que no se intente escanear el anverso (cara frontal).
+### `POST /api/asistencia/escanear-dni`
+Procesa la imagen del reverso del DNI para extraer el código de barras y ubicar al postulante. Realiza una detección de rostro para evitar escaneos incorrectos (anverso).
 
-* **Método de Seguridad**: `verifyToken` (Requrece Token JWT).
+* **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
   * `Authorization: Bearer <TOKEN>`
   * `Content-Type: application/json`
@@ -239,13 +240,6 @@ Procesa la imagen del reverso del DNI para extraer el código de barras y ubicar
     "imageBase64": "data:image/jpeg;base64,/9j/4AAQSkZJR..."
   }
   ```
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -X POST http://localhost:3000/api/attendance/scan-dni \
-       -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       -H "Content-Type: application/json" \
-       -d '{"imageBase64": "data:image/jpeg;base64,..."}'
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK - Escaneo Exitoso**:
     ```json
@@ -253,7 +247,7 @@ Procesa la imagen del reverso del DNI para extraer el código de barras y ubicar
       "status": "success",
       "dni": "70932665",
       "message": "DNI escaneado exitosamente.",
-      "worker": {
+      "postulante": {
         "id": 1,
         "dni": "70932665",
         "nombre": "MIRIAM JENNIFER ABAD LLONTOP",
@@ -269,31 +263,9 @@ Procesa la imagen del reverso del DNI para extraer el código de barras y ubicar
       "attendance": null
     }
     ```
-  * **200 OK - Se detectó rostro (anverso)**:
-    ```json
-    {
-      "status": "face_detected",
-      "message": "Por favor voltea el DNI"
-    }
-    ```
-  * **200 OK - DNI no registrado**:
-    ```json
-    {
-      "status": "not_found",
-      "dni": "12345678",
-      "message": "DNI 12345678 decodificado, pero no registrado en el sistema."
-    }
-    ```
-  * **200 OK - No se leyó código de barras**:
-    ```json
-    {
-      "status": "unrecognized",
-      "message": "No se detecto codigo de barras. Asegurese de enfocar el reverso del DNI."
-    }
-    ```
 
-### `POST /api/attendance/register`
-Registra la marcación de ingreso de un postulante en la fecha actual. Determina si llegó puntual (`P`) o tarde (`T`) comparando la hora actual de Lima con su hora programada de ingreso.
+### `POST /api/asistencia/registrar-asistencia`
+Registra la marcación de ingreso de un postulante en la fecha actual. Determina si es puntual (`P`) o tarde (`T`).
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -303,7 +275,7 @@ Registra la marcación de ingreso de un postulante en la fecha actual. Determina
   ```json
   {
     "dni": "70932665",
-    "observaciones": "Llegó un poco apresurado"
+    "observaciones": "Llegó a tiempo"
   }
   ```
 * **Ejemplos de Respuesta**:
@@ -311,7 +283,7 @@ Registra la marcación de ingreso de un postulante en la fecha actual. Determina
     ```json
     {
       "message": "Ingreso registrado exitosamente",
-      "worker": {
+      "postulante": {
         "nombre": "MIRIAM JENNIFER ABAD LLONTOP",
         "puesto": "Tecnico Administrativo Provincial",
         "area": "AMAZONAS - LOCAL AMAZONAS BAGUA (Aula 1)",
@@ -323,26 +295,15 @@ Registra la marcación de ingreso de un postulante en la fecha actual. Determina
         "principal_id": 1,
         "estado": "P",
         "fecha_hora": "2026-07-13T07:54:21.000Z",
-        "observaciones": "Llegó un poco apresurado"
+        "observaciones": "Llegó a tiempo",
+        "usuario_registro_id": 3
       },
       "estado_desc": "PUNTUAL"
     }
     ```
-  * **400 Bad Request (Ya marcó hoy)**:
-    ```json
-    {
-      "message": "Ya se registro el ingreso de hoy. No se puede marcar nuevamente."
-    }
-    ```
-  * **403 Forbidden (El postulante pertenece a otra sede)**:
-    ```json
-    {
-      "message": "Este postulante no pertenece a la sede actual"
-    }
-    ```
 
-### `POST /api/attendance/register-worker`
-Inscribe a un nuevo postulante en la base de datos principal. Valida que pertenezca a la misma sede regional que el operador. Si el tipo es 'Titular' (`1`) y la meta de vacantes para ese cargo ya está cubierta, lo inscribe automáticamente con estado de 'Reserva' (`2`).
+### `POST /api/asistencia/registrar-postulante`
+Inscribe a un nuevo postulante. Si es 'Titular' (`1`) y la meta de vacantes está cubierta para ese cargo, se le inscribe automáticamente como 'Reserva' (`2`).
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -370,14 +331,13 @@ Inscribe a un nuevo postulante en la base de datos principal. Valida que pertene
     ```json
     {
       "message": "Postulante registrado exitosamente.",
-      "worker": {
+      "postulante": {
         "id": 18,
-        "sede_reg": "AMAZONAS",
-        "sede_juris": "AMAZONAS",
         "doc_identidad": "48920192",
         "ape_pat": "QUISPE",
         "ape_mat": "MAMANI",
         "nombres": "RAUL",
+        "sede_juris_id": "0101",
         "local": "LOCAL AMAZONAS BAGUA",
         "aula": 2,
         "tipo_postulante_id": 1,
@@ -388,27 +348,9 @@ Inscribe a un nuevo postulante en la base de datos principal. Valida que pertene
       "alert": null
     }
     ```
-  * **201 Created - Meta Cubierta (Cambio a Reserva)**:
-    ```json
-    {
-      "message": "Postulante registrado exitosamente.",
-      "worker": {
-        "id": 19,
-        "tipo_postulante_id": 2,
-        ...
-      },
-      "alert": "Meta Cubierta. Se guardo como Reserva."
-    }
-    ```
-  * **400 Bad Request (Postulante de otra sede o DNI duplicado)**:
-    ```json
-    {
-      "message": "El DNI ya esta registrado."
-    }
-    ```
 
-### `GET /api/attendance/workers`
-Retorna el listado paginado de postulantes. Los operadores regulares solo verán los postulantes correspondientes a su sede regional.
+### `GET /api/asistencia/postulantes`
+Retorna el listado paginado de postulantes. Los operadores locales solo verán los pertenecientes a su sede regional.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -417,11 +359,6 @@ Retorna el listado paginado de postulantes. Los operadores regulares solo verán
   * `limit` (Opcional, numérico, por defecto 10)
   * `offset` (Opcional, numérico, por defecto 0)
   * `tipo` (Opcional, string, filtra por tipo: 'Titular' o 'Reserva')
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       "http://localhost:3000/api/attendance/workers?limit=2&offset=0&tipo=Titular"
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK (Éxito)**:
     ```json
@@ -448,8 +385,8 @@ Retorna el listado paginado de postulantes. Los operadores regulares solo verán
     }
     ```
 
-### `PUT /api/attendance/workers/:id`
-Actualiza campos informativos de un postulante registrado. Los operadores están limitados a modificar datos de postulantes de su propia sede regional.
+### `PUT /api/asistencia/postulantes/:id`
+Actualiza campos informativos de un postulante. Los operadores están limitados a su propia sede regional.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -459,7 +396,7 @@ Actualiza campos informativos de un postulante registrado. Los operadores están
   ```json
   {
     "sede_reg": "AMAZONAS",
-    "sede_juris": "CONDORCANQUI",
+    "sede_juris_id": "0101",
     "local": "LOCAL B",
     "aula": 3,
     "cargo_id": 5,
@@ -472,8 +409,6 @@ Actualiza campos informativos de un postulante registrado. Los operadores están
     ```json
     {
       "id": 1,
-      "sede_reg": "AMAZONAS",
-      "sede_juris": "CONDORCANQUI",
       "doc_identidad": "70932665",
       "ape_pat": "ABAD",
       "ape_mat": "LLONTOP",
@@ -487,8 +422,8 @@ Actualiza campos informativos de un postulante registrado. Los operadores están
     }
     ```
 
-### `GET /api/attendance/sync-pull`
-Descarga de forma agrupada todas las tablas del sistema (cargos, metas, tipos, parámetros, postulantes y asistencias del día) requeridas por la aplicación móvil para poder operar en modo completamente fuera de línea (Offline).
+### `GET /api/asistencia/sincronizar-descarga`
+Descarga de forma agrupada todas las tablas de referencia (cargos, metas, tipos, parámetros, postulantes, sedes, y asistencias del día) requeridas por la aplicación móvil para operar de modo totalmente fuera de línea (Offline).
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -514,12 +449,18 @@ Descarga de forma agrupada todas las tablas del sistema (cargos, metas, tipos, p
       ],
       "asistencias": [
         { "id": 1, "principal_id": 1, "estado": "P", "fecha_hora": "..." }
+      ],
+      "sede_regional": [
+        { "id": "01", "nombre": "AMAZONAS" }
+      ],
+      "sede_juris": [
+        { "id": "010100", "nombre": "Chachapoyas", "sede_regional_id": "01", "codigo_juris": "0101" }
       ]
     }
     ```
 
-### `GET /api/attendance/sync-check`
-Retorna la cantidad exacta de registros de cada tabla en el servidor central. Esto es utilizado por el cliente móvil para determinar si su base de datos local está sincronizada, evitando realizar una descarga completa (`sync-pull`) innecesariamente.
+### `GET /api/asistencia/sincronizar-verificacion`
+Retorna la cantidad exacta de registros de cada tabla en el servidor central para validar si el cliente móvil requiere un `sincronizar-descarga`.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -533,14 +474,25 @@ Retorna la cantidad exacta de registros de cada tabla en el servidor central. Es
       "tipo_postulante": 2,
       "parametros_asistencia": 2,
       "workers": 15,
-      "asistencias": 8
+      "asistencias": 8,
+      "sede_regional": 28,
+      "sede_juris": 165
     }
     ```
 
-### `GET /api/attendance/export`
-Genera y exporta en tiempo real un archivo binario `.xlsx` de Excel con los datos detallados de asistencia registrados para todos los postulantes.
+### `GET /api/asistencia/exportar-excel`
+Genera y exporta en tiempo real un archivo `.xlsx` de Excel con los datos detallados de asistencia registrados para todos los postulantes.
+> [!IMPORTANT]
+> A diferencia de versiones anteriores, este endpoint está disponible para **todos los usuarios autenticados**. Los usuarios regionales (`rol` numérico) solo descargarán los postulantes pertenecientes a su sede regional asignada. Los usuarios de rol `admin` o `SU` descargarán la data global.
 
-* **Método de Seguridad**: `verifyToken` + `isAdmin` (Requiere rol 'admin' o 'su').
+* **Método de Seguridad**: `verifyToken` (Requiere Token JWT enviado vía query param o header).
+* **Parámetros de Consulta (Query Params)**:
+  * `token` (Opcional, alternativo para descarga directa desde navegador)
+* **Especificaciones del Reporte**:
+  * Incluye a **todos los postulantes** (asistieron y no asistieron) mediante un `LEFT JOIN`.
+  * Añade el campo **`ESTADO`** con valores:
+    * **`A`** (Asistió): Si el postulante cuenta con una marcación de asistencia en estado `P` o `T`.
+    * **`NA`** (No Asistió): Si el postulante no registra marcación de asistencia.
 * **HEADERS**:
   * `Authorization: Bearer <TOKEN>`
 * **Ejemplos de Respuesta**:
@@ -548,8 +500,8 @@ Genera y exporta en tiempo real un archivo binario `.xlsx` de Excel con los dato
     * `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
     * `Content-Disposition: attachment; filename=reporte_asistencia.xlsx`
 
-### `GET /api/attendance/absentees`
-Retorna el listado de todos los postulantes que están programados para el día de hoy pero que aún no registran ninguna marcación de ingreso.
+### `GET /api/asistencia/inasistencias`
+Retorna el listado de todos los postulantes programados para el día de hoy pero que aún no registran ninguna marcación de ingreso.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
@@ -570,7 +522,7 @@ Retorna el listado de todos los postulantes que están programados para el día 
     ]
     ```
 
-### `GET /api/attendance/stats`
+### `GET /api/asistencia/estadisticas`
 Consolida los totales globales de asistencia (asistencias totales, faltantes, tardanzas, ingresos tempranos) y listas detalladas de asistencia y vacantes agrupadas por cargo.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
@@ -593,19 +545,14 @@ Consolida los totales globales de asistencia (asistencias totales, faltantes, ta
     }
     ```
 
-### `GET /api/attendance/daily`
-Retorna dos arrays diferenciados: uno de postulantes presentes (evaluados) con sus respectivas horas y estados de marcación, y otro de postulantes ausentes (no evaluados) para una fecha determinada.
+### `GET /api/asistencia/reporte-diario`
+Retorna dos arrays: uno de postulantes presentes (evaluados) con sus respectivas horas y estados de marcación, y otro de postulantes ausentes (no evaluados) para una fecha determinada.
 
 * **Método de Seguridad**: `verifyToken` (Requiere Token JWT).
 * **HEADERS**:
   * `Authorization: Bearer <TOKEN>`
 * **Parámetros de Consulta (Query Params)**:
   * `date` (Opcional, string en formato YYYY-MM-DD, por defecto la fecha actual del servidor)
-* **Ejemplo de Petición (cURL)**:
-  ```bash
-  curl -H "Authorization: Bearer eyJhbGciOiJIUzI1Ni..." \
-       "http://localhost:3000/api/attendance/daily?date=2026-07-13"
-  ```
 * **Ejemplos de Respuesta**:
   * **200 OK (Éxito)**:
     ```json
@@ -678,16 +625,9 @@ Verificación del estado general de salud del servidor y la conexión a la base 
       "database": "Connected"
     }
     ```
-  * **500 Internal Server Error (Problemas de conexión a BD)**:
-    ```json
-    {
-      "status": "Error",
-      "database": "error: database connection failed"
-    }
-    ```
 
 ### `GET /api/init-db-debug`
-Inicialización o depuración manual de la base de datos. Crea todas las tablas requeridas, índices, carga datos por defecto (parámetros y cargos) y configura la contraseña del usuario `admin` a `admin123`.
+Inicialización o depuración manual de la base de datos. Crea todas las tablas, índices, carga datos por defecto (parámetros y cargos) y configura la contraseña del usuario `admin` a `admin123`.
 
 * **Método de Seguridad**: Ninguno (Herramienta de depuración y desarrollo).
 * **Ejemplos de Respuesta**:
