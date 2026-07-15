@@ -47,6 +47,20 @@ global.dbHelper = {
 
   async init() {
     try {
+      // Forzar borrado completo de la base de datos antigua por conflicto de esquema (una sola vez)
+      try {
+        const resetKey = 'db_schema_reset_v4';
+        const isReset = await AsyncStorage.getItem(resetKey);
+        if (isReset !== 'done') {
+          console.log('[DB] Eliminando base de datos local obsoleta para recreación limpia...');
+          await SQLite.deleteDatabaseAsync('asistencia.db');
+          await AsyncStorage.setItem(resetKey, 'done');
+          console.log('[DB] Base de datos local eliminada con éxito.');
+        }
+      } catch (resetErr) {
+        console.error('[DB] Error durante el borrado de base de datos:', resetErr.message);
+      }
+
       db = await SQLite.openDatabaseAsync('asistencia.db');
       this.db = db;
 
@@ -139,19 +153,6 @@ global.dbHelper = {
       `);
 
       // Realizar migraciones manuales si ya existían las tablas de la app
-      try {
-        if (db) {
-          const tableInfo = await db.getAllAsync("PRAGMA table_info(principal);");
-          const hasSedeReg = tableInfo && tableInfo.some(col => col.name === 'sede_reg');
-          if (hasSedeReg) {
-            console.log('[MIGRATION] Detectada columna obsoleta sede_reg. Recreando tablas principal y asistencias...');
-            await db.runAsync('DROP TABLE IF EXISTS asistencias;');
-            await db.runAsync('DROP TABLE IF EXISTS principal;');
-          }
-        }
-      } catch(migErr) {
-        console.error('[MIGRATION] Error al validar columnas obsoletas:', migErr);
-      }
 
       await db.runAsync('ALTER TABLE sede_regional ADD COLUMN ubigeo TEXT;').catch(() => {});
       await db.runAsync('ALTER TABLE sede_juris ADD COLUMN sede_regional_id TEXT;').catch(() => {});
