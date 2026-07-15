@@ -248,9 +248,20 @@ const getDailyAttendance = async (req, res) => {
     }
 };
 
+const getUltimaActualizacion = async (req, res) => {
+    try {
+        const result = await db.query('SELECT COALESCE(MAX(id), 0) as ultima_id FROM control_actualizaciones');
+        res.json({ ultima_id: parseInt(result.rows[0].ultima_id) });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error al obtener última actualización.' });
+    }
+};
+
 module.exports = {
     exportAttendanceToExcel,
     getAbsentees,
     getStats,
-    getDailyAttendance
+    getDailyAttendance,
+    getUltimaActualizacion
 };

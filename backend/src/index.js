@@ -220,6 +220,35 @@ app.get('/api/init-db-debug', async (req, res) => {
         await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
         await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
         logs.push('Indexes created or verified.');
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS control_actualizaciones (
+                id SERIAL PRIMARY KEY,
+                tabla_afectada VARCHAR(50) NOT NULL,
+                accion VARCHAR(20) NOT NULL,
+                fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await db.query(`
+            CREATE OR REPLACE FUNCTION registrar_actualizacion()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                INSERT INTO control_actualizaciones (tabla_afectada, accion)
+                VALUES (TG_TABLE_NAME, TG_OP);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+        const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris'];
+        for (const table of triggerTables) {
+            await db.query(`DROP TRIGGER IF EXISTS trg_actualizacion_${table} ON ${table}`);
+            await db.query(`
+                CREATE TRIGGER trg_actualizacion_${table}
+                AFTER INSERT OR UPDATE OR DELETE ON ${table}
+                FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion()
+            `);
+        }
+        logs.push('Table control_actualizaciones and triggers created or verified.');
         // Sembrar sedes
         const sedesCheck = await db.query('SELECT COUNT(*) FROM sede_regional');
         if (parseInt(sedesCheck.rows[0].count) === 0) {
@@ -470,6 +499,34 @@ const initDb = async (retries = 5) => {
             // Índices
             await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
             await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
+
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS control_actualizaciones (
+                    id SERIAL PRIMARY KEY,
+                    tabla_afectada VARCHAR(50) NOT NULL,
+                    accion VARCHAR(20) NOT NULL,
+                    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            await db.query(`
+                CREATE OR REPLACE FUNCTION registrar_actualizacion()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    INSERT INTO control_actualizaciones (tabla_afectada, accion)
+                    VALUES (TG_TABLE_NAME, TG_OP);
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+            `);
+            const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris'];
+            for (const table of triggerTables) {
+                await db.query(`DROP TRIGGER IF EXISTS trg_actualizacion_${table} ON ${table}`);
+                await db.query(`
+                    CREATE TRIGGER trg_actualizacion_${table}
+                    AFTER INSERT OR UPDATE OR DELETE ON ${table}
+                    FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion()
+                `);
+            }
 
             // Agregar columna usuario_registro_id a asistencias si no existe
             const columnCheckDb = await db.query(`

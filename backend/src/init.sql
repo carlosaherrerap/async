@@ -161,6 +161,49 @@ CREATE TABLE intentos_login (
 );
 
 -- =============================================================================
+-- 11. CONTROL DE ACTUALIZACIONES (Sincronización en Tiempo Real)
+-- =============================================================================
+CREATE TABLE control_actualizaciones (
+    id            SERIAL      PRIMARY KEY,
+    tabla_afectada VARCHAR(50) NOT NULL,
+    accion        VARCHAR(20) NOT NULL,
+    fecha_hora    TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE OR REPLACE FUNCTION registrar_actualizacion()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO control_actualizaciones (tabla_afectada, accion)
+    VALUES (TG_TABLE_NAME, TG_OP);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_principal
+AFTER INSERT OR UPDATE OR DELETE ON principal
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_asistencias
+AFTER INSERT OR UPDATE OR DELETE ON asistencias
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_cargos
+AFTER INSERT OR UPDATE OR DELETE ON cargos
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_metas
+AFTER INSERT OR UPDATE OR DELETE ON metas_cargos
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_sede_regional
+AFTER INSERT OR UPDATE OR DELETE ON sede_regional
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+CREATE OR REPLACE TRIGGER trg_actualizacion_sede_juris
+AFTER INSERT OR UPDATE OR DELETE ON sede_juris
+FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
+
+-- =============================================================================
 -- FIN DEL SCRIPT
 -- Para aplicar: psql -U <usuario> -d <base_de_datos> -f init.sql
 -- ADVERTENCIA: elimina TODOS los datos existentes

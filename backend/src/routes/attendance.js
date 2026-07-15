@@ -24,6 +24,7 @@ router.get('/exportar-excel', verifyToken, reportController.exportAttendanceToEx
 router.get('/inasistencias', verifyToken, reportController.getAbsentees);
 router.get('/estadisticas', verifyToken, reportController.getStats);
 router.get('/reporte-diario', verifyToken, reportController.getDailyAttendance);
+router.get('/ultima-actualizacion', verifyToken, reportController.getUltimaActualizacion);
 
 router.post('/cambiar-sede', [verifyToken, isAdmin], attendanceController.changeSede);
 router.get('/historial-sedes', [verifyToken, isAdmin], attendanceController.getSedeHistory);

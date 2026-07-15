@@ -49,7 +49,7 @@ global.dbHelper = {
     try {
       // Forzar borrado completo de la base de datos antigua por conflicto de esquema (una sola vez)
       try {
-        const resetKey = 'db_schema_reset_v4';
+        const resetKey = 'db_schema_reset_v5';
         const isReset = await AsyncStorage.getItem(resetKey);
         if (isReset !== 'done') {
           console.log('[DB] Eliminando base de datos local obsoleta para recreación limpia...');
@@ -150,6 +150,12 @@ global.dbHelper = {
           UNIQUE (sede_regional_id, nombre),
           FOREIGN KEY(sede_regional_id) REFERENCES sede_regional(id) ON UPDATE CASCADE ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS control_sincronizacion (
+          id INTEGER PRIMARY KEY,
+          ultimo_id_actualizacion INTEGER NOT NULL DEFAULT 0,
+          fecha_sincronizacion TEXT
+        );
       `);
 
       // Realizar migraciones manuales si ya existían las tablas de la app
@@ -161,8 +167,9 @@ global.dbHelper = {
       await db.runAsync('ALTER TABLE asistencias ADD COLUMN usuario_registro_id INTEGER;').catch(() => {});
 
       // Sembrar datos de referencia inmutables
-      await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`);
-      await db.runAsync(`INSERT OR IGNORE INTO parametros_asistencia (estado, descripcion) VALUES ('P', 'Puntual'), ('T', 'Tarde');`);
+      await db.runAsync(`INSERT OR IGNORE INTO tipo_postulante (id, descripcion) VALUES (1, 'Titular'), (2, 'Reserva');`).catch(() => {});
+      await db.runAsync(`INSERT OR IGNORE INTO parametros_asistencia (estado, descripcion) VALUES ('P', 'Puntual'), ('T', 'Tarde');`).catch(() => {});
+      await db.runAsync(`INSERT OR IGNORE INTO control_sincronizacion (id, ultimo_id_actualizacion, fecha_sincronizacion) VALUES (1, 0, '');`).catch(() => {});
       console.log('[DB] Local SQLite initialized successfully (WAL mode)');
     } catch (error) {
       console.error('[DB] Error initializing SQLite:', error);
@@ -373,30 +380,43 @@ global.dbHelper = {
   async syncPullIfUpdated(token, force = false) {
     if (!token) return false;
     try {
-      if (!force) {
-      console.log('[SYNC] Checking if updates exist via sync-check...');
-      const checkRes = await fetch(`${API_URL}/api/asistencia/sincronizar-verificacion`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (checkRes.ok) {
-        const checkData = await checkRes.json();
-        const localCounts = await this.getDbDiagnostics();
-        if (localCounts &&
-            localCounts.principalCount === checkData.workers &&
-            localCounts.asistenciasCount === checkData.asistencias &&
-            localCounts.cargosCount === checkData.cargos &&
-            localCounts.metasCount === checkData.metas_cargos &&
-            localCounts.tiposCount === checkData.tipo_postulante &&
-            localCounts.paramsCount === checkData.parametros_asistencia &&
-            localCounts.regionalCount === checkData.sede_regional &&
-            localCounts.jurisCount === checkData.sede_juris) {
-          console.log('[SYNC] Los conteos locales coinciden con Render. Omitiendo la sincronización por descarga (sync-pull).');
-          return true;
-          }
+      let ultimaIdServidor = 0;
+      let checkExitoso = false;
+
+      // 1. Obtener última actualización del servidor
+      try {
+        const checkRes = await fetch(`${API_URL}/api/asistencia/ultima-actualizacion`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          ultimaIdServidor = checkData.ultima_id || 0;
+          checkExitoso = true;
         }
+      } catch (err) {
+        console.log('[SYNC] No se pudo verificar la ultima actualizacion en el servidor:', err.message);
       }
 
-      console.log('[SYNC] SQLite counts differ. Performing sync-pull...');
+      // 2. Obtener última actualización local de SQLite
+      let ultimoIdLocal = 0;
+      try {
+        const localSync = await db.getAllAsync('SELECT ultimo_id_actualizacion FROM control_sincronizacion WHERE id = 1');
+        if (localSync && localSync.length > 0) {
+          ultimoIdLocal = localSync[0].ultimo_id_actualizacion || 0;
+        }
+      } catch (err) {
+        console.error('[SYNC] Error al consultar control_sincronizacion local:', err);
+      }
+
+      // 3. Decidir si se descarga
+      const necesitaDescarga = force || !checkExitoso || (ultimaIdServidor > ultimoIdLocal);
+
+      if (!necesitaDescarga) {
+        console.log(`[SYNC] SQLite esta al dia (Local: ${ultimoIdLocal}, Servidor: ${ultimaIdServidor}). Omitiendo sync-pull.`);
+        return true;
+      }
+
+      console.log(`[SYNC] SQLite desactualizado (Local: ${ultimoIdLocal}, Servidor: ${ultimaIdServidor}). Descargando datos (sync-pull)...`);
       const pullRes = await fetch(`${API_URL}/api/asistencia/sincronizar-descarga`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -412,12 +432,21 @@ global.dbHelper = {
           syncData.sede_regional,
           syncData.sede_juris
         );
-        console.log('[SYNC] Pull successful. Local SQLite database fully synchronized.');
+
+        // Actualizar control_sincronizacion local
+        if (checkExitoso) {
+          const nowStr = new Date().toISOString();
+          await db.runAsync(
+            'INSERT OR REPLACE INTO control_sincronizacion (id, ultimo_id_actualizacion, fecha_sincronizacion) VALUES (1, ?, ?)',
+            [ultimaIdServidor, nowStr]
+          );
+          console.log(`[SYNC] SQLite sincronizado con exito a la version: ${ultimaIdServidor}`);
+        }
         return true;
       }
       return false;
     } catch (e) {
-      console.error('[SYNC] Error in syncPullIfUpdated:', e);
+      console.error('[SYNC] Error en syncPullIfUpdated:', e);
       return false;
     }
   },
@@ -975,7 +1004,7 @@ export default function App() {
     };
   }, []);
 
-  // Ayudante de sincronización periódica en segundo plano cuando está conectado y en línea
+  // Ayudante de sincronización periódica en segundo plano cuando está conectado y en línea (cada 5 segundos)
   useEffect(() => {
     if (!userToken) return;
 
@@ -984,7 +1013,7 @@ export default function App() {
         console.log('[SYNC] Running periodic background sync...');
         global.dbHelper.syncQueue();
       }
-    }, 90000); // 90 segundos
+    }, 5000); // 5 segundos
 
     return () => clearInterval(interval);
   }, [userToken]);
