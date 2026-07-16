@@ -1,5 +1,12 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Configurar parser para que timestamp without timezone (OID 1114) se interprete en la zona horaria de Perú (America/Lima, UTC-5)
+types.setTypeParser(1114, function(stringValue) {
+    if (!stringValue) return null;
+    const isoStr = stringValue.replace(' ', 'T') + '-05:00';
+    return new Date(isoStr);
+});
 
 const poolConfig = process.env.DATABASE_URL
     ? {
