@@ -309,6 +309,14 @@ const HomeScreen = ({ navigation }) => {
             </Text>
           </View>
           <View style={styles.headerActions}>
+            {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
+              <TouchableOpacity
+                style={[styles.headerBtn, { backgroundColor: 'rgba(16,185,129,0.20)' }]}
+                onPress={() => navigation.navigate('PhotoAttendance')}
+              >
+                <MaterialCommunityIcons name="camera-document" size={24} color="#10B981" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.headerBtn, { backgroundColor: isOnline ? COLORS.successSoft : COLORS.dangerSoft }]}
               onPress={() => Alert.alert('Estado', isOnline ? 'Online - Conectado al servidor' : 'Offline - Modo SQLite local')}

@@ -184,6 +184,35 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
   const turnoDisplay = worker?.turno === 'DIA' ? 'DIURNO'
     : worker?.turno === 'TARDE' ? 'TARDE' : (worker?.turno || '');
 
+  // ── Reconciliar con tabla cookie local ───────────────────────────────────
+  const reconciliarConCookie = async (dni, nombre) => {
+    try {
+      const db = global.dbHelper.db;
+      if (!db) return;
+      // Buscar por DNI primero (exacto)
+      let rows = await db.getAllAsync('SELECT id FROM cookie WHERE dni = ?', [dni]);
+      if (rows.length === 0 && nombre) {
+        // Fallback: buscar por similitud de nombre (contiene alguna palabra del nombre)
+        const palabras = nombre.toUpperCase().split(' ').filter(p => p.length > 3);
+        for (const palabra of palabras) {
+          rows = await db.getAllAsync(
+            "SELECT id FROM cookie WHERE UPPER(nombres_apellidos) LIKE ?",
+            [`%${palabra}%`]
+          );
+          if (rows.length > 0) break;
+        }
+      }
+      if (rows.length > 0) {
+        for (const r of rows) {
+          await db.runAsync('UPDATE cookie SET estado = 1 WHERE id = ?', [r.id]);
+        }
+        console.log(`[COOKIE] Reconciliado: ${rows.length} registro(s) actualizados para DNI ${dni}`);
+      }
+    } catch (e) {
+      console.error('[COOKIE] Error reconciliando con tabla cookie:', e);
+    }
+  };
+
   // ── Manejar registro de ingreso ───────────────────────────────────────────
   const handleIngreso = async () => {
     if (isReserva && status === 'none') {
@@ -231,6 +260,9 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               }
             }
 
+            // Reconciliar con cookie (local)
+            await reconciliarConCookie(worker.dni, worker.nombre);
+
             onClose();
             if (onRegisterSuccess) onRegisterSuccess(result);
             return;
@@ -246,6 +278,8 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
       // ── Modo offline ────────────────────────────────────────────────────
       const result = await global.dbHelper.registerAttendanceOffline(worker.dni, null);
       try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+      // Reconciliar con cookie (local, offline)
+      await reconciliarConCookie(worker.dni, worker.nombre);
       onClose();
       if (onRegisterSuccess) onRegisterSuccess(result);
     } catch (error) {

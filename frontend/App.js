@@ -18,6 +18,7 @@ import AttendanceControlScreen from './src/screens/AttendanceControlScreen';
 import ConfigScreen from './src/screens/ConfigScreen';
 import RegisterWorkerScreen from './src/screens/RegisterWorkerScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import PhotoAttendanceScreen from './src/screens/PhotoAttendanceScreen';
 import { API_URL } from './src/config';
 
 const Stack = createStackNavigator();
@@ -49,7 +50,7 @@ global.dbHelper = {
     try {
       // Forzar borrado completo de la base de datos antigua por conflicto de esquema (una sola vez)
       try {
-        const resetKey = 'db_schema_reset_v5';
+        const resetKey = 'db_schema_reset_v6';
         const isReset = await AsyncStorage.getItem(resetKey);
         if (isReset !== 'done') {
           console.log('[DB] Eliminando base de datos local obsoleta para recreación limpia...');
@@ -155,6 +156,17 @@ global.dbHelper = {
           id INTEGER PRIMARY KEY,
           ultimo_id_actualizacion INTEGER NOT NULL DEFAULT 0,
           fecha_sincronizacion TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS cookie (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero_orden INTEGER,
+          sede_regional TEXT,
+          nombres_apellidos TEXT,
+          dni TEXT,
+          estado INTEGER NOT NULL DEFAULT 0,
+          aula TEXT,
+          created_at TEXT DEFAULT (datetime('now','localtime'))
         );
       `);
 
@@ -1059,6 +1071,7 @@ export default function App() {
           <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'EVALUACION' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />
           <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'HISTORIAL DE CAMBIOS' }} />
+          <Stack.Screen name="PhotoAttendance" component={PhotoAttendanceScreen} options={{ title: 'LISTA POR FOTO' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>

@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const attendanceController = require('../controllers/attendanceController');
-
 const reportController = require('../controllers/reportController');
+const ocrController = require('../controllers/ocrController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 // Ruta para verificar trabajador y estado
@@ -28,5 +28,8 @@ router.get('/ultima-actualizacion', verifyToken, reportController.getUltimaActua
 
 router.post('/cambiar-sede', [verifyToken, isAdmin], attendanceController.changeSede);
 router.get('/historial-sedes', [verifyToken, isAdmin], attendanceController.getSedeHistory);
+
+// OCR - Procesamiento de fotos de listas impresas (solo admin/SU)
+router.post('/procesar-foto-lista', [verifyToken, isAdmin], ocrController.procesarFotoLista);
 
 module.exports = router;

@@ -7,6 +7,13 @@ import { API_URL } from '../config';
 
 const HORARIOS_DIA   = ['07:00', '08:00', '09:00', '10:00'];
 const HORARIOS_TARDE = ['12:00', '13:00', '14:00', '15:00', '16:00'];
+const PLANTILLA_KEY = 'plantilla_registro';
+const PLANTILLA_ACTIVA_KEY = 'plantilla_activa';
+
+// ─── Helpers de validación ────────────────────────────────────────────────────
+const soloNumeros    = (t) => t.replace(/[^0-9]/g, '');
+const soloLetras     = (t) => t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '').toUpperCase();
+const alfanumerico   = (t) => t.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ\s.,#\-]/g, '').toUpperCase();
 
 const RegisterWorkerScreen = ({ route, navigation }) => {
   const initialDni = route.params?.dni || '';
@@ -63,12 +70,40 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           const user = JSON.parse(userData);
           setUserRole(user.rol);
           const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
+          let sedePreset = '';
           if (!isSU) {
             const matchedReg = regRows.find(r => r.id === user.rol);
-            if (matchedReg) {
-              setFormData(prev => ({ ...prev, sede_reg: matchedReg.nombre }));
-            }
+            if (matchedReg) sedePreset = matchedReg.nombre;
           }
+
+          // Intentar cargar plantilla activa
+          try {
+            const plantillaRaw = await AsyncStorage.getItem(PLANTILLA_KEY);
+            const plantillaActiva = await AsyncStorage.getItem(PLANTILLA_ACTIVA_KEY);
+            if (plantillaRaw && plantillaActiva === 'true') {
+              const p = JSON.parse(plantillaRaw);
+              // Si el usuario no es SU/admin, usar su sede en lugar de la de la plantilla
+              setFormData(prev => ({
+                ...prev,
+                sede_reg: isSU ? (p.sede_reg || sedePreset) : (sedePreset || p.sede_reg || ''),
+                sede_juris_id: isSU ? (p.sede_juris_id || '') : '',
+                sede_juris: isSU ? (p.sede_juris || '') : '',
+                local: p.local || '',
+                aula: p.aula?.toString() || '',
+                cargo_id: p.cargo_id?.toString() || '',
+                tipo_postulante_id: p.tipo_postulante_id || '1',
+                turno: p.turno || 'DIA',
+                hora_ingreso: p.hora_ingreso || '08:00',
+              }));
+              console.log('[PLANTILLA] Plantilla cargada en el formulario.');
+              return;
+            }
+          } catch (pErr) {
+            console.error('[PLANTILLA] Error al cargar plantilla:', pErr);
+          }
+
+          // Sin plantilla activa: solo pre-cargar sede
+          if (sedePreset) setFormData(prev => ({ ...prev, sede_reg: sedePreset }));
         }
       } catch (e) {
         console.error(e);
@@ -286,7 +321,7 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           <TextInput
             label="DNI"
             value={formData.dni}
-            onChangeText={(t) => setFormData({ ...formData, dni: t })}
+            onChangeText={(t) => setFormData({ ...formData, dni: soloNumeros(t) })}
             mode="outlined"
             keyboardType="numeric"
             maxLength={8}
@@ -300,8 +335,9 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             <TextInput
               label="Ape. Paterno"
               value={formData.ape_pat}
-              onChangeText={(t) => setFormData({ ...formData, ape_pat: t })}
+              onChangeText={(t) => setFormData({ ...formData, ape_pat: soloLetras(t) })}
               mode="outlined"
+              autoCapitalize="characters"
               style={[styles.input, { flex: 1, marginRight: 5 }]}
               textColor="#0F172A"
               outlineColor="#E2E8F0"
@@ -310,8 +346,9 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             <TextInput
               label="Ape. Materno"
               value={formData.ape_mat}
-              onChangeText={(t) => setFormData({ ...formData, ape_mat: t })}
+              onChangeText={(t) => setFormData({ ...formData, ape_mat: soloLetras(t) })}
               mode="outlined"
+              autoCapitalize="characters"
               style={[styles.input, { flex: 1, marginLeft: 5 }]}
               textColor="#0F172A"
               outlineColor="#E2E8F0"
@@ -321,8 +358,9 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
           <TextInput
             label="Nombres"
             value={formData.nombres}
-            onChangeText={(t) => setFormData({ ...formData, nombres: t })}
+            onChangeText={(t) => setFormData({ ...formData, nombres: soloLetras(t) })}
             mode="outlined"
+            autoCapitalize="characters"
             style={styles.input}
             textColor="#0F172A"
             outlineColor="#E2E8F0"
@@ -357,8 +395,9 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             <TextInput
               label="Local"
               value={formData.local}
-              onChangeText={(t) => setFormData({ ...formData, local: t })}
+              onChangeText={(t) => setFormData({ ...formData, local: alfanumerico(t) })}
               mode="outlined"
+              autoCapitalize="characters"
               style={[styles.input, { flex: 2, marginRight: 5 }]}
               textColor="#0F172A"
               outlineColor="#E2E8F0"
@@ -366,11 +405,12 @@ const RegisterWorkerScreen = ({ route, navigation }) => {
             />
             <TextInput
               label="Aula"
-              value={formData.aula}
-              onChangeText={(t) => setFormData({ ...formData, aula: t })}
+              value={formData.aula?.toString()}
+              onChangeText={(t) => setFormData({ ...formData, aula: soloNumeros(t) })}
               mode="outlined"
               keyboardType="numeric"
-              placeholder="99"
+              maxLength={2}
+              placeholder="1-20"
               style={[styles.input, { flex: 1, marginLeft: 5 }]}
               textColor="#0F172A"
               outlineColor="#E2E8F0"
