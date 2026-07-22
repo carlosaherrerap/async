@@ -160,6 +160,128 @@ const verifyWorker = async (req, res) => {
         
         // Si no ha marcado primer ingreso
         if (!attendance) {
+            if (turno.condicion === 2) {
+                const now = new Date();
+                const options = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false };
+                const formatter = new Intl.DateTimeFormat('es-PE', options);
+                const [currentHoursStr, currentMinutesStr] = formatter.format(now).split(':');
+                const currentTotalMinutes = parseInt(currentHoursStr, 10) * 60 + parseInt(currentMinutesStr, 10);
+
+                const [ing1H, ing1M] = (worker.hora_ingreso || '00:00').split(':').map(Number);
+                const ingreso1TotalMinutes = ing1H * 60 + ing1M;
+
+                if (currentTotalMinutes > ingreso1TotalMinutes + 60) {
+                    worker.hora_ingreso = turno.hora_ingreso_2; // Overriding visible time
+                    
+                    if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
+                        const [ing2H, ing2M] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+                        const releaseTotalMinutes = (ing2H * 60 + ing2M) - 30;
+
+                        if (currentTotalMinutes < releaseTotalMinutes) {
+                            return res.json({
+                                worker: {
+                                    id: worker.id,
+                                    dni: worker.doc_identidad,
+                                    nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                                    puesto: worker.cargo,
+                                    area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                                    sede_reg: worker.sede_reg,
+                                    sede_juris: worker.sede_juris,
+                                    tipo_postulante: worker.tipo_postulante,
+                                    turno: worker.turno,
+                                    hora_ingreso: worker.hora_ingreso
+                                },
+                                status: 'blocked_second',
+                                message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`,
+                                attendance: null,
+                                turno: {
+                                    condicion: turno.condicion,
+                                    hora_ingreso_2: turno.hora_ingreso_2,
+                                    marcacion_2: turno.marcacion_2,
+                                    estado: turno.estado,
+                                    salida: turno.salida
+                                }
+                            });
+                        }
+
+                        return res.json({
+                            worker: {
+                                id: worker.id,
+                                dni: worker.doc_identidad,
+                                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                                puesto: worker.cargo,
+                                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                                sede_reg: worker.sede_reg,
+                                sede_juris: worker.sede_juris,
+                                tipo_postulante: worker.tipo_postulante,
+                                turno: worker.turno,
+                                hora_ingreso: worker.hora_ingreso
+                            },
+                            status: 'prompt_second_entrance',
+                            message: "Postulante perdió el 1er ingreso. ¿Deseas marcar su 2do ingreso?",
+                            attendance: null,
+                            turno: {
+                                condicion: turno.condicion,
+                                hora_ingreso_2: turno.hora_ingreso_2,
+                                marcacion_2: turno.marcacion_2,
+                                estado: turno.estado,
+                                salida: turno.salida
+                            }
+                        });
+                    } else if (!turno.salida) {
+                        return res.json({
+                            worker: {
+                                id: worker.id,
+                                dni: worker.doc_identidad,
+                                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                                puesto: worker.cargo,
+                                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                                sede_reg: worker.sede_reg,
+                                sede_juris: worker.sede_juris,
+                                tipo_postulante: worker.tipo_postulante,
+                                turno: worker.turno,
+                                hora_ingreso: worker.hora_ingreso
+                            },
+                            status: 'prompt_exit',
+                            message: "El Usuario ya ha marcado su 2do ingreso (perdió el 1ero). ¿Deseas registrar su salida?",
+                            attendance: null,
+                            turno: {
+                                condicion: turno.condicion,
+                                hora_ingreso_2: turno.hora_ingreso_2,
+                                marcacion_2: turno.marcacion_2,
+                                estado: turno.estado,
+                                salida: turno.salida
+                            }
+                        });
+                    } else {
+                        return res.json({
+                            worker: {
+                                id: worker.id,
+                                dni: worker.doc_identidad,
+                                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                                puesto: worker.cargo,
+                                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                                sede_reg: worker.sede_reg,
+                                sede_juris: worker.sede_juris,
+                                tipo_postulante: worker.tipo_postulante,
+                                turno: worker.turno,
+                                hora_ingreso: worker.hora_ingreso
+                            },
+                            status: 'already_completed',
+                            message: "Usuario ya registró su asistencia completa. El día de mañana se habilitará nuevamente",
+                            attendance: null,
+                            turno: {
+                                condicion: turno.condicion,
+                                hora_ingreso_2: turno.hora_ingreso_2,
+                                marcacion_2: turno.marcacion_2,
+                                estado: turno.estado,
+                                salida: turno.salida
+                            }
+                        });
+                    }
+                }
+            }
+
             return res.json({
                 worker: {
                     id: worker.id,
@@ -188,8 +310,29 @@ const verifyWorker = async (req, res) => {
         // Ya marcó primer ingreso. Validar según condición de turno.
         if (turno.condicion === 1) {
             if (turno.salida) {
-                return res.status(400).json({
-                    message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+                return res.json({
+                    worker: {
+                        id: worker.id,
+                        dni: worker.doc_identidad,
+                        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                        puesto: worker.cargo,
+                        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                        sede_reg: worker.sede_reg,
+                        sede_juris: worker.sede_juris,
+                        tipo_postulante: worker.tipo_postulante,
+                        turno: worker.turno,
+                        hora_ingreso: worker.hora_ingreso
+                    },
+                    status: 'already_completed',
+                    message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente",
+                    attendance,
+                    turno: {
+                        condicion: turno.condicion,
+                        hora_ingreso_2: turno.hora_ingreso_2,
+                        marcacion_2: turno.marcacion_2,
+                        estado: turno.estado,
+                        salida: turno.salida
+                    }
                 });
             } else {
                 return res.json({
@@ -231,8 +374,29 @@ const verifyWorker = async (req, res) => {
                 const releaseTotalMinutes = ingresoTotalMinutes - 30;
 
                 if (currentTotalMinutes < releaseTotalMinutes) {
-                    return res.status(400).json({
-                        message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`
+                    return res.json({
+                        worker: {
+                            id: worker.id,
+                            dni: worker.doc_identidad,
+                            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                            puesto: worker.cargo,
+                            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                            sede_reg: worker.sede_reg,
+                            sede_juris: worker.sede_juris,
+                            tipo_postulante: worker.tipo_postulante,
+                            turno: worker.turno,
+                            hora_ingreso: worker.hora_ingreso
+                        },
+                        status: 'blocked_second',
+                        message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`,
+                        attendance,
+                        turno: {
+                            condicion: turno.condicion,
+                            hora_ingreso_2: turno.hora_ingreso_2,
+                            marcacion_2: turno.marcacion_2,
+                            estado: turno.estado,
+                            salida: turno.salida
+                        }
                     });
                 }
 
@@ -264,8 +428,29 @@ const verifyWorker = async (req, res) => {
             } else {
                 // Ya tiene segunda marcación
                 if (turno.salida) {
-                    return res.status(400).json({
-                        message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+                    return res.json({
+                        worker: {
+                            id: worker.id,
+                            dni: worker.doc_identidad,
+                            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                            puesto: worker.cargo,
+                            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                            sede_reg: worker.sede_reg,
+                            sede_juris: worker.sede_juris,
+                            tipo_postulante: worker.tipo_postulante,
+                            turno: worker.turno,
+                            hora_ingreso: worker.hora_ingreso
+                        },
+                        status: 'already_completed',
+                        message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente",
+                        attendance,
+                        turno: {
+                            condicion: turno.condicion,
+                            hora_ingreso_2: turno.hora_ingreso_2,
+                            marcacion_2: turno.marcacion_2,
+                            estado: turno.estado,
+                            salida: turno.salida
+                        }
                     });
                 } else {
                     return res.json({

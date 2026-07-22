@@ -50,7 +50,7 @@ global.dbHelper = {
     try {
       // Forzar borrado completo de la base de datos antigua por conflicto de esquema (una sola vez)
       try {
-        const resetKey = 'db_schema_reset_v7';
+        const resetKey = 'db_schema_reset_v8';
         const isReset = await AsyncStorage.getItem(resetKey);
         if (isReset !== 'done') {
           console.log('[DB] Eliminando base de datos local obsoleta para recreación limpia...');
@@ -740,6 +740,127 @@ global.dbHelper = {
 
     // Si no ha marcado primer ingreso
     if (!attendance) {
+      if (turno.condicion === 2) {
+        const now = new Date();
+        const currentHours = now.getHours();
+        const currentMinutes = now.getMinutes();
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        const [ing1H, ing1M] = (worker.hora_ingreso || '00:00').split(':').map(Number);
+        const ingreso1TotalMinutes = ing1H * 60 + ing1M;
+
+        if (currentTotalMinutes > ingreso1TotalMinutes + 60) {
+          worker.hora_ingreso = turno.hora_ingreso_2; // Overriding visible time
+          
+          if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
+            const [ing2H, ing2M] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+            const releaseTotalMinutes = (ing2H * 60 + ing2M) - 30;
+
+            if (currentTotalMinutes < releaseTotalMinutes) {
+              return {
+                worker: {
+                  id: worker.id,
+                  dni: worker.doc_identidad,
+                  nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                  puesto: worker.cargo,
+                  area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                  sede_reg: worker.sede_reg,
+                  sede_juris: worker.sede_juris,
+                  tipo_postulante: worker.tipo_postulante,
+                  turno: worker.turno,
+                  hora_ingreso: worker.hora_ingreso
+                },
+                status: 'blocked_second',
+                message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`,
+                attendance: null,
+                turno: {
+                  condicion: turno.condicion,
+                  hora_ingreso_2: turno.hora_ingreso_2,
+                  marcacion_2: turno.marcacion_2,
+                  estado: turno.estado,
+                  salida: turno.salida
+                }
+              };
+            }
+
+            return {
+              worker: {
+                id: worker.id,
+                dni: worker.doc_identidad,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                sede_reg: worker.sede_reg,
+                sede_juris: worker.sede_juris,
+                tipo_postulante: worker.tipo_postulante,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+              },
+              status: 'prompt_second_entrance',
+              message: "Postulante perdió el 1er ingreso. ¿Deseas marcar su 2do ingreso?",
+              attendance: null,
+              turno: {
+                condicion: turno.condicion,
+                hora_ingreso_2: turno.hora_ingreso_2,
+                marcacion_2: turno.marcacion_2,
+                estado: turno.estado,
+                salida: turno.salida
+              }
+            };
+          } else if (!turno.salida) {
+            return {
+              worker: {
+                id: worker.id,
+                dni: worker.doc_identidad,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                sede_reg: worker.sede_reg,
+                sede_juris: worker.sede_juris,
+                tipo_postulante: worker.tipo_postulante,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+              },
+              status: 'prompt_exit',
+              message: "El Usuario ya ha marcado su 2do ingreso (perdió el 1ero). ¿Deseas registrar su salida?",
+              attendance: null,
+              turno: {
+                condicion: turno.condicion,
+                hora_ingreso_2: turno.hora_ingreso_2,
+                marcacion_2: turno.marcacion_2,
+                estado: turno.estado,
+                salida: turno.salida
+              }
+            };
+          } else {
+            return {
+              worker: {
+                id: worker.id,
+                dni: worker.doc_identidad,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                sede_reg: worker.sede_reg,
+                sede_juris: worker.sede_juris,
+                tipo_postulante: worker.tipo_postulante,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+              },
+              status: 'already_completed',
+              message: "Usuario ya registró su asistencia completa. El día de mañana se habilitará nuevamente",
+              attendance: null,
+              turno: {
+                condicion: turno.condicion,
+                hora_ingreso_2: turno.hora_ingreso_2,
+                marcacion_2: turno.marcacion_2,
+                estado: turno.estado,
+                salida: turno.salida
+              }
+            };
+          }
+        }
+      }
+
       return {
         worker: {
           id: worker.id,
@@ -769,7 +890,28 @@ global.dbHelper = {
     if (turno.condicion === 1) {
       if (turno.salida) {
         return {
-          error: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+          worker: {
+            id: worker.id,
+            dni: worker.doc_identidad,
+            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+            puesto: worker.cargo,
+            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+            sede_reg: worker.sede_reg,
+            sede_juris: worker.sede_juris,
+            tipo_postulante: worker.tipo_postulante,
+            turno: worker.turno,
+            hora_ingreso: worker.hora_ingreso
+          },
+          status: 'already_completed',
+          message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente",
+          attendance,
+          turno: {
+            condicion: turno.condicion,
+            hora_ingreso_2: turno.hora_ingreso_2,
+            marcacion_2: turno.marcacion_2,
+            estado: turno.estado,
+            salida: turno.salida
+          }
         };
       } else {
         return {
@@ -811,7 +953,28 @@ global.dbHelper = {
 
         if (currentTotalMinutes < releaseTotalMinutes) {
           return {
-            error: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`
+            worker: {
+              id: worker.id,
+              dni: worker.doc_identidad,
+              nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+              puesto: worker.cargo,
+              area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+              sede_reg: worker.sede_reg,
+              sede_juris: worker.sede_juris,
+              tipo_postulante: worker.tipo_postulante,
+              turno: worker.turno,
+              hora_ingreso: worker.hora_ingreso
+            },
+            status: 'blocked_second',
+            message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`,
+            attendance,
+            turno: {
+              condicion: turno.condicion,
+              hora_ingreso_2: turno.hora_ingreso_2,
+              marcacion_2: turno.marcacion_2,
+              estado: turno.estado,
+              salida: turno.salida
+            }
           };
         }
 
@@ -844,7 +1007,28 @@ global.dbHelper = {
         // Ya tiene segunda marcación
         if (turno.salida) {
           return {
-            error: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+            worker: {
+              id: worker.id,
+              dni: worker.doc_identidad,
+              nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+              puesto: worker.cargo,
+              area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+              sede_reg: worker.sede_reg,
+              sede_juris: worker.sede_juris,
+              tipo_postulante: worker.tipo_postulante,
+              turno: worker.turno,
+              hora_ingreso: worker.hora_ingreso
+            },
+            status: 'already_completed',
+            message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente",
+            attendance,
+            turno: {
+              condicion: turno.condicion,
+              hora_ingreso_2: turno.hora_ingreso_2,
+              marcacion_2: turno.marcacion_2,
+              estado: turno.estado,
+              salida: turno.salida
+            }
           };
         } else {
           return {

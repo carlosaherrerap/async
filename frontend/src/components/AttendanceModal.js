@@ -172,7 +172,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
 
   if (!data) return null;
 
-  const { worker, status, attendance } = data;
+  const { worker, status, attendance, turno } = data;
 
   // ── Detectar tipo postulante ─────────────────────────────────────────────
   const tipoPostulante = worker?.tipo_postulante || null;
@@ -289,9 +289,142 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
     }
   };
 
+  const handleSecondEntrance = async () => {
+    setLoading(true);
+    try {
+      const isOnline = global.dbHelper.isOnline();
+      if (isOnline) {
+        try {
+          const token = await AsyncStorage.getItem('userToken');
+          const response = await fetch(`${API_URL}/api/asistencia/registrar-segunda-asistencia`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dni: worker.dni }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+
+            // Actualizar SQLite local
+            const db = global.dbHelper.db;
+            if (db && result.record) {
+              const rec = result.record;
+              try {
+                await db.runAsync(
+                  'UPDATE turnos SET marcacion_2 = ?, estado = ? WHERE principal_id = ?',
+                  [rec.marcacion_2, rec.estado, rec.principal_id]
+                );
+              } catch (dbErr) {
+                console.error('Failed to update local db after second entrance:', dbErr);
+              }
+            }
+
+            onClose();
+            if (onRegisterSuccess) onRegisterSuccess(result);
+            return;
+          } else {
+            alert(result.message || 'Error al registrar segundo ingreso');
+            return;
+          }
+        } catch (fetchErr) {
+          console.log('Error online, fallback a SQLite:', fetchErr.message);
+        }
+      }
+
+      // Modo offline
+      const result = await global.dbHelper.registerSecondAttendanceOffline(worker.dni);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+      onClose();
+      if (onRegisterSuccess) onRegisterSuccess(result);
+    } catch (error) {
+      alert(error.message || 'Error al registrar segundo ingreso');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSalida = async () => {
+    setLoading(true);
+    try {
+      const isOnline = global.dbHelper.isOnline();
+      if (isOnline) {
+        try {
+          const token = await AsyncStorage.getItem('userToken');
+          const response = await fetch(`${API_URL}/api/asistencia/registrar-salida`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dni: worker.dni }),
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+
+            // Actualizar SQLite local
+            const db = global.dbHelper.db;
+            if (db && result.record) {
+              const rec = result.record;
+              try {
+                await db.runAsync(
+                  'UPDATE turnos SET salida = ? WHERE principal_id = ?',
+                  [rec.salida, rec.principal_id]
+                );
+              } catch (dbErr) {
+                console.error('Failed to update local db after salida:', dbErr);
+              }
+            }
+
+            onClose();
+            if (onRegisterSuccess) onRegisterSuccess(result);
+            return;
+          } else {
+            alert(result.message || 'Error al registrar salida');
+            return;
+          }
+        } catch (fetchErr) {
+          console.log('Error online, fallback a SQLite:', fetchErr.message);
+        }
+      }
+
+      // Modo offline
+      const result = await global.dbHelper.registerSalidaOffline(worker.dni);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+      onClose();
+      if (onRegisterSuccess) onRegisterSuccess(result);
+    } catch (error) {
+      alert(error.message || 'Error al registrar salida');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ── Insignia de estado ────────────────────────────────────────────────────
-  const statusIsEntered = status === 'entered';
-  const statusColor = statusIsEntered ? '#15803D' : '#94A3B8';
+  const statusIsEntered = status && status !== 'none';
+  const getStatusDisplay = () => {
+    switch (status) {
+      case 'prompt_exit': return 'SALIDA PENDIENTE';
+      case 'prompt_second_entrance': return '2DO INGRESO PENDIENTE';
+      case 'blocked_second': return '2DO INGRESO BLOQUEADO';
+      case 'already_completed': return 'ASISTENCIA COMPLETA';
+      case 'entered': return 'INGRESO REGISTRADO';
+      default: return 'SIN MARCAR HOY';
+    }
+  };
+  const getStatusColor = () => {
+    switch (status) {
+      case 'prompt_exit': return '#C2410C';
+      case 'prompt_second_entrance': return '#2980B9';
+      case 'blocked_second': return '#9E7DCE';
+      case 'already_completed':
+      case 'entered': return '#15803D';
+      default: return '#94A3B8';
+    }
+  };
+  const statusColor = getStatusColor();
+  const statusText = getStatusDisplay();
 
   return (
     <Portal>
@@ -309,16 +442,16 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                 <Avatar.Icon
                   size={72}
                   icon="account"
-                  style={{ backgroundColor: statusIsEntered ? '#15803D' : '#334155' }}
+                  style={{ backgroundColor: statusIsEntered ? statusColor : '#334155' }}
                 />
                 <View style={[styles.statusPill, {
-                  backgroundColor: statusIsEntered ? '#F0FDF4' : '#F8FAFC',
-                  borderColor: statusIsEntered ? '#DCFCE7' : '#E2E8F0',
+                  backgroundColor: statusIsEntered ? `${statusColor}10` : '#F8FAFC',
+                  borderColor: statusIsEntered ? statusColor : '#E2E8F0',
                   borderWidth: 2,
                 }]}>
                   <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                   <Text style={[styles.statusPillText, { color: statusColor }]}>
-                    {statusIsEntered ? 'INGRESO REGISTRADO' : 'SIN MARCAR HOY'}
+                    {statusText}
                   </Text>
                 </View>
               </View>
@@ -394,6 +527,28 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                 </View>
               )}
 
+              {/* ── Segunda Marcación registrada ────────────────────────────── */}
+              {turno && turno.marcacion_2 && turno.marcacion_2 !== '0' && (
+                <View style={[styles.attendanceRow, { marginTop: 8, backgroundColor: '#EBF5FB', borderColor: '#AED6F1', borderWidth: 1 }]}>
+                  <MaterialCommunityIcons name="check-circle" size={24} color="#2980B9" />
+                  <Text style={[styles.attendanceText, { color: '#1B4F72' }]}>
+                    INGRESO 2: {new Date(turno.marcacion_2).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {' - '}
+                    {turno.estado === 'P' ? 'PUNTUAL / TEMPRANO' : 'TARDE'}
+                  </Text>
+                </View>
+              )}
+
+              {/* ── Salida registrada ────────────────────────────────────────── */}
+              {turno && turno.salida && (
+                <View style={[styles.attendanceRow, { marginTop: 8, backgroundColor: '#FDEDEC', borderColor: '#F5B7B1', borderWidth: 1 }]}>
+                  <MaterialCommunityIcons name="logout" size={24} color="#C0392B" />
+                  <Text style={[styles.attendanceText, { color: '#7B241C' }]}>
+                    SALIDA REGISTRADA: {new Date(turno.salida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              )}
+
               {/* ── Campo Aula para Reserva (solo si no ha marcado) ──────── */}
               {isReserva && status === 'none' && (
                 <View style={styles.aulaContainer}>
@@ -426,7 +581,7 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               )}
 
               {/* ── Acciones ─────────────────────────────────────────────── */}
-              {status === 'none' ? (
+              {status === 'none' && (
                 <TouchableOpacity
                   style={[styles.btnIngreso, { opacity: loading ? 0.7 : 1 }]}
                   onPress={handleIngreso}
@@ -441,11 +596,63 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
                     </>
                   )}
                 </TouchableOpacity>
-              ) : (
+              )}
+
+              {status === 'prompt_second_entrance' && (
+                <TouchableOpacity
+                  style={[styles.btnIngreso, { backgroundColor: '#2980B9', opacity: loading ? 0.7 : 1 }]}
+                  onPress={handleSecondEntrance}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="login" size={24} color="#FFFFFF" />
+                      <Text style={styles.btnIngresoText}>MARCAR SEGUNDO INGRESO</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {status === 'prompt_exit' && (
+                <TouchableOpacity
+                  style={[styles.btnIngreso, { backgroundColor: '#C2410C', opacity: loading ? 0.7 : 1 }]}
+                  onPress={handleSalida}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="logout" size={24} color="#FFFFFF" />
+                      <Text style={styles.btnIngresoText}>REGISTRAR SALIDA</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {status === 'blocked_second' && (
+                <View style={[styles.completedBox, { backgroundColor: '#F5E6FF', borderColor: '#D3A4FF', borderWidth: 1 }]}>
+                  <MaterialCommunityIcons name="clock-lock" size={32} color="#9E7DCE" />
+                  <Text style={[styles.completedTitle, { color: '#6A2A9A' }]}>SEGUNDO INGRESO BLOQUEADO</Text>
+                  <Text style={[styles.completedSub, { color: '#8E44AD' }]}>{data.message || 'Se habilitará más tarde'}</Text>
+                </View>
+              )}
+
+              {status === 'already_completed' && (
+                <View style={styles.completedBox}>
+                  <MaterialCommunityIcons name="check-circle" size={32} color="#15803D" />
+                  <Text style={styles.completedTitle}>ASISTENCIA COMPLETADA POR HOY</Text>
+                  <Text style={styles.completedSub}>SE HABILITARÁ NUEVAMENTE MAÑANA</Text>
+                </View>
+              )}
+
+              {status === 'entered' && (
                 <View style={styles.completedBox}>
                   <MaterialCommunityIcons name="check-circle" size={32} color="#15803D" />
                   <Text style={styles.completedTitle}>INGRESO YA REGISTRADO POR HOY</Text>
-                  <Text style={styles.completedSub}>SE HABILITARA NUEVAMENTE MANANA</Text>
+                  <Text style={styles.completedSub}>SE HABILITARÁ NUEVAMENTE MAÑANA</Text>
                 </View>
               )}
 
