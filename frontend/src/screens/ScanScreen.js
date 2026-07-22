@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, TextInput, Alert, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Text, TextInput, Alert, TouchableOpacity, Animated, Dimensions, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ActivityIndicator, Surface, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -165,6 +165,74 @@ const ScanScreen = ({ route, navigation }) => {
       }
     };
 
+    const handleRegisterSecondAttendance = async () => {
+      setLoading(true);
+      try {
+        if (isOnline) {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const token = await AsyncStorage.getItem('userToken');
+          const res = await fetch(`${BASE_URL}/api/asistencia/registrar-segunda-asistencia`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dni })
+          });
+          const result = await res.json();
+          if (res.ok) {
+            const db = global.dbHelper.db;
+            if (db && result.record) {
+              await db.runAsync('UPDATE turnos SET marcacion_2 = ?, estado = ? WHERE principal_id = ?', [
+                result.record.marcacion_2, result.record.estado, result.record.principal_id
+              ]);
+            }
+            Alert.alert('Éxito', result.message || 'Segundo ingreso registrado exitosamente.', [{ text: 'OK', onPress: resetScanner }]);
+          } else {
+            Alert.alert('Error', result.message || 'Error al registrar segundo ingreso.', [{ text: 'OK', onPress: resetScanner }]);
+          }
+        } else {
+          const result = await global.dbHelper.registerSecondAttendanceOffline(dni);
+          Alert.alert('Éxito', result.message, [{ text: 'OK', onPress: resetScanner }]);
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Error: ' + e.message, [{ text: 'OK', onPress: resetScanner }]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleRegisterSalida = async () => {
+      setLoading(true);
+      try {
+        if (isOnline) {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const token = await AsyncStorage.getItem('userToken');
+          const res = await fetch(`${BASE_URL}/api/asistencia/registrar-salida`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ dni })
+          });
+          const result = await res.json();
+          if (res.ok) {
+            const db = global.dbHelper.db;
+            if (db && result.record) {
+              await db.runAsync('UPDATE turnos SET salida = ? WHERE principal_id = ?', [
+                result.record.salida, result.record.principal_id
+              ]);
+            }
+            Alert.alert('Éxito', result.message || 'Salida registrada exitosamente.', [{ text: 'OK', onPress: resetScanner }]);
+          } else {
+            Alert.alert('Error', result.message || 'Error al registrar salida.', [{ text: 'OK', onPress: resetScanner }]);
+          }
+        } else {
+          const result = await global.dbHelper.registerSalidaOffline(dni);
+          Alert.alert('Éxito', result.message, [{ text: 'OK', onPress: resetScanner }]);
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Error: ' + e.message, [{ text: 'OK', onPress: resetScanner }]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     try {
       if (isOnline) {
         console.log('[SCAN] Verificando en backend:', `${BASE_URL}/api/asistencia/verificar?dni=${dni}`);
@@ -178,6 +246,31 @@ const ScanScreen = ({ route, navigation }) => {
           console.log('[SCAN] Respuesta backend verify:', response.status, JSON.stringify(data).substring(0, 100));
 
           if (response.ok) {
+            if (data.status === 'prompt_exit') {
+              setLoading(false);
+              Alert.alert(
+                'REGISTRAR SALIDA',
+                data.message || 'El Usuario ya ha marcado asistencia. ¿Deseas registrar su salida?',
+                [
+                  { text: 'NO', style: 'cancel', onPress: resetScanner },
+                  { text: 'SI', onPress: () => handleRegisterSalida() }
+                ]
+              );
+              return;
+            }
+            if (data.status === 'prompt_second_entrance') {
+              setLoading(false);
+              Alert.alert(
+                'SEGUNDO INGRESO',
+                data.message || 'El postulante tiene un segundo turno. ¿Deseas marcar su segundo ingreso?',
+                [
+                  { text: 'NO', style: 'cancel', onPress: resetScanner },
+                  { text: 'SI', onPress: () => handleRegisterSecondAttendance() }
+                ]
+              );
+              return;
+            }
+
             setWorkerData(data);
             setShowModal(true);
             setScanStatus('success');
@@ -202,6 +295,26 @@ const ScanScreen = ({ route, navigation }) => {
       if (data) {
         if (data.error) {
           Alert.alert('ERROR', data.error, [{ text: 'OK', onPress: resetScanner }]);
+        } else if (data.status === 'prompt_exit') {
+          setLoading(false);
+          Alert.alert(
+            'REGISTRAR SALIDA',
+            data.message || 'El Usuario ya ha marcado asistencia. ¿Deseas registrar su salida?',
+            [
+              { text: 'NO', style: 'cancel', onPress: resetScanner },
+              { text: 'SI', onPress: () => handleRegisterSalida() }
+            ]
+          );
+        } else if (data.status === 'prompt_second_entrance') {
+          setLoading(false);
+          Alert.alert(
+            'SEGUNDO INGRESO',
+            data.message || 'El postulante tiene un segundo turno. ¿Deseas marcar su segundo ingreso?',
+            [
+              { text: 'NO', style: 'cancel', onPress: resetScanner },
+              { text: 'SI', onPress: () => handleRegisterSecondAttendance() }
+            ]
+          );
         } else {
           setWorkerData(data);
           setShowModal(true);
@@ -251,9 +364,9 @@ const ScanScreen = ({ route, navigation }) => {
       <CameraView
         style={StyleSheet.absoluteFillObject}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        barcodeScannerSettings={{
+        barcodeScannerSettings={Platform.OS === 'ios' ? {
           barcodeTypes: ['pdf417'], // Optimizado solo para PDF417 (DNI) para garantizar detección inmediata en iOS/iPhones
-        }}
+        } : undefined}
       />
 
       <View style={styles.overlay}>

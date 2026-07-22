@@ -215,7 +215,18 @@ app.get('/api/init-db-debug', async (req, res) => {
                 exitoso BOOLEAN NOT NULL
             )
         `);
-        logs.push('Table intentos_login created or verified.');
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS turnos (
+                id SERIAL PRIMARY KEY,
+                principal_id INT NOT NULL UNIQUE REFERENCES principal(id) ON DELETE CASCADE,
+                condicion INT NOT NULL DEFAULT 1,
+                hora_ingreso_2 VARCHAR(10) DEFAULT '0',
+                marcacion_2 VARCHAR(50) DEFAULT '0',
+                estado VARCHAR(10) DEFAULT 'NA',
+                salida VARCHAR(50)
+            )
+        `);
+        logs.push('Table turnos created or verified.');
 
         await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
         await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
@@ -239,7 +250,7 @@ app.get('/api/init-db-debug', async (req, res) => {
             END;
             $$ LANGUAGE plpgsql;
         `);
-        const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris'];
+        const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris', 'turnos'];
         for (const table of triggerTables) {
             await db.query(`DROP TRIGGER IF EXISTS trg_actualizacion_${table} ON ${table}`);
             await db.query(`
@@ -332,6 +343,18 @@ app.get('/api/init-db-debug', async (req, res) => {
             `);
         }
         logs.push('Sequences synchronized.');
+
+        // Aplicar anexo.sql si existe
+        try {
+            const anexoPath = path.join(__dirname, 'anexo.sql');
+            if (fs.existsSync(anexoPath)) {
+                const anexoSql = fs.readFileSync(anexoPath, 'utf8');
+                await db.query(anexoSql);
+                logs.push('anexo.sql applied successfully.');
+            }
+        } catch (anexoErr) {
+            logs.push('Error applying anexo.sql: ' + anexoErr.message);
+        }
 
         res.json({ success: true, logs });
     } catch (error) {
@@ -496,6 +519,18 @@ const initDb = async (retries = 5) => {
                 )
             `);
 
+            await db.query(`
+                CREATE TABLE IF NOT EXISTS turnos (
+                    id SERIAL PRIMARY KEY,
+                    principal_id INT NOT NULL UNIQUE REFERENCES principal(id) ON DELETE CASCADE,
+                    condicion INT NOT NULL DEFAULT 1,
+                    hora_ingreso_2 VARCHAR(10) DEFAULT '0',
+                    marcacion_2 VARCHAR(50) DEFAULT '0',
+                    estado VARCHAR(10) DEFAULT 'NA',
+                    salida VARCHAR(50)
+                )
+            `);
+
             // Índices
             await db.query(`CREATE INDEX IF NOT EXISTS idx_principal_doc ON principal(doc_identidad)`);
             await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_asistencias_unico ON asistencias(principal_id, (fecha_hora::date))`);
@@ -518,7 +553,7 @@ const initDb = async (retries = 5) => {
                 END;
                 $$ LANGUAGE plpgsql;
             `);
-            const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris'];
+            const triggerTables = ['principal', 'asistencias', 'cargos', 'metas_cargos', 'sede_regional', 'sede_juris', 'turnos'];
             for (const table of triggerTables) {
                 await db.query(`DROP TRIGGER IF EXISTS trg_actualizacion_${table} ON ${table}`);
                 await db.query(`
@@ -635,6 +670,21 @@ const initDb = async (retries = 5) => {
                 } catch (e) {
                     console.log(`No se pudo sincronizar secuencia de ${table}:`, e.message);
                 }
+            }
+
+            // Aplicar anexo.sql si existe
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const anexoPath = path.join(__dirname, 'anexo.sql');
+                if (fs.existsSync(anexoPath)) {
+                    console.log('--- Aplicando anexo.sql ---');
+                    const anexoSql = fs.readFileSync(anexoPath, 'utf8');
+                    await db.query(anexoSql);
+                    console.log('--- anexo.sql aplicado con éxito ---');
+                }
+            } catch (anexoErr) {
+                console.error('Error al aplicar anexo.sql:', anexoErr);
             }
             break;
         } catch (err) {

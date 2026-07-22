@@ -14,6 +14,10 @@ router.post('/escanear-dni', verifyToken, attendanceController.scanDniImage);
 // Ruta para registrar asistencia (Pública para el punto de marcación)
 router.post('/registrar-asistencia', verifyToken, attendanceController.registerAttendance);
 
+// Rutas de Turnos y Salida
+router.post('/registrar-segunda-asistencia', verifyToken, attendanceController.registrarSegundaAsistencia);
+router.post('/registrar-salida', verifyToken, attendanceController.registrarSalida);
+
 // Rutas protegidas
 router.post('/registrar-postulante', verifyToken, attendanceController.registerWorker);
 router.get('/postulantes', verifyToken, attendanceController.getAllWorkers);

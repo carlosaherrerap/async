@@ -50,7 +50,7 @@ global.dbHelper = {
     try {
       // Forzar borrado completo de la base de datos antigua por conflicto de esquema (una sola vez)
       try {
-        const resetKey = 'db_schema_reset_v6';
+        const resetKey = 'db_schema_reset_v7';
         const isReset = await AsyncStorage.getItem(resetKey);
         if (isReset !== 'done') {
           console.log('[DB] Eliminando base de datos local obsoleta para recreación limpia...');
@@ -168,6 +168,16 @@ global.dbHelper = {
           aula TEXT,
           created_at TEXT DEFAULT (datetime('now','localtime'))
         );
+
+        CREATE TABLE IF NOT EXISTS turnos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          principal_id INTEGER UNIQUE,
+          condicion INTEGER DEFAULT 1,
+          hora_ingreso_2 TEXT DEFAULT '0',
+          marcacion_2 TEXT DEFAULT '0',
+          estado TEXT DEFAULT 'NA',
+          salida TEXT
+        );
       `);
 
       // Realizar migraciones manuales si ya existían las tablas de la app
@@ -197,7 +207,7 @@ global.dbHelper = {
     }
   },
 
-  async clearAndPopulate(cargos, metas_cargos, tipo_postulante, parametros_asistencia, workers, asistencias, sede_regional, sede_juris) {
+  async clearAndPopulate(cargos, metas_cargos, tipo_postulante, parametros_asistencia, workers, asistencias, sede_regional, sede_juris, turnos) {
     try {
       if (!db) return;
       await db.withTransactionAsync(async () => {
@@ -209,6 +219,7 @@ global.dbHelper = {
         await db.runAsync('DELETE FROM parametros_asistencia;');
         await db.runAsync('DELETE FROM sede_juris;');
         await db.runAsync('DELETE FROM sede_regional;');
+        await db.runAsync('DELETE FROM turnos;');
 
         for (const p of parametros_asistencia || []) {
           await db.runAsync('INSERT OR REPLACE INTO parametros_asistencia (estado, descripcion) VALUES (?, ?)', [p.estado, p.descripcion]);
@@ -247,6 +258,12 @@ global.dbHelper = {
         for (const a of asistencias || []) {
           await db.runAsync('INSERT OR REPLACE INTO asistencias (id, principal_id, estado, fecha_hora, observaciones, usuario_registro_id) VALUES (?, ?, ?, ?, ?, ?)', [
             a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id
+          ]);
+        }
+
+        for (const t of turnos || []) {
+          await db.runAsync('INSERT OR REPLACE INTO turnos (id, principal_id, condicion, hora_ingreso_2, marcacion_2, estado, salida) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+            t.id, t.principal_id, t.condicion, t.hora_ingreso_2 || '0', t.marcacion_2 || '0', t.estado || 'NA', t.salida || null
           ]);
         }
       });
@@ -306,6 +323,22 @@ global.dbHelper = {
               }
             } else if (item.action_type === 'MARK_ATTENDANCE') {
               const res = await fetch(`${API_URL}/api/asistencia/registrar-asistencia`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+            } else if (item.action_type === 'MARK_SECOND_ATTENDANCE') {
+              const res = await fetch(`${API_URL}/api/asistencia/registrar-segunda-asistencia`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+              });
+              responseStatus = res.status;
+              success = res.ok;
+            } else if (item.action_type === 'MARK_SALIDA') {
+              const res = await fetch(`${API_URL}/api/asistencia/registrar-salida`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -442,7 +475,8 @@ global.dbHelper = {
           syncData.workers,
           syncData.asistencias,
           syncData.sede_regional,
-          syncData.sede_juris
+          syncData.sede_juris,
+          syncData.turnos
         );
 
         // Actualizar control_sincronizacion local
@@ -684,26 +718,162 @@ global.dbHelper = {
         };
       }
     }
-    const attendanceRes = await db.getAllAsync('SELECT * FROM asistencias WHERE principal_id = ?', [worker.id]);
+    const attendanceRes = await db.getAllAsync('SELECT * FROM asistencias WHERE principal_id = ? AND date(fecha_hora, \'localtime\') = date(\'now\', \'localtime\')', [worker.id]);
     const attendance = attendanceRes[0] || null;
-    const status = attendance ? 'entered' : 'none';
+    
+    // Obtener / Inicializar Turno del postulante localmente
+    let turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+    let turno;
+    if (turnoRes.length === 0) {
+      await db.runAsync('INSERT INTO turnos (principal_id, condicion, hora_ingreso_2, marcacion_2, estado, salida) VALUES (?, 1, \'0\', \'0\', \'NA\', NULL)', [worker.id]);
+      turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+      turno = turnoRes[0];
+    } else {
+      turno = turnoRes[0];
+      // Si no han marcado primer check-in hoy, resetear campos de turnos para hoy
+      if (!attendance) {
+        await db.runAsync('UPDATE turnos SET marcacion_2 = \'0\', estado = \'NA\', salida = NULL WHERE principal_id = ?', [worker.id]);
+        turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+        turno = turnoRes[0];
+      }
+    }
 
-    return {
-      worker: {
-        id: worker.id,
-        dni: worker.doc_identidad,
-        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
-        puesto: worker.cargo,
-        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
-        sede_reg: worker.sede_reg,
-        sede_juris: worker.sede_juris,
-        tipo_postulante: worker.tipo_postulante,
-        turno: worker.turno,
-        hora_ingreso: worker.hora_ingreso
-      },
-      status,
-      attendance
-    };
+    // Si no ha marcado primer ingreso
+    if (!attendance) {
+      return {
+        worker: {
+          id: worker.id,
+          dni: worker.doc_identidad,
+          nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+          puesto: worker.cargo,
+          area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+          sede_reg: worker.sede_reg,
+          sede_juris: worker.sede_juris,
+          tipo_postulante: worker.tipo_postulante,
+          turno: worker.turno,
+          hora_ingreso: worker.hora_ingreso
+        },
+        status: 'none',
+        attendance: null,
+        turno: {
+          condicion: turno.condicion,
+          hora_ingreso_2: turno.hora_ingreso_2,
+          marcacion_2: turno.marcacion_2,
+          estado: turno.estado,
+          salida: turno.salida
+        }
+      };
+    }
+
+    // Si ya marcó primer ingreso. Validar según condición de turno.
+    if (turno.condicion === 1) {
+      if (turno.salida) {
+        return {
+          error: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+        };
+      } else {
+        return {
+          worker: {
+            id: worker.id,
+            dni: worker.doc_identidad,
+            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+            puesto: worker.cargo,
+            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+            sede_reg: worker.sede_reg,
+            sede_juris: worker.sede_juris,
+            tipo_postulante: worker.tipo_postulante,
+            turno: worker.turno,
+            hora_ingreso: worker.hora_ingreso
+          },
+          status: 'prompt_exit',
+          message: "El Usuario ya ha marcado asistencia. ¿Deseas registrar su salida?",
+          attendance,
+          turno: {
+            condicion: turno.condicion,
+            hora_ingreso_2: turno.hora_ingreso_2,
+            marcacion_2: turno.marcacion_2,
+            estado: turno.estado,
+            salida: turno.salida
+          }
+        };
+      }
+    } else if (turno.condicion === 2) {
+      if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
+        // Verificar si se liberó (30 min antes de hora_ingreso_2)
+        const now = new Date();
+        const currentHours = now.getHours();
+        const currentMinutes = now.getMinutes();
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+        const ingresoTotalMinutes = ingH * 60 + ingM;
+        const releaseTotalMinutes = ingresoTotalMinutes - 30;
+
+        if (currentTotalMinutes < releaseTotalMinutes) {
+          return {
+            error: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`
+          };
+        }
+
+        // Liberado -> solicitar confirmación para segundo ingreso
+        return {
+          worker: {
+            id: worker.id,
+            dni: worker.doc_identidad,
+            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+            puesto: worker.cargo,
+            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+            sede_reg: worker.sede_reg,
+            sede_juris: worker.sede_juris,
+            tipo_postulante: worker.tipo_postulante,
+            turno: worker.turno,
+            hora_ingreso: worker.hora_ingreso
+          },
+          status: 'prompt_second_entrance',
+          message: "El postulante tiene un segundo turno. ¿Deseas marcar su segundo ingreso?",
+          attendance,
+          turno: {
+            condicion: turno.condicion,
+            hora_ingreso_2: turno.hora_ingreso_2,
+            marcacion_2: turno.marcacion_2,
+            estado: turno.estado,
+            salida: turno.salida
+          }
+        };
+      } else {
+        // Ya tiene segunda marcación
+        if (turno.salida) {
+          return {
+            error: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+          };
+        } else {
+          return {
+            worker: {
+              id: worker.id,
+              dni: worker.doc_identidad,
+              nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+              puesto: worker.cargo,
+              area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+              sede_reg: worker.sede_reg,
+              sede_juris: worker.sede_juris,
+              tipo_postulante: worker.tipo_postulante,
+              turno: worker.turno,
+              hora_ingreso: worker.hora_ingreso
+            },
+            status: 'prompt_exit',
+            message: "El Usuario ya ha marcado sus asistencias. ¿Deseas registrar su salida?",
+            attendance,
+            turno: {
+              condicion: turno.condicion,
+              hora_ingreso_2: turno.hora_ingreso_2,
+              marcacion_2: turno.marcacion_2,
+              estado: turno.estado,
+              salida: turno.salida
+            }
+          };
+        }
+      }
+    }
   },
 
   async registerAttendanceOffline(dni, observaciones) {
@@ -922,6 +1092,125 @@ global.dbHelper = {
     );
     await this.addPendingAction('CHANGE_SEDE', { workerId, nuevaSede });
     return { workerId, oldSede, nuevaSede: newSedeName };
+  },
+
+  async registerSecondAttendanceOffline(dni) {
+    if (!db) throw new Error('Base de datos no inicializada');
+    
+    const workerRes = await db.getAllAsync(`
+      SELECT p.*, c.nombre as cargo,
+             sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
+      FROM principal p 
+      JOIN cargos c ON p.cargo_id = c.id 
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+      WHERE p.doc_identidad = ?
+    `, [dni]);
+
+    if (workerRes.length === 0) throw new Error('Postulante no encontrado');
+    const worker = workerRes[0];
+
+    const turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+    if (turnoRes.length === 0) throw new Error('Turno no configurado para este postulante');
+    const turno = turnoRes[0];
+
+    if (turno.condicion !== 2) throw new Error('El postulante no tiene condición de doble turno');
+    if (turno.marcacion_2 && turno.marcacion_2 !== '0') throw new Error('Ya se registró el segundo ingreso de hoy.');
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+    const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+    const ingresoTotalMinutes = ingH * 60 + ingM;
+
+    const estado = currentTotalMinutes <= ingresoTotalMinutes ? 'P' : 'T';
+    const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + '.000000';
+
+    await db.runAsync('UPDATE turnos SET marcacion_2 = ?, estado = ? WHERE principal_id = ?', [
+      timestampStr, estado, worker.id
+    ]);
+
+    let localUserId = null;
+    const userData = await AsyncStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      localUserId = user.id;
+    }
+
+    await this.addPendingAction('MARK_SECOND_ATTENDANCE', { dni, usuario_registro_id: localUserId });
+
+    return {
+      message: 'Segundo ingreso registrado exitosamente (Guardado localmente sin conexión)',
+      worker: {
+        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+        puesto: worker.cargo,
+        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+        turno: worker.turno,
+        hora_ingreso: worker.hora_ingreso
+      },
+      record: {
+        principal_id: worker.id,
+        marcacion_2: timestampStr,
+        estado
+      },
+      estado_desc: estado === 'P' ? 'PUNTUAL / TEMPRANO' : 'TARDE'
+    };
+  },
+
+  async registerSalidaOffline(dni) {
+    if (!db) throw new Error('Base de datos no inicializada');
+    
+    const workerRes = await db.getAllAsync(`
+      SELECT p.*, c.nombre as cargo,
+             sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
+      FROM principal p 
+      JOIN cargos c ON p.cargo_id = c.id 
+      LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+      LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+      WHERE p.doc_identidad = ?
+    `, [dni]);
+
+    if (workerRes.length === 0) throw new Error('Postulante no encontrado');
+    const worker = workerRes[0];
+
+    const turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+    if (turnoRes.length === 0) throw new Error('Turno no configurado para este postulante');
+    const turno = turnoRes[0];
+
+    if (turno.salida) throw new Error('Ya se registró la salida del postulante hoy.');
+
+    const now = new Date();
+    const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + '.000000';
+
+    await db.runAsync('UPDATE turnos SET salida = ? WHERE principal_id = ?', [
+      timestampStr, worker.id
+    ]);
+
+    let localUserId = null;
+    const userData = await AsyncStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      localUserId = user.id;
+    }
+
+    await this.addPendingAction('MARK_SALIDA', { dni, usuario_registro_id: localUserId });
+
+    return {
+      message: 'Salida registrada exitosamente (Guardado localmente sin conexión)',
+      worker: {
+        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+        puesto: worker.cargo,
+        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+        turno: worker.turno,
+        hora_ingreso: worker.hora_ingreso
+      },
+      record: {
+        principal_id: worker.id,
+        salida: timestampStr
+      }
+    };
   },
 
   async getDbDiagnostics() {

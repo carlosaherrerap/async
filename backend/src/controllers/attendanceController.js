@@ -3,6 +3,39 @@ const { hasFace } = require('../utils/faceDetector');
 const { decodeBarcodeWithRotations } = require('../utils/barcodeDetector');
 const Jimp = require('jimp');
 
+const getOrResetTurno = async (principalId) => {
+    // Verificar si hay primer check-in hoy
+    const attendanceCheck = await db.query(
+        'SELECT 1 FROM asistencias WHERE principal_id = $1 AND fecha_hora::date = CURRENT_DATE',
+        [principalId]
+    );
+    
+    let turnoRes = await db.query('SELECT * FROM turnos WHERE principal_id = $1', [principalId]);
+    let turno;
+    
+    if (turnoRes.rows.length === 0) {
+        const insertTurno = await db.query(
+            `INSERT INTO turnos (principal_id, condicion, hora_ingreso_2, marcacion_2, estado, salida)
+             VALUES ($1, 1, '0', '0', 'NA', NULL) RETURNING *`,
+            [principalId]
+        );
+        turno = insertTurno.rows[0];
+    } else {
+        turno = turnoRes.rows[0];
+        // Si no han marcado primer check-in hoy, resetear campos de turnos para hoy
+        if (attendanceCheck.rows.length === 0) {
+            const updateTurno = await db.query(
+                `UPDATE turnos 
+                 SET marcacion_2 = '0', estado = 'NA', salida = NULL 
+                 WHERE principal_id = $1 RETURNING *`,
+                [principalId]
+            );
+            turno = updateTurno.rows[0];
+        }
+    }
+    return turno;
+};
+
 const registerAttendance = async (req, res) => {
     const { dni, observaciones, usuario_registro_id } = req.body;
     const userRole = req.user.rol;
@@ -31,6 +64,9 @@ const registerAttendance = async (req, res) => {
         if (!isSU && worker.sede_regional_id !== userRole) {
             return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
+
+        // Asegurar/Resetear turno antes de registrar ingreso
+        await getOrResetTurno(worker.id);
 
         // 2. Verificar si ya marco ingreso hoy (bloquear segundo intento)
         const existingRes = await db.query(
@@ -111,31 +147,154 @@ const verifyWorker = async (req, res) => {
             return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
         }
 
-        // Ver si ya marco ingreso hoy
+        // Obtener/Resetear el estado del turno
+        const turno = await getOrResetTurno(worker.id);
+
+        // Ver si ya marco ingreso hoy en asistencias
         const attendanceRes = await db.query(
             'SELECT * FROM asistencias WHERE principal_id = $1 AND fecha_hora::date = CURRENT_DATE',
             [worker.id]
         );
 
         const attendance = attendanceRes.rows[0];
-        const status = attendance ? 'entered' : 'none';
+        
+        // Si no ha marcado primer ingreso
+        if (!attendance) {
+            return res.json({
+                worker: {
+                    id: worker.id,
+                    dni: worker.doc_identidad,
+                    nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                    puesto: worker.cargo,
+                    area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                    sede_reg: worker.sede_reg,
+                    sede_juris: worker.sede_juris,
+                    tipo_postulante: worker.tipo_postulante,
+                    turno: worker.turno,
+                    hora_ingreso: worker.hora_ingreso
+                },
+                status: 'none',
+                attendance: null,
+                turno: {
+                    condicion: turno.condicion,
+                    hora_ingreso_2: turno.hora_ingreso_2,
+                    marcacion_2: turno.marcacion_2,
+                    estado: turno.estado,
+                    salida: turno.salida
+                }
+            });
+        }
 
-        res.json({
-            worker: {
-                id: worker.id,
-                dni: worker.doc_identidad,
-                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
-                puesto: worker.cargo,
-                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
-                sede_reg: worker.sede_reg,
-                sede_juris: worker.sede_juris,
-                tipo_postulante: worker.tipo_postulante,
-                turno: worker.turno,
-                hora_ingreso: worker.hora_ingreso
-            },
-            status,
-            attendance: attendance || null
-        });
+        // Ya marcó primer ingreso. Validar según condición de turno.
+        if (turno.condicion === 1) {
+            if (turno.salida) {
+                return res.status(400).json({
+                    message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+                });
+            } else {
+                return res.json({
+                    worker: {
+                        id: worker.id,
+                        dni: worker.doc_identidad,
+                        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                        puesto: worker.cargo,
+                        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                        sede_reg: worker.sede_reg,
+                        sede_juris: worker.sede_juris,
+                        tipo_postulante: worker.tipo_postulante,
+                        turno: worker.turno,
+                        hora_ingreso: worker.hora_ingreso
+                    },
+                    status: 'prompt_exit',
+                    message: "El Usuario ya ha marcado asistencia. ¿Deseas registrar su salida?",
+                    attendance,
+                    turno: {
+                        condicion: turno.condicion,
+                        hora_ingreso_2: turno.hora_ingreso_2,
+                        marcacion_2: turno.marcacion_2,
+                        estado: turno.estado,
+                        salida: turno.salida
+                    }
+                });
+            }
+        } else if (turno.condicion === 2) {
+            if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
+                // Verificar si se liberó (30 min antes de hora_ingreso_2)
+                const now = new Date();
+                const options = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false };
+                const formatter = new Intl.DateTimeFormat('es-PE', options);
+                const [currentHoursStr, currentMinutesStr] = formatter.format(now).split(':');
+                const currentTotalMinutes = parseInt(currentHoursStr, 10) * 60 + parseInt(currentMinutesStr, 10);
+
+                const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+                const ingresoTotalMinutes = ingH * 60 + ingM;
+                const releaseTotalMinutes = ingresoTotalMinutes - 30;
+
+                if (currentTotalMinutes < releaseTotalMinutes) {
+                    return res.status(400).json({
+                        message: `No se puede registrar el segundo ingreso aún. Se habilitará 30 minutos antes de las ${turno.hora_ingreso_2}.`
+                    });
+                }
+
+                // Liberado -> solicitar confirmación para segundo ingreso
+                return res.json({
+                    worker: {
+                        id: worker.id,
+                        dni: worker.doc_identidad,
+                        nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                        puesto: worker.cargo,
+                        area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                        sede_reg: worker.sede_reg,
+                        sede_juris: worker.sede_juris,
+                        tipo_postulante: worker.tipo_postulante,
+                        turno: worker.turno,
+                        hora_ingreso: worker.hora_ingreso
+                    },
+                    status: 'prompt_second_entrance',
+                    message: "El postulante tiene un segundo turno. ¿Deseas marcar su segundo ingreso?",
+                    attendance,
+                    turno: {
+                        condicion: turno.condicion,
+                        hora_ingreso_2: turno.hora_ingreso_2,
+                        marcacion_2: turno.marcacion_2,
+                        estado: turno.estado,
+                        salida: turno.salida
+                    }
+                });
+            } else {
+                // Ya tiene segunda marcación
+                if (turno.salida) {
+                    return res.status(400).json({
+                        message: "Usuario ya registró su asistencia. El día de mañana se habilitará nuevamente"
+                    });
+                } else {
+                    return res.json({
+                        worker: {
+                            id: worker.id,
+                            dni: worker.doc_identidad,
+                            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                            puesto: worker.cargo,
+                            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                            sede_reg: worker.sede_reg,
+                            sede_juris: worker.sede_juris,
+                            tipo_postulante: worker.tipo_postulante,
+                            turno: worker.turno,
+                            hora_ingreso: worker.hora_ingreso
+                        },
+                        status: 'prompt_exit',
+                        message: "El Usuario ya ha marcado sus asistencias. ¿Deseas registrar su salida?",
+                        attendance,
+                        turno: {
+                            condicion: turno.condicion,
+                            hora_ingreso_2: turno.hora_ingreso_2,
+                            marcacion_2: turno.marcacion_2,
+                            estado: turno.estado,
+                            salida: turno.salida
+                        }
+                    });
+                }
+            }
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error interno del servidor' });
@@ -327,6 +486,10 @@ const getSyncPull = async (req, res) => {
             FROM asistencias a
             WHERE a.fecha_hora::date = CURRENT_DATE
         `;
+        let queryTurnos = `
+            SELECT id, principal_id, condicion, hora_ingreso_2, marcacion_2, estado, salida
+            FROM turnos
+        `;
         const params = [];
         if (!isSU) {
             queryWorkers = `
@@ -343,11 +506,19 @@ const getSyncPull = async (req, res) => {
                 JOIN sede_juris sj ON p.sede_juris_id = sj.id
                 WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1
             `;
+            queryTurnos = `
+                SELECT t.id, t.principal_id, t.condicion, t.hora_ingreso_2, t.marcacion_2, t.estado, t.salida
+                FROM turnos t
+                JOIN principal p ON t.principal_id = p.id
+                JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                WHERE sj.sede_regional_id = $1
+            `;
             params.push(userRole);
         }
 
         const workersRes = await db.query(queryWorkers, params);
         const asistenciasRes = await db.query(queryAsistencias, params);
+        const turnosRes = await db.query(queryTurnos, params);
 
         res.json({
             cargos: cargosRes.rows,
@@ -357,7 +528,8 @@ const getSyncPull = async (req, res) => {
             sede_regional: regionalRes.rows,
             sede_juris: jurisRes.rows,
             workers: workersRes.rows,
-            asistencias: asistenciasRes.rows
+            asistencias: asistenciasRes.rows,
+            turnos: turnosRes.rows
         });
     } catch (error) {
         console.error(error);
@@ -593,6 +765,172 @@ const getSedeHistory = async (req, res) => {
     }
 };
 
+const registrarSegundaAsistencia = async (req, res) => {
+    const { dni, usuario_registro_id } = req.body;
+    const userRole = req.user.rol;
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+
+    try {
+        const workerRes = await db.query(
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+                    sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
+             FROM principal p 
+             JOIN cargos c ON p.cargo_id = c.id 
+             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             JOIN sede_juris sj ON p.sede_juris_id = sj.id
+             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+             WHERE p.doc_identidad = $1`,
+            [dni]
+        );
+
+        if (workerRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Postulante no encontrado' });
+        }
+
+        const worker = workerRes.rows[0];
+
+        if (!isSU && worker.sede_regional_id !== userRole) {
+            return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+        }
+
+        const turno = await getOrResetTurno(worker.id);
+
+        if (turno.condicion !== 2) {
+            return res.status(400).json({ message: 'El postulante no tiene condición de doble turno' });
+        }
+
+        if (turno.marcacion_2 && turno.marcacion_2 !== '0') {
+            return res.status(400).json({ message: 'Ya se registró la segunda marcación de ingreso de hoy.' });
+        }
+
+        // Determinar estado (P o T) comparando hora actual con hora_ingreso_2
+        const now = new Date();
+        const options = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false };
+        const formatter = new Intl.DateTimeFormat('es-PE', options);
+        const [currentHoursStr, currentMinutesStr] = formatter.format(now).split(':');
+        const currentHours = parseInt(currentHoursStr, 10);
+        const currentMinutes = parseInt(currentMinutesStr, 10);
+        const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+        const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+        const ingresoTotalMinutes = ingH * 60 + ingM;
+
+        const estado = currentTotalMinutes <= ingresoTotalMinutes ? 'P' : 'T';
+        
+        // Formato timestamp para marcacion_2: YYYY-MM-DD HH:MM:SS.mmmmmm
+        const dateOptions = { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        const dateParts = new Intl.DateTimeFormat('es-PE', dateOptions).formatToParts(now);
+        const year = dateParts.find(p => p.type === 'year').value;
+        const month = dateParts.find(p => p.type === 'month').value;
+        const day = dateParts.find(p => p.type === 'day').value;
+        const hour = dateParts.find(p => p.type === 'hour').value;
+        const minute = dateParts.find(p => p.type === 'minute').value;
+        const second = dateParts.find(p => p.type === 'second').value;
+        
+        const timestampStr = `${year}-${month}-${day} ${hour}:${minute}:${second}.000000`;
+
+        await db.query(
+            `UPDATE turnos 
+             SET marcacion_2 = $1, estado = $2 
+             WHERE principal_id = $3`,
+            [timestampStr, estado, worker.id]
+        );
+
+        res.status(200).json({
+            message: 'Segundo ingreso registrado exitosamente',
+            worker: {
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+            },
+            record: {
+                principal_id: worker.id,
+                marcacion_2: timestampStr,
+                estado
+            },
+            estado_desc: estado === 'P' ? 'PUNTUAL / TEMPRANO' : 'TARDE'
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+const registrarSalida = async (req, res) => {
+    const { dni, usuario_registro_id } = req.body;
+    const userRole = req.user.rol;
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+
+    try {
+        const workerRes = await db.query(
+            `SELECT p.*, c.nombre as cargo, tp.descripcion as tipo_postulante,
+                    sj.nombre as sede_juris, sr.nombre as sede_reg, sj.sede_regional_id
+             FROM principal p 
+             JOIN cargos c ON p.cargo_id = c.id 
+             JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id 
+             JOIN sede_juris sj ON p.sede_juris_id = sj.id
+             JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+             WHERE p.doc_identidad = $1`,
+            [dni]
+        );
+
+        if (workerRes.rows.length === 0) {
+            return res.status(404).json({ message: 'Postulante no encontrado' });
+        }
+
+        const worker = workerRes.rows[0];
+
+        if (!isSU && worker.sede_regional_id !== userRole) {
+            return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+        }
+
+        const turno = await getOrResetTurno(worker.id);
+
+        if (turno.salida) {
+            return res.status(400).json({ message: 'Ya se registró la salida del postulante hoy.' });
+        }
+
+        const now = new Date();
+        const dateOptions = { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        const dateParts = new Intl.DateTimeFormat('es-PE', dateOptions).formatToParts(now);
+        const year = dateParts.find(p => p.type === 'year').value;
+        const month = dateParts.find(p => p.type === 'month').value;
+        const day = dateParts.find(p => p.type === 'day').value;
+        const hour = dateParts.find(p => p.type === 'hour').value;
+        const minute = dateParts.find(p => p.type === 'minute').value;
+        const second = dateParts.find(p => p.type === 'second').value;
+        
+        const timestampStr = `${year}-${month}-${day} ${hour}:${minute}:${second}.000000`;
+
+        await db.query(
+            `UPDATE turnos 
+             SET salida = $1 
+             WHERE principal_id = $2`,
+            [timestampStr, worker.id]
+        );
+
+        res.status(200).json({
+            message: 'Salida registrada exitosamente',
+            worker: {
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+            },
+            record: {
+                principal_id: worker.id,
+                salida: timestampStr
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
 module.exports = {
     registerAttendance,
     verifyWorker,
@@ -603,5 +941,7 @@ module.exports = {
     getSyncCheck,
     scanDniImage,
     changeSede,
-    getSedeHistory
+    getSedeHistory,
+    registrarSegundaAsistencia,
+    registrarSalida
 };
