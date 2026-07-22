@@ -99,72 +99,102 @@ const getAbsentees = async (req, res) => {
 const getStats = async (req, res) => {
     const userRole = req.user.rol;
     const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+    const shift = req.query.shift === 'tarde' ? 'tarde' : 'dia';
     try {
-        let statsQuery;
         let params = [];
-        if (isSU) {
+        const roleJoin = isSU ? '' : 'JOIN sede_juris sj ON p.sede_juris_id = sj.id';
+        const roleWhere = isSU ? '' : 'AND sj.sede_regional_id = $1';
+        const roleJoinSub = isSU ? '' : 'JOIN sede_juris sj ON p2.sede_juris_id = sj.id';
+        if (!isSU) params.push(userRole);
+
+        let statsQuery = '';
+        if (shift === 'tarde') {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal) as total_postulantes,
-                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date) as presentes,
-                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND estado = 'T') as tardanzas,
-                    (SELECT COUNT(*) FROM asistencias WHERE (fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND estado = 'P') as temprano
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} LEFT JOIN turnos t ON t.principal_id = p.id WHERE (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 OR t.condicion = 2) ${roleWhere}) as total_postulantes,
+                    
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} 
+                     LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                     LEFT JOIN turnos t ON t.principal_id = p.id
+                     WHERE (
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR
+                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
+                     ) ${roleWhere}) as presentes,
+                     
+                    (SELECT COUNT(*) FROM principal p ${roleJoin}
+                     LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                     LEFT JOIN turnos t ON t.principal_id = p.id
+                     WHERE (
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.estado = 'T') OR
+                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'T')
+                     ) ${roleWhere}) as tardanzas,
+                     
+                    (SELECT COUNT(*) FROM principal p ${roleJoin}
+                     LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                     LEFT JOIN turnos t ON t.principal_id = p.id
+                     WHERE (
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.estado = 'P') OR
+                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'P')
+                     ) ${roleWhere}) as temprano
             `;
         } else {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal p JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE sj.sede_regional_id = $1) as total_postulantes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND sj.sede_regional_id = $1) as presentes,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'T' AND sj.sede_regional_id = $1) as tardanzas,
-                    (SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND a.estado = 'P' AND sj.sede_regional_id = $1) as temprano
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} WHERE CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as total_postulantes,
+                    
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
+                     WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
+                     AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as presentes,
+                     
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
+                     WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
+                     AND a.estado = 'T' AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as tardanzas,
+                     
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
+                     WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
+                     AND a.estado = 'P' AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as temprano
             `;
-            params.push(userRole);
         }
 
         const stats = await db.query(statsQuery, params);
         const data = stats.rows[0];
         const faltas = parseInt(data.total_postulantes) - parseInt(data.presentes);
 
-        let queryAsistenciaPorCargo = `
-            SELECT c.nombre as cargo, 
-                   COUNT(a.id) as presentes,
-                   (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
-            FROM cargos c
-            LEFT JOIN principal p ON p.cargo_id = c.id
-            LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
-            GROUP BY c.id, c.nombre
-            ORDER BY c.id ASC
-        `;
+        let queryAsistenciaPorCargo = '';
+        if (shift === 'tarde') {
+            queryAsistenciaPorCargo = `
+                SELECT c.nombre as cargo, 
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 OR t2.condicion = 2) ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
+                        LEFT JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                        LEFT JOIN turnos t2 ON p2.id = t2.principal_id
+                        WHERE p2.cargo_id = c.id AND (
+                          (CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a2.id IS NOT NULL) OR
+                          (t2.condicion = 2 AND t2.marcacion_2 != '0' AND t2.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t2.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
+                        ) ${roleWhere}) as presentes
+                FROM cargos c
+                ORDER BY c.id ASC
+            `;
+        } else {
+            queryAsistenciaPorCargo = `
+                SELECT c.nombre as cargo, 
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id AND CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
+                        JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
+                        WHERE p2.cargo_id = c.id AND CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as presentes
+                FROM cargos c
+                ORDER BY c.id ASC
+            `;
+        }
+
         let queryMetasPorCargo = `
             SELECT c.nombre as cargo,
                    COALESCE(m.limite_vacantes, 0) as meta,
-                   (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as registrados
+                   (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id ${roleWhere}) as registrados
             FROM cargos c
             LEFT JOIN metas_cargos m ON m.cargo_id = c.id
             ORDER BY c.id ASC
         `;
-
-        if (!isSU) {
-            queryAsistenciaPorCargo = `
-                SELECT c.nombre as cargo, 
-                       COUNT(a.id) as presentes,
-                       (SELECT COUNT(*) FROM principal p2 JOIN sede_juris sj2 ON p2.sede_juris_id = sj2.id WHERE p2.cargo_id = c.id AND sj2.sede_regional_id = $1) as total_cargo
-                FROM cargos c
-                LEFT JOIN principal p ON p.cargo_id = c.id
-                LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id AND sj.sede_regional_id = $1
-                LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND sj.id IS NOT NULL
-                GROUP BY c.id, c.nombre
-                ORDER BY c.id ASC
-            `;
-            queryMetasPorCargo = `
-                SELECT c.nombre as cargo,
-                       COALESCE(m.limite_vacantes, 0) as meta,
-                       (SELECT COUNT(*) FROM principal p2 JOIN sede_juris sj2 ON p2.sede_juris_id = sj2.id WHERE p2.cargo_id = c.id AND sj2.sede_regional_id = $1) as registrados
-                FROM cargos c
-                LEFT JOIN metas_cargos m ON m.cargo_id = c.id
-                ORDER BY c.id ASC
-            `;
-        }
 
         const asistenciaPorCargo = await db.query(queryAsistenciaPorCargo, params);
         const metasPorCargo = await db.query(queryMetasPorCargo, params);

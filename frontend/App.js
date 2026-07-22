@@ -538,7 +538,7 @@ global.dbHelper = {
     return { data: rows, total };
   },
 
-  async getStats() {
+  async getStats(shift = 'dia') {
     if (!db) return { presentes: 0, faltas: 0, tardanzas: 0, asistenciaPorCargo: [], metasPorCargo: [] };
     try {
       const getLocalDateString = () => {
@@ -550,17 +550,86 @@ global.dbHelper = {
       };
       const todayStr = getLocalDateString();
 
-      const totalRes = await db.getAllAsync('SELECT COUNT(*) as count FROM principal');
-      const total = totalRes[0]?.count || 0;
+      let total = 0, presentes = 0, tardanzas = 0, temprano = 0;
+      let asistenciaPorCargo = [];
 
-      const presentesRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE date(fecha_hora, 'localtime') = ?", [todayStr]);
-      const presentes = presentesRes[0]?.count || 0;
+      if (shift === 'tarde') {
+        const totalRes = await db.getAllAsync("SELECT COUNT(*) as count FROM principal p LEFT JOIN turnos t ON t.principal_id = p.id WHERE (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 OR t.condicion = 2)");
+        total = totalRes[0]?.count || 0;
 
-      const tardanzasRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'T' AND date(fecha_hora, 'localtime') = ?", [todayStr]);
-      const tardanzas = tardanzasRes[0]?.count || 0;
+        const presentesRes = await db.getAllAsync(`
+          SELECT COUNT(*) as count FROM principal p 
+          LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
+          LEFT JOIN turnos t ON t.principal_id = p.id
+          WHERE (
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR
+            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?)
+          )
+        `, [todayStr, todayStr]);
+        presentes = presentesRes[0]?.count || 0;
 
-      const tempranoRes = await db.getAllAsync("SELECT COUNT(*) as count FROM asistencias WHERE estado = 'P' AND date(fecha_hora, 'localtime') = ?", [todayStr]);
-      const temprano = tempranoRes[0]?.count || 0;
+        const tardanzasRes = await db.getAllAsync(`
+          SELECT COUNT(*) as count FROM principal p 
+          LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
+          LEFT JOIN turnos t ON t.principal_id = p.id
+          WHERE (
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.estado = 'T') OR
+            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'T')
+          )
+        `, [todayStr, todayStr]);
+        tardanzas = tardanzasRes[0]?.count || 0;
+
+        const tempranoRes = await db.getAllAsync(`
+          SELECT COUNT(*) as count FROM principal p 
+          LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
+          LEFT JOIN turnos t ON t.principal_id = p.id
+          WHERE (
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.estado = 'P') OR
+            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'P')
+          )
+        `, [todayStr, todayStr]);
+        temprano = tempranoRes[0]?.count || 0;
+        
+        asistenciaPorCargo = await db.getAllAsync(`
+          SELECT c.nombre as cargo, 
+                 COUNT(
+                   CASE WHEN (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR 
+                             (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?) 
+                        THEN 1 ELSE NULL END
+                 ) as presentes,
+                 (SELECT COUNT(*) FROM principal p2 LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (CAST(SUBSTR(p2.hora_ingreso, 1, 2) AS INTEGER) >= 13 OR t2.condicion = 2)) as total_cargo
+          FROM cargos c
+          LEFT JOIN principal p ON p.cargo_id = c.id
+          LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
+          LEFT JOIN turnos t ON t.principal_id = p.id
+          GROUP BY c.id, c.nombre
+          ORDER BY c.id ASC
+        `, [todayStr, todayStr]);
+
+      } else {
+        const totalRes = await db.getAllAsync("SELECT COUNT(*) as count FROM principal WHERE CAST(SUBSTR(hora_ingreso, 1, 2) AS INTEGER) < 13");
+        total = totalRes[0]?.count || 0;
+
+        const presentesRes = await db.getAllAsync("SELECT COUNT(*) as count FROM principal p JOIN asistencias a ON a.principal_id = p.id WHERE date(a.fecha_hora, 'localtime') = ? AND CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) < 13", [todayStr]);
+        presentes = presentesRes[0]?.count || 0;
+
+        const tardanzasRes = await db.getAllAsync("SELECT COUNT(*) as count FROM principal p JOIN asistencias a ON a.principal_id = p.id WHERE a.estado = 'T' AND date(a.fecha_hora, 'localtime') = ? AND CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) < 13", [todayStr]);
+        tardanzas = tardanzasRes[0]?.count || 0;
+
+        const tempranoRes = await db.getAllAsync("SELECT COUNT(*) as count FROM principal p JOIN asistencias a ON a.principal_id = p.id WHERE a.estado = 'P' AND date(a.fecha_hora, 'localtime') = ? AND CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) < 13", [todayStr]);
+        temprano = tempranoRes[0]?.count || 0;
+
+        asistenciaPorCargo = await db.getAllAsync(`
+          SELECT c.nombre as cargo, 
+                 COUNT(a.id) as presentes,
+                 (SELECT COUNT(*) FROM principal p2 WHERE p2.cargo_id = c.id AND CAST(SUBSTR(p2.hora_ingreso, 1, 2) AS INTEGER) < 13) as total_cargo
+          FROM cargos c
+          LEFT JOIN principal p ON p.cargo_id = c.id AND CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) < 13
+          LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
+          GROUP BY c.id, c.nombre
+          ORDER BY c.id ASC
+        `, [todayStr]);
+      }
 
       const faltas = total - presentes;
 
@@ -572,17 +641,6 @@ global.dbHelper = {
         LEFT JOIN metas_cargos m ON c.id = m.cargo_id
         ORDER BY c.id ASC
       `);
-
-      const asistenciaPorCargo = await db.getAllAsync(`
-        SELECT c.nombre as cargo, 
-               COUNT(a.id) as presentes,
-               (SELECT COUNT(*) FROM principal WHERE cargo_id = c.id) as total_cargo
-        FROM cargos c
-        LEFT JOIN principal p ON p.cargo_id = c.id
-        LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
-        GROUP BY c.id, c.nombre
-        ORDER BY c.id ASC
-      `, [todayStr]);
 
       return { 
         presentes, 

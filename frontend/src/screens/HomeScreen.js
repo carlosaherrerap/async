@@ -97,6 +97,7 @@ const HomeScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [shift, setShift] = useState('dia');
   const [isOnline, setIsOnline] = useState(true);
   const [sedeName, setSedeName] = useState('');   // nombre legible de la sede regional
 
@@ -120,7 +121,7 @@ const HomeScreen = ({ navigation }) => {
     ]).start();
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (currentShift = shift) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const userData = await AsyncStorage.getItem('userData');
@@ -156,14 +157,14 @@ const HomeScreen = ({ navigation }) => {
 
       if (online) {
         try {
-          const res = await fetch(`${API_URL}/api/asistencia/estadisticas`, {
+          const res = await fetch(`${API_URL}/api/asistencia/estadisticas?shift=${currentShift}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.status === 401 || res.status === 403) { handleLogout(); return; }
           if (res.ok) { setStats(await res.json()); animateIn(); return; }
         } catch { }
       }
-      const localStats = await global.dbHelper.getStats();
+      const localStats = await global.dbHelper.getStats(currentShift);
       setStats(localStats);
       animateIn();
     } catch (e) {
@@ -179,8 +180,8 @@ const HomeScreen = ({ navigation }) => {
     navigation.replace('Login');
   };
 
-  useFocusEffect(useCallback(() => { fetchStats(); }, []));
-  const onRefresh = () => { setRefreshing(true); fetchStats(); };
+  useFocusEffect(useCallback(() => { fetchStats(shift); }, [shift]));
+  const onRefresh = () => { setRefreshing(true); fetchStats(shift); };
 
   const fetchDebugData = async () => {
     const d = await global.dbHelper.getDbDiagnostics();
@@ -337,6 +338,25 @@ const HomeScreen = ({ navigation }) => {
         </View>
       </View>
 
+      <View style={{ zIndex: 10 }}>
+        <View style={styles.shiftToggleContainer}>
+          <TouchableOpacity 
+            style={[styles.shiftToggleBtn, shift === 'dia' && styles.shiftToggleActive]} 
+            onPress={() => setShift('dia')}
+          >
+            <MaterialCommunityIcons name="weather-sunny" size={20} color={shift === 'dia' ? '#FFF' : '#64748B'} />
+            <Text style={[styles.shiftToggleText, shift === 'dia' && styles.shiftToggleTextActive]}>TURNO DÍA</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.shiftToggleBtn, shift === 'tarde' && styles.shiftToggleActive]} 
+            onPress={() => setShift('tarde')}
+          >
+            <MaterialCommunityIcons name="weather-night" size={20} color={shift === 'tarde' ? '#FFF' : '#64748B'} />
+            <Text style={[styles.shiftToggleText, shift === 'tarde' && styles.shiftToggleTextActive]}>TURNO TARDE</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.blue} />}
@@ -448,18 +468,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   welcomeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '800', marginBottom: 4 },
-  userName: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', maxWidth: width * 0.70 },
+  userName: { color: '#FFFFFF', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
 
-  // ── Scroll ─────────────────────────────────────────────────
-  scroll: { padding: 16, paddingBottom: 40 },
+  // ── Shift Toggle ───────────────────────────────────────────
+  shiftToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: -24,
+    marginBottom: 8,
+    padding: 6,
+    elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6,
+  },
+  shiftToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 8,
+  },
+  shiftToggleActive: {
+    backgroundColor: COLORS.blue,
+  },
+  shiftToggleText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#64748B',
+  },
+  shiftToggleTextActive: {
+    color: '#FFF',
+  },
+
+  // ── Scroll & Content ────────────────────────────────────────
+  scroll: { paddingHorizontal: 20, paddingBottom: 100, paddingTop: 10 },
   sectionLabel: {
-    color: COLORS.inkMid, fontSize: 13, fontWeight: '900',
+    color: '#64748B', fontSize: 12, fontWeight: '900',
     letterSpacing: 1, textTransform: 'uppercase',
     marginBottom: 12,
     paddingLeft: 4,
