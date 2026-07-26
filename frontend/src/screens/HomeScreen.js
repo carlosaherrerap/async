@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, Text, TouchableOpacity,
-  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar, Image, FlatList,
+  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar, Image, FlatList, TextInput,
 } from 'react-native';
 import { Surface, ActivityIndicator, IconButton, Portal, Modal, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -108,10 +108,11 @@ const HomeScreen = ({ navigation }) => {
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugData, setDebugData] = useState(null);
 
-  // ── Modal de detalle de estadística ────────────────────────────
-  const [statsModal, setStatsModal] = useState({ visible: false, type: null, title: '', color: COLORS.blue });
-  const [statsDetail, setStatsDetail] = useState([]);
-  const [statsDetailLoading, setStatsDetailLoading] = useState(false);
+  // ── Modal de exportación ─────────────────────────────────────────
+  const getTodayLimaStr = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState(getTodayLimaStr());
+  const [exportEndDate, setExportEndDate] = useState(getTodayLimaStr());
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -334,189 +335,114 @@ const HomeScreen = ({ navigation }) => {
     </Portal>
   );
 
-  // ── Abrir modal de detalle de stats ──────────────────────────
-  const openStatsModal = async (type, title, color) => {
-    setStatsModal({ visible: true, type, title, color });
-    setStatsDetailLoading(true);
-    setStatsDetail([]);
-    await fetchStatsDetail(type);
-  };
-
-  const fetchStatsDetail = async (type) => {
+  // ── Modal de Exportación a Excel ──────────────────────────────
+  const handleDownloadExcel = async (mode) => {
     try {
-      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
-      let data = null;
-
-      const netState = await NetInfo.fetch();
-      const online = !!netState.isConnected;
-      if (online) {
-        const token = await AsyncStorage.getItem('userToken');
-        const res = await fetch(`${API_URL}/api/asistencia/reporte-diario?date=${today}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) data = await res.json();
-      }
-      if (!data) {
-        data = await global.dbHelper.getDailyAttendance(today);
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Error', 'Sesión no válida.');
+        return;
       }
 
-      const presentes = data?.presentes || [];
-      const todayStr = today;
-
-      // Filtrar según turno
-      const filterByShift = (arr) => arr.filter(item => {
-        const condStr = String(item.condicion ?? 1).trim();
-        const h = parseInt((item.hora_ingreso || '00:00').split(':')[0], 10);
-        if (shift === 'tarde') {
-          return h >= 13 || condStr === '2';
-        } else {
-          return h < 13 && condStr !== '2';
-        }
-      });
-
-      // Filtrar por sede si tiene seleccionado
-      const filterBySede = (arr) => {
-        if (!selectedSedeFilter || selectedSedeFilter === 'TODOS') return arr;
-        return arr.filter(item => (item.sede_regional || item.sede_reg || '') === selectedSedeFilter);
-      };
-
-      let filtered = filterBySede(filterByShift(presentes));
-
-      if (type === 'presentes') {
-        // todos los que tienen asistencia
-        filtered = filtered.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
-      } else if (type === 'tardanzas') {
-        filtered = filtered
-          .filter(item => item.estado === 'T')
-          .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
-      } else if (type === 'temprano') {
-        filtered = filtered
-          .filter(item => item.estado === 'P')
-          .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
+      let url = `${API_URL}/api/asistencia/exportar-excel?token=${token}`;
+      if (mode === 'hoy') {
+        const today = getTodayLimaStr();
+        url += `&date=${today}`;
+      } else if (mode === 'rango') {
+        url += `&startDate=${exportStartDate}&endDate=${exportEndDate}`;
       }
 
-      setStatsDetail(filtered);
-    } catch (e) {
-      console.error('Error fetching stats detail:', e);
-      setStatsDetail([]);
-    } finally {
-      setStatsDetailLoading(false);
+      const { Linking } = require('react-native');
+      await Linking.openURL(url);
+      setExportModalVisible(false);
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo iniciar la descarga del Excel.');
     }
   };
 
-  // ── Card de postulante para el modal de stats ─────────────────
-  const renderStatDetailCard = (item) => {
-    const tipo = item.tipo_postulante;
-    const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
-    const fullName = `${item.nombres || ''} ${item.ape_pat || ''} ${item.ape_mat || ''}`.trim();
-    const statusColor = item.estado === 'P' ? '#2563EB' : '#F1C40F';
-    const statusLabel = item.estado === 'P' ? 'TEMPRANO' : 'TARDE';
-    const marcaHora = item.fecha_hora
-      ? new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : '—';
-
-    // Marcacion 2do turno
-    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
-    const m2Raw = item.marcacion_2;
-    const m2Valid = m2Raw && m2Raw !== '0' && m2Raw !== 'null' && m2Raw.substring(0, 10) === today;
-    const m2Display = m2Valid
-      ? new Date(m2Raw.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : null;
-
-    return (
-      <Surface key={`sd-${item.id}-${item.dni}`} style={styles.sdCard} elevation={1}>
-        <View style={[styles.sdCardAccent, { backgroundColor: cfg.avatar }]} />
-        <View style={styles.sdCardContent}>
-          {/* Header: Nombre + Badge tipo */}
-          <View style={styles.sdCardHeader}>
-            <View style={[styles.sdAvatar, { backgroundColor: cfg.avatar }]}>
-              <Text style={styles.sdAvatarText}>{(item.nombres || '?')[0].toUpperCase()}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sdName} numberOfLines={1}>{fullName.toUpperCase()}</Text>
-              <Text style={styles.sdCargo} numberOfLines={1}>{(item.cargo || '—').toUpperCase()}</Text>
-            </View>
-            <View style={[styles.sdTipoBadge, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
-              <Text style={[styles.sdTipoBadgeText, { color: cfg.text }]}>{(tipo || 'SIN TIPO').toUpperCase()}</Text>
-            </View>
-          </View>
-
-          {/* Meta: DNI + Marcación + Estado */}
-          <View style={styles.sdMeta}>
-            <View style={styles.sdMetaItem}>
-              <MaterialCommunityIcons name="card-account-details" size={14} color={COLORS.blue} />
-              <Text style={styles.sdMetaText}>{item.dni || item.doc_identidad || '—'}</Text>
-            </View>
-            {item.fecha_hora && (
-              <View style={[styles.sdMetaItem, { backgroundColor: statusColor + '18', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
-                <MaterialCommunityIcons name="clock-check" size={13} color={statusColor} />
-                <Text style={[styles.sdMetaText, { color: statusColor, fontWeight: '800' }]}>{marcaHora} · {statusLabel}</Text>
-              </View>
-            )}
-            {m2Display && (
-              <View style={[styles.sdMetaItem, { backgroundColor: '#D1FAE5', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
-                <MaterialCommunityIcons name="check-circle" size={13} color="#15803D" />
-                <Text style={[styles.sdMetaText, { color: '#15803D', fontWeight: '800' }]}>2T: {m2Display}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Sede */}
-          {(item.sede_reg || item.sede_juris) && (
-            <View style={styles.sdSedeRow}>
-              <MaterialCommunityIcons name="map-marker" size={12} color={COLORS.blue} />
-              <Text style={styles.sdSedeText} numberOfLines={1}>
-                {[item.sede_reg, item.sede_juris].filter(Boolean).join(' › ')}
-              </Text>
-            </View>
-          )}
-        </View>
-      </Surface>
-    );
-  };
-
-  // ── Modal de detalle de estadística ─────────────────────────
-  const renderStatsDetailModal = () => (
+  const renderExportModal = () => (
     <Portal>
       <Modal
-        visible={statsModal.visible}
-        onDismiss={() => setStatsModal(m => ({ ...m, visible: false }))}
-        contentContainerStyle={[styles.statsDetailModal, { borderTopColor: statsModal.color }]}
+        visible={exportModalVisible}
+        onDismiss={() => setExportModalVisible(false)}
+        contentContainerStyle={styles.exportModal}
       >
-        <View style={styles.statsDetailHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.statsDetailTitle, { color: statsModal.color }]}>{statsModal.title}</Text>
-            <Text style={styles.statsDetailSubtitle}>
-              {shift === 'dia' ? 'TURNO DÍA' : 'TURNO TARDE'}
-              {selectedSedeFilter !== 'TODOS' ? ` · ${selectedSedeFilter}` : ' · TODAS LAS SEDES'}
-            </Text>
+        <View style={styles.exportModalHeader}>
+          <MaterialCommunityIcons name="file-excel-box" size={32} color={COLORS.success} />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.exportModalTitle}>EXPORTAR DATA A EXCEL</Text>
+            <Text style={styles.exportModalSub}>Selecciona el rango de fechas a descargar</Text>
           </View>
-          <TouchableOpacity onPress={() => setStatsModal(m => ({ ...m, visible: false }))}>
-            <MaterialCommunityIcons name="close" size={24} color={COLORS.muted} />
-          </TouchableOpacity>
         </View>
 
-        {statsDetailLoading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator animating color={statsModal.color} />
-            <Text style={{ color: COLORS.muted, marginTop: 10, fontSize: 12 }}>Cargando...</Text>
+        {/* Botón destacado: Descargar todo de HOY */}
+        <TouchableOpacity
+          style={styles.exportTodayBtn}
+          onPress={() => handleDownloadExcel('hoy')}
+        >
+          <MaterialCommunityIcons name="calendar-today" size={22} color="#FFFFFF" />
+          <Text style={styles.exportTodayBtnText}>DESCARGAR TODO DE HOY</Text>
+        </TouchableOpacity>
+
+        <View style={styles.exportDividerRow}>
+          <View style={styles.exportDividerLine} />
+          <Text style={styles.exportDividerText}>O RANGO PERSONALIZADO</Text>
+          <View style={styles.exportDividerLine} />
+        </View>
+
+        {/* Inputs para Rango de Fechas */}
+        <View style={styles.exportDateRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.exportInputLabel}>FECHA INICIO</Text>
+            <TextInput
+              style={styles.exportInput}
+              value={exportStartDate}
+              onChangeText={setExportStartDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#94A3B8"
+            />
           </View>
-        ) : statsDetail.length === 0 ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <MaterialCommunityIcons name="account-off" size={48} color="#CBD5E1" />
-            <Text style={{ color: '#94A3B8', marginTop: 10, fontSize: 13 }}>Sin registros</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.exportInputLabel}>FECHA FIN</Text>
+            <TextInput
+              style={styles.exportInput}
+              value={exportEndDate}
+              onChangeText={setExportEndDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#94A3B8"
+            />
           </View>
-        ) : (
-          <FlatList
-            data={statsDetail}
-            keyExtractor={(item) => `${item.id}-${item.dni}`}
-            renderItem={({ item }) => renderStatDetailCard(item)}
-            initialNumToRender={8}
-            maxToRenderPerBatch={8}
-            contentContainerStyle={{ paddingBottom: 12, paddingTop: 4 }}
-            style={{ maxHeight: 480 }}
-          />
-        )}
+        </View>
+
+        <View style={{ gap: 8, marginTop: 14 }}>
+          <Button
+            mode="contained"
+            buttonColor={COLORS.blue}
+            icon="download"
+            labelStyle={{ fontWeight: '800' }}
+            onPress={() => handleDownloadExcel('rango')}
+          >
+            DESCARGAR RANGO
+          </Button>
+
+          <Button
+            mode="outlined"
+            textColor={COLORS.inkLight}
+            icon="database-export"
+            labelStyle={{ fontWeight: '800' }}
+            onPress={() => handleDownloadExcel('todo')}
+          >
+            DESCARGAR TODO (SIN FILTROS)
+          </Button>
+
+          <Button
+            textColor={COLORS.muted}
+            labelStyle={{ fontWeight: '800' }}
+            onPress={() => setExportModalVisible(false)}
+          >
+            CANCELAR
+          </Button>
+        </View>
       </Modal>
     </Portal>
   );
@@ -619,10 +545,10 @@ const HomeScreen = ({ navigation }) => {
             <ActivityIndicator animating color={COLORS.blue} style={{ marginVertical: 20 }} />
           ) : (
             <View style={styles.statsRow}>
-              <StatCard value={stats.presentes} label="Presentes" color={COLORS.success} icon="account-check" onPress={() => openStatsModal('presentes', 'POSTULANTES PRESENTES', COLORS.success)} />
-              <StatCard value={stats.faltas} label="Faltas" color={COLORS.danger} icon="account-remove" onPress={() => navigation.navigate('Absentees')} />
-              <StatCard value={stats.tardanzas} label="Tardanzas" color={COLORS.warning} icon="account-clock" onPress={() => openStatsModal('tardanzas', 'POSTULANTES CON TARDANZA', COLORS.warning)} />
-              <StatCard value={stats.temprano ?? 0} label="Temprano" color={COLORS.blue} icon="account-star" onPress={() => openStatsModal('temprano', 'POSTULANTES PUNTUALES / TEMPRANO', COLORS.blue)} />
+              <StatCard value={stats.presentes} label="Presentes" color={COLORS.success} icon="account-check" onPress={() => navigation.navigate('StatDetail', { type: 'presentes', title: 'POSTULANTES PRESENTES', color: COLORS.success, shift, filterSede: selectedSedeFilter })} />
+              <StatCard value={stats.faltas} label="Faltas" color={COLORS.danger} icon="account-remove" onPress={() => navigation.navigate('StatDetail', { type: 'faltas', title: 'FALTAS DE HOY', color: COLORS.danger, shift, filterSede: selectedSedeFilter })} />
+              <StatCard value={stats.tardanzas} label="Tardanzas" color={COLORS.warning} icon="account-clock" onPress={() => navigation.navigate('StatDetail', { type: 'tardanzas', title: 'POSTULANTES CON TARDANZA', color: COLORS.warning, shift, filterSede: selectedSedeFilter })} />
+              <StatCard value={stats.temprano ?? 0} label="Temprano" color={COLORS.blue} icon="account-star" onPress={() => navigation.navigate('StatDetail', { type: 'temprano', title: 'POSTULANTES PUNTUALES', color: COLORS.blue, shift, filterSede: selectedSedeFilter })} />
             </View>
           )}
         </Animated.View>
@@ -654,16 +580,10 @@ const HomeScreen = ({ navigation }) => {
             title="EXPORTAR DATA"
             icon="file-excel"
             themeColor={COLORS.success}
-            onPress={async () => {
-              try {
-                const token = await AsyncStorage.getItem('userToken');
-                if (!token) return;
-                const url = `${API_URL}/api/asistencia/exportar-excel?token=${token}`;
-                const { Linking } = require('react-native');
-                await Linking.openURL(url);
-              } catch (err) {
-                Alert.alert('Error', 'No se pudo descargar el reporte.');
-              }
+            onPress={() => {
+              setExportStartDate(getTodayLimaStr());
+              setExportEndDate(getTodayLimaStr());
+              setExportModalVisible(true);
             }}
           />
           {(userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su') && (
@@ -697,7 +617,7 @@ const HomeScreen = ({ navigation }) => {
       </ScrollView>
 
       {renderDebugModal()}
-      {renderStatsDetailModal()}
+      {renderExportModal()}
     </View>
   );
 };
@@ -1045,6 +965,72 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#64748B',
     fontWeight: '600',
+  },
+
+  // ── Export Modal ─────────────────────────────────────────────
+  exportModal: {
+    backgroundColor: COLORS.white,
+    padding: 20, margin: 16,
+    borderRadius: 16,
+    borderTopWidth: 5, borderTopColor: COLORS.success,
+  },
+  exportModalHeader: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 16,
+  },
+  exportModalTitle: { color: COLORS.ink, fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
+  exportModalSub: { color: COLORS.muted, fontSize: 11, fontWeight: '600', marginTop: 2 },
+  exportTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    elevation: 2,
+  },
+  exportTodayBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  exportDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  exportDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  exportDividerText: {
+    color: '#94A3B8',
+    fontSize: 9,
+    fontWeight: '900',
+    marginHorizontal: 8,
+  },
+  exportDateRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  exportInputLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  exportInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '700',
   },
 });
 

@@ -19,6 +19,7 @@ import ConfigScreen from './src/screens/ConfigScreen';
 import RegisterWorkerScreen from './src/screens/RegisterWorkerScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import PhotoAttendanceScreen from './src/screens/PhotoAttendanceScreen';
+import StatDetailScreen from './src/screens/StatDetailScreen';
 import { API_URL } from './src/config';
 
 const Stack = createStackNavigator();
@@ -568,8 +569,8 @@ global.dbHelper = {
           LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
           LEFT JOIN turnos t ON t.principal_id = p.id
           WHERE (
-            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR
-            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?)
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.id IS NOT NULL) OR
+            (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?)
           ) ${sedeWhere}
         `, [todayStr, todayStr, ...sedeParams]);
         presentes = presentesRes[0]?.count || 0;
@@ -580,8 +581,8 @@ global.dbHelper = {
           LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
           LEFT JOIN turnos t ON t.principal_id = p.id
           WHERE (
-            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.estado = 'T') OR
-            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'T')
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'T') OR
+            (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'T')
           ) ${sedeWhere}
         `, [todayStr, todayStr, ...sedeParams]);
         tardanzas = tardanzasRes[0]?.count || 0;
@@ -592,8 +593,8 @@ global.dbHelper = {
           LEFT JOIN asistencias a ON a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = ?
           LEFT JOIN turnos t ON t.principal_id = p.id
           WHERE (
-            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.estado = 'P') OR
-            (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'P')
+            (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'P') OR
+            (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ? AND t.estado = 'P')
           ) ${sedeWhere}
         `, [todayStr, todayStr, ...sedeParams]);
         temprano = tempranoRes[0]?.count || 0;
@@ -601,8 +602,8 @@ global.dbHelper = {
         asistenciaPorCargo = await db.getAllAsync(`
           SELECT c.nombre as cargo, 
                  COUNT(
-                   CASE WHEN (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR 
-                             (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?) 
+                   CASE WHEN (CAST(SUBSTR(p.hora_ingreso, 1, 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.id IS NOT NULL) OR 
+                             (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND SUBSTR(t.marcacion_2, 1, 10) = ?) 
                         THEN 1 ELSE NULL END
                  ) as presentes,
                  (SELECT COUNT(*) FROM principal p2 ${sedeJoin.replace(/\bp\b/g, 'p2')} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (CAST(SUBSTR(p2.hora_ingreso, 1, 2) AS INTEGER) >= 13 OR t2.condicion = 2) ${sedeWhere.replace(/\bp\b/g, 'p2')}) as total_cargo
@@ -1670,7 +1671,8 @@ export default function App() {
           <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'SISTEMA DE MARCACION' }} />
           <Stack.Screen name="RegisterWorker" component={RegisterWorkerScreen} options={{ title: 'INSCRIPCION DE POSTULANTE' }} />
           <Stack.Screen name="Manual" component={ManualEntryScreen} options={{ title: 'INGRESO MANUAL' }} />
-          <Stack.Screen name="Absentees" component={AbsenteesScreen} options={{ title: 'FALTAS DE HOY' }} />
+          <Stack.Screen name="Absentees" component={StatDetailScreen} options={{ title: 'FALTAS DE HOY' }} />
+          <Stack.Screen name="StatDetail" component={StatDetailScreen} options={({ route }) => ({ title: route.params?.title || 'DETALLE DE ASISTENCIA' })} />
           <Stack.Screen name="PersonalList" component={PersonalListScreen} options={{ title: 'PERSONAL' }} />
           <Stack.Screen name="AttendanceControl" component={AttendanceControlScreen} options={{ title: 'EVALUACION' }} />
           <Stack.Screen name="Config" component={ConfigScreen} options={{ title: 'CONFIGURACION' }} />

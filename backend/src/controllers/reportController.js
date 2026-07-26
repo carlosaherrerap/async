@@ -3,11 +3,48 @@ const XLSX = require('xlsx');
 
 const exportAttendanceToExcel = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+    const roleStr = String(userRole || '').trim().toLowerCase();
+    const isSU = ['admin', 'administrador', 'su', 'super', 'superusuario'].includes(roleStr);
+
     try {
+        const { startDate, endDate, date } = req.query;
+
+        let whereClauses = [];
+        let params = [];
+
+        // Filtro por rol si no es admin/SU
+        if (!isSU && userRole) {
+            params.push(userRole);
+            const p1 = `$${params.length}`;
+            params.push(`${userRole}-%`);
+            const p2 = `$${params.length}`;
+            whereClauses.push(`(sj.sede_regional_id = ${p1} OR p.sede_juris_id LIKE ${p2})`);
+        }
+
+        // Filtro por rango de fechas o fecha única
+        if (startDate && endDate) {
+            params.push(startDate);
+            const pStart = `$${params.length}`;
+            params.push(endDate);
+            const pEnd = `$${params.length}`;
+            whereClauses.push(`(
+                (asist.fecha_hora AT TIME ZONE 'America/Lima')::date BETWEEN ${pStart} AND ${pEnd}
+                OR (t.marcacion_2 IS NOT NULL AND t.marcacion_2 != '0' AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) BETWEEN ${pStart} AND ${pEnd})
+            )`);
+        } else if (date) {
+            params.push(date);
+            const pDate = `$${params.length}`;
+            whereClauses.push(`(
+                (asist.fecha_hora AT TIME ZONE 'America/Lima')::date = ${pDate}
+                OR (t.marcacion_2 IS NOT NULL AND t.marcacion_2 != '0' AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = ${pDate})
+            )`);
+        }
+
+        let whereStr = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+
         let query = `
             SELECT 
-                asist.id as "Id",
+                p.id as "Id",
                 'DNI' as "tipo_doc",
                 p.doc_identidad as "numero_doc",
                 p.ape_pat as "apellido_paterno",
@@ -20,10 +57,14 @@ const exportAttendanceToExcel = async (req, res) => {
                 tp.descripcion as "tipo_postulante_id",
                 c.nombre as "CARGO",
                 p.turno as "TURNO",
-                p.hora_ingreso::text as "HORA_PROGRAMADA",
-                to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'YYYY-MM-DD') as "FECHA_REGISTRO",
-                to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'HH24:MI:SS') as "HORA_REGISTRO",
-                asist.estado as "ESTADO_ASISTENCIA",
+                COALESCE(t.condicion, 1) as "turnos",
+                p.hora_ingreso::text as "hora ingreso 1",
+                COALESCE(to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'HH24:MI:SS'), '0') as "marcacion 1",
+                COALESCE(t.hora_ingreso_2::text, '0') as "hora ingreso 2",
+                COALESCE(t.marcacion_2::text, '0') as "marcacion 2",
+                COALESCE(t.salida::text, '0') as "marcacion_salida",
+                COALESCE(to_char((asist.fecha_hora AT TIME ZONE 'America/Lima'), 'YYYY-MM-DD'), '') as "FECHA_REGISTRO",
+                COALESCE(asist.estado, 'NA') as "ESTADO_ASISTENCIA",
                 CASE 
                     WHEN asist.estado IN ('P', 'T') THEN 'A'
                     ELSE 'NA'
@@ -31,19 +72,16 @@ const exportAttendanceToExcel = async (req, res) => {
                 COALESCE(asist.observaciones, '') as "OBSERVACIONES",
                 COALESCE(u.username, 'desconocido') as "USUARIO_REGISTRO"
             FROM principal p
+            LEFT JOIN turnos t ON t.principal_id = p.id
             LEFT JOIN asistencias asist ON asist.principal_id = p.id
             LEFT JOIN cargos c ON p.cargo_id = c.id
             LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-            JOIN sede_juris sj ON p.sede_juris_id = sj.id
-            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
             LEFT JOIN usuarios u ON asist.usuario_registro_id = u.id
+            ${whereStr}
+            ORDER BY p.ape_pat ASC, p.ape_mat ASC, asist.fecha_hora DESC
         `;
-        const params = [];
-        if (!isSU) {
-            query += ` WHERE sj.sede_regional_id = $1`;
-            params.push(userRole);
-        }
-        query += ` ORDER BY p.ape_pat ASC, p.ape_mat ASC, asist.fecha_hora DESC`;
 
         const result = await db.query(query, params);
 
@@ -130,24 +168,24 @@ const getStats = async (req, res) => {
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.id IS NOT NULL) OR
-                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.id IS NOT NULL) OR
+                       (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
                      ) ${roleWhere}) as presentes,
                      
                     (SELECT COUNT(*) FROM principal p ${roleJoin}
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.estado = 'T') OR
-                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'T')
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'T') OR
+                       (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'T')
                      ) ${roleWhere}) as tardanzas,
                      
                     (SELECT COUNT(*) FROM principal p ${roleJoin}
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a.estado = 'P') OR
-                       (t.condicion = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'P')
+                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'P') OR
+                       (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'P')
                      ) ${roleWhere}) as temprano
             `;
         } else {
