@@ -12,6 +12,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { COLORS } from '../theme/colors';
 import { API_URL } from '../config';
 
+import DropdownModal from '../components/DropdownModal';
+
 const { width } = Dimensions.get('window');
 const COL = (width - 52) / 2;
 
@@ -98,6 +100,8 @@ const HomeScreen = ({ navigation }) => {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [shift, setShift] = useState('dia');
+  const [selectedSedeFilter, setSelectedSedeFilter] = useState('TODOS');
+  const [sedesDisponibles, setSedesDisponibles] = useState([]);
   const [isOnline, setIsOnline] = useState(true);
   const [sedeName, setSedeName] = useState('');   // nombre legible de la sede regional
 
@@ -107,9 +111,42 @@ const HomeScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
+  const isUserAdminOrSU = (r) => {
+    if (!r) return false;
+    const str = String(r).trim().toLowerCase();
+    return str === 'admin' || str === 'administrador' || str === 'su' || str === 'super' || str === 'superusuario';
+  };
+
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => setIsOnline(!!state.isConnected));
     return () => unsubscribe();
+  }, []);
+
+  const fetchSedesRegionales = async () => {
+    try {
+      const db = global.dbHelper?.db;
+      if (db) {
+        const rows = await db.getAllAsync('SELECT id, nombre FROM sede_regional ORDER BY nombre ASC');
+        if (rows && rows.length > 0) {
+          setSedesDisponibles(rows.map(r => r.nombre));
+          return;
+        }
+      }
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch(`${API_URL}/api/configuracion/sedes-regionales`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSedesDisponibles((data || []).map(s => s.nombre));
+      }
+    } catch (e) {
+      console.error('Error cargando sedes regionales:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSedesRegionales();
   }, []);
 
   const animateIn = () => {
@@ -121,7 +158,7 @@ const HomeScreen = ({ navigation }) => {
     ]).start();
   };
 
-  const fetchStats = async (currentShift = shift) => {
+  const fetchStats = async (currentShift = shift, currentSede = selectedSedeFilter) => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const userData = await AsyncStorage.getItem('userData');
@@ -137,7 +174,7 @@ const HomeScreen = ({ navigation }) => {
       }
 
       // Si no tenemos el nombre de la sede y el rol es el ID de la sede (ej. '01')
-      if (!currentSedeName && currentRole && currentRole.toLowerCase() !== 'admin' && currentRole.toLowerCase() !== 'su') {
+      if (!currentSedeName && currentRole && !isUserAdminOrSU(currentRole)) {
         try {
           const db = global.dbHelper?.db;
           if (db) {
@@ -157,14 +194,15 @@ const HomeScreen = ({ navigation }) => {
 
       if (online) {
         try {
-          const res = await fetch(`${API_URL}/api/asistencia/estadisticas?shift=${currentShift}`, {
+          const sedeQuery = currentSede && currentSede !== 'TODOS' ? `&sede=${encodeURIComponent(currentSede)}` : '';
+          const res = await fetch(`${API_URL}/api/asistencia/estadisticas?shift=${currentShift}${sedeQuery}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.status === 401 || res.status === 403) { handleLogout(); return; }
           if (res.ok) { setStats(await res.json()); animateIn(); return; }
         } catch { }
       }
-      const localStats = await global.dbHelper.getStats(currentShift);
+      const localStats = await global.dbHelper.getStats(currentShift, currentSede);
       setStats(localStats);
       animateIn();
     } catch (e) {
@@ -180,8 +218,8 @@ const HomeScreen = ({ navigation }) => {
     navigation.replace('Login');
   };
 
-  useFocusEffect(useCallback(() => { fetchStats(shift); }, [shift]));
-  const onRefresh = () => { setRefreshing(true); fetchStats(shift); };
+  useFocusEffect(useCallback(() => { fetchStats(shift, selectedSedeFilter); }, [shift, selectedSedeFilter]));
+  const onRefresh = () => { setRefreshing(true); fetchStats(shift, selectedSedeFilter); };
 
   const fetchDebugData = async () => {
     const d = await global.dbHelper.getDbDiagnostics();
@@ -355,6 +393,26 @@ const HomeScreen = ({ navigation }) => {
             <Text style={[styles.shiftToggleText, shift === 'tarde' && styles.shiftToggleTextActive]}>TURNO TARDE</Text>
           </TouchableOpacity>
         </View>
+
+        {isUserAdminOrSU(userRole) && (
+          <View style={styles.sedeFilterDropdownWrap}>
+            <DropdownModal
+              label="Sede Regional"
+              value={selectedSedeFilter}
+              displayText={selectedSedeFilter === 'TODOS' ? 'Todas las Sedes Regionales' : selectedSedeFilter}
+              options={[
+                { value: 'TODOS', label: 'Todas las Sedes Regionales' },
+                ...sedesDisponibles.map(s => ({ value: s, label: s }))
+              ]}
+              onSelect={(val) => {
+                setSelectedSedeFilter(val);
+                fetchStats(shift, val);
+              }}
+              activeColor={COLORS.blue}
+              style={styles.sedeDropdownHeader}
+            />
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -507,6 +565,25 @@ const styles = StyleSheet.create({
   },
   shiftToggleTextActive: {
     color: '#FFF',
+  },
+  sedeFilterDropdownWrap: {
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 6,
+    zIndex: 99,
+  },
+  sedeDropdownHeader: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
 
   // ── Scroll & Content ────────────────────────────────────────

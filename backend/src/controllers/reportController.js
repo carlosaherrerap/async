@@ -98,14 +98,27 @@ const getAbsentees = async (req, res) => {
 
 const getStats = async (req, res) => {
     const userRole = req.user.rol;
-    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'administrador';
     const shift = req.query.shift === 'tarde' ? 'tarde' : 'dia';
+    const filterSede = req.query.sede;
+
     try {
         let params = [];
-        const roleJoin = isSU ? '' : 'JOIN sede_juris sj ON p.sede_juris_id = sj.id';
-        const roleWhere = isSU ? '' : 'AND sj.sede_regional_id = $1';
-        const roleJoinSub = isSU ? '' : 'JOIN sede_juris sj ON p2.sede_juris_id = sj.id';
-        if (!isSU) params.push(userRole);
+        let roleJoin = '';
+        let roleWhere = '';
+        let roleJoinSub = '';
+
+        if (!isSU) {
+            roleJoin = 'JOIN sede_juris sj ON p.sede_juris_id = sj.id';
+            roleWhere = 'AND sj.sede_regional_id = $1';
+            roleJoinSub = 'JOIN sede_juris sj ON p2.sede_juris_id = sj.id';
+            params.push(userRole);
+        } else if (filterSede && filterSede !== 'TODOS') {
+            roleJoin = 'LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id';
+            roleWhere = 'AND (sr.nombre = $1 OR sr.id::text = $1 OR sj.sede_regional_id::text = $1)';
+            roleJoinSub = 'LEFT JOIN sede_juris sj ON p2.sede_juris_id = sj.id LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id';
+            params.push(filterSede);
+        }
 
         let statsQuery = '';
         if (shift === 'tarde') {
@@ -217,7 +230,7 @@ const getDailyAttendance = async (req, res) => {
     const { date } = req.query;
     const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
     const userRole = req.user.rol;
-    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
+    const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'administrador';
 
     try {
         let queryPresentes = `
@@ -225,13 +238,16 @@ const getDailyAttendance = async (req, res) => {
                    COALESCE(c.nombre, 'Sin Cargo') as cargo, COALESCE(tp.descripcion, 'Sin Tipo') as tipo_postulante,
                    sr.nombre as sede_reg, sr.nombre as sede_regional, sj.nombre as sede_juris,
                    p.local, p.turno, p.aula,
-                   p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora
+                   p.hora_ingreso::text as hora_ingreso, a.estado, a.fecha_hora,
+                   COALESCE(t.condicion, 1) as condicion, t.hora_ingreso_2::text as hora_ingreso_2,
+                   t.marcacion_2::text as marcacion_2, t.estado as estado_turno_2, t.salida::text as salida
             FROM asistencias a
             JOIN principal p ON a.principal_id = p.id
             LEFT JOIN cargos c ON p.cargo_id = c.id
             LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-            JOIN sede_juris sj ON p.sede_juris_id = sj.id
-            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            LEFT JOIN turnos t ON t.principal_id = p.id
             WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
         `;
         let queryAusentes = `
@@ -239,12 +255,15 @@ const getDailyAttendance = async (req, res) => {
                    COALESCE(c.nombre, 'Sin Cargo') as cargo, COALESCE(tp.descripcion, 'Sin Tipo') as tipo_postulante,
                    sr.nombre as sede_reg, sr.nombre as sede_regional, sj.nombre as sede_juris,
                    p.local, p.turno, p.aula,
-                   p.hora_ingreso::text as hora_ingreso
+                   p.hora_ingreso::text as hora_ingreso,
+                   COALESCE(t.condicion, 1) as condicion, t.hora_ingreso_2::text as hora_ingreso_2,
+                   t.marcacion_2::text as marcacion_2, t.estado as estado_turno_2, t.salida::text as salida
             FROM principal p
             LEFT JOIN cargos c ON p.cargo_id = c.id
             LEFT JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
-            JOIN sede_juris sj ON p.sede_juris_id = sj.id
-            JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
+            LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+            LEFT JOIN turnos t ON t.principal_id = p.id
             WHERE NOT EXISTS (
                 SELECT 1 FROM asistencias a 
                 WHERE a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = $1

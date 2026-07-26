@@ -379,6 +379,12 @@ const AttendanceControlScreen = ({ navigation }) => {
   // Sedes regionales cargadas desde la API/SQLite (no hardcodeadas)
   const [sedesDisponibles, setSedesDisponibles] = useState([]);
 
+  const isUserAdminOrSU = (r) => {
+    if (!r) return false;
+    const str = String(r).trim().toLowerCase();
+    return str === 'admin' || str === 'administrador' || str === 'su' || str === 'super' || str === 'superusuario';
+  };
+
   useEffect(() => {
     const checkRole = async () => {
       try {
@@ -387,7 +393,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           const rol = JSON.parse(userData).rol;
           setUserRole(rol);
           // Si el rol NO es admin ni su, forzar pestaña ASISTENCIA
-          const isPrivileged = rol?.toLowerCase() === 'admin' || rol?.toLowerCase() === 'su';
+          const isPrivileged = isUserAdminOrSU(rol);
           if (!isPrivileged) {
             setActiveTab('ASISTENCIA');
           }
@@ -547,7 +553,7 @@ const AttendanceControlScreen = ({ navigation }) => {
     });
   };
 
-  const isPrivilegedRole = userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su';
+  const isPrivilegedRole = isUserAdminOrSU(userRole);
 
   const renderTabs = () => (
     <View style={styles.tabContainer}>
@@ -744,15 +750,26 @@ const AttendanceControlScreen = ({ navigation }) => {
   };
 
   const renderAsistencia = () => {
+    const checkTurnoMatch = (item) => {
+      if (filterTurno === 'TODOS') return true;
+      const condStr = String(item.condicion ?? 1).trim();
+      if (filterTurno === '2') {
+        return condStr === '2';
+      }
+      if (filterTurno === '1') {
+        return condStr !== '2';
+      }
+      return true;
+    };
+
     const filteredData = {
       presentes: dailyData.presentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        // Usar sede_regional (nombre del JOIN) o sede_reg como fallback
         const sedeItem = item.sede_regional || item.sede_reg || '';
         const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        const matchTurno = filterTurno === 'TODOS' || String(item.condicion ?? 1) === filterTurno;
+        const matchTurno = checkTurnoMatch(item);
         return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
       }),
       ausentes: dailyData.ausentes.filter(item => {
@@ -761,7 +778,7 @@ const AttendanceControlScreen = ({ navigation }) => {
         const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        const matchTurno = filterTurno === 'TODOS' || String(item.condicion ?? 1) === filterTurno;
+        const matchTurno = checkTurnoMatch(item);
         return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
       }),
     };
@@ -908,6 +925,12 @@ const AttendanceControlScreen = ({ navigation }) => {
     const fullName = item.nombre || `${item.nombres || ''} ${item.ape_pat || ''} ${item.ape_mat || ''}`.trim();
     const turnoLabel = item.turno === 'DIA' ? 'DIURNO' : item.turno === 'TARDE' ? 'TARDE' : item.turno;
 
+    const isDoubleTurno = String(item.condicion ?? 1) === '2';
+    const horaIngreso1 = item.hora_ingreso ? item.hora_ingreso.substring(0, 5) : '—';
+    const horaIngreso2 = (item.hora_ingreso_2 && item.hora_ingreso_2 !== '0')
+      ? item.hora_ingreso_2.substring(0, 5)
+      : '13:00';
+
     return (
       <Surface key={`${item.id}-${item.dni}`} style={[styles.card, { borderLeftColor: cfg.avatar }]} elevation={1}>
         {/* Fila de encabezado */}
@@ -934,7 +957,7 @@ const AttendanceControlScreen = ({ navigation }) => {
 
         <View style={styles.cardDivider} />
 
-        {/* Fila de DNI + Turno */}
+        {/* Fila de DNI + Turno + Botones Visuales de Horas de Ingreso */}
         <View style={styles.cardMeta}>
           <View style={styles.cardMetaItem}>
             <MaterialCommunityIcons name="card-account-details" size={18} color={COLORS.blue} />
@@ -949,12 +972,22 @@ const AttendanceControlScreen = ({ navigation }) => {
               <Text style={styles.cardMetaText}>{turnoLabel.toUpperCase()}</Text>
             </View>
           ) : null}
-          {item.hora_ingreso ? (
-            <View style={styles.cardMetaItem}>
-              <MaterialCommunityIcons name="clock-fast" size={18} color={COLORS.muted} />
-              <Text style={styles.cardMetaText}>{item.hora_ingreso?.substring(0, 5)}</Text>
+
+          {/* Botón 1er Turno (hora_ingreso de tabla principal) */}
+          {horaIngreso1 !== '—' && (
+            <View style={[styles.cardMetaItem, styles.horaPill]}>
+              <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.blue} />
+              <Text style={styles.horaPillText}>{horaIngreso1}</Text>
             </View>
-          ) : null}
+          )}
+
+          {/* Botón 2do Turno (hora_ingreso_2 de tabla turnos) - Solo si condicion === 2 */}
+          {isDoubleTurno && (
+            <View style={[styles.cardMetaItem, styles.horaPill, styles.horaPillTurno2]}>
+              <MaterialCommunityIcons name="clock-fast" size={14} color="#7C3AED" />
+              <Text style={[styles.horaPillText, { color: '#7C3AED' }]}>{horaIngreso2}</Text>
+            </View>
+          )}
         </View>
 
         {/* Fila de Sede Regional + Sede Jurisdiccional */}
@@ -968,7 +1001,7 @@ const AttendanceControlScreen = ({ navigation }) => {
           </View>
         ) : null}
 
-        {/* Aula + Local / Marcación */}
+        {/* Aula + Local / Marcaciones */}
         <View style={styles.cardFooter}>
           <MaterialCommunityIcons name="office-building-marker" size={16} color={COLORS.muted} />
           <Text style={styles.cardFooterText} numberOfLines={1}>
@@ -986,6 +1019,15 @@ const AttendanceControlScreen = ({ navigation }) => {
               </Text>
             </>
           )}
+          {item.salida && (
+            <>
+              <View style={{ width: 1.5, height: 12, backgroundColor: COLORS.border, marginHorizontal: 6 }} />
+              <MaterialCommunityIcons name="logout" size={16} color="#DC2626" />
+              <Text style={[styles.cardFooterText, { color: '#DC2626' }]}>
+                SALIDA: {new Date(item.salida).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            </>
+          )}
         </View>
       </Surface>
     );
@@ -1000,14 +1042,17 @@ const AttendanceControlScreen = ({ navigation }) => {
         existente: 0,
         asistieron: 0,
         titulares: 0,
-        reserva: 0
+        reserva: 0,
+        turno1: 0,
+        turno2: 0,
+        salidas: 0,
       };
     });
 
     dailyData.presentes.forEach(item => {
       const cargoName = item.cargo || '—';
       if (!group[cargoName]) {
-        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0 };
+        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0, turno1: 0, turno2: 0, salidas: 0 };
       }
       group[cargoName].existente += 1;
       group[cargoName].asistieron += 1;
@@ -1016,14 +1061,30 @@ const AttendanceControlScreen = ({ navigation }) => {
       } else {
         group[cargoName].reserva += 1;
       }
+
+      if (String(item.condicion ?? 1) === '2') {
+        group[cargoName].turno2 += 1;
+      } else {
+        group[cargoName].turno1 += 1;
+      }
+
+      if (item.salida) {
+        group[cargoName].salidas += 1;
+      }
     });
 
     dailyData.ausentes.forEach(item => {
       const cargoName = item.cargo || '—';
       if (!group[cargoName]) {
-        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0 };
+        group[cargoName] = { cargo: cargoName, existente: 0, asistieron: 0, titulares: 0, reserva: 0, turno1: 0, turno2: 0, salidas: 0 };
       }
       group[cargoName].existente += 1;
+
+      if (String(item.condicion ?? 1) === '2') {
+        group[cargoName].turno2 += 1;
+      } else {
+        group[cargoName].turno1 += 1;
+      }
     });
 
     return Object.values(group);
@@ -1073,12 +1134,18 @@ const AttendanceControlScreen = ({ navigation }) => {
                   <View style={styles.reportCol}>
                     <Text style={styles.reportLabel}>CANTIDAD EXISTENTE</Text>
                     <Text style={styles.reportValue}>{c.existente}</Text>
+                    <Text style={styles.reportSubValue}>({c.turno1} de 1 turno · {c.turno2} de 2 turnos)</Text>
                   </View>
                   <View style={styles.reportCol}>
                     <Text style={styles.reportLabel}>ASISTIERON HOY ({formattedDate})</Text>
                     <Text style={[styles.reportValue, { color: '#1565C0' }]}>
                       {c.asistieron} <Text style={styles.reportSubValue}>({c.titulares} titulares + {c.reserva} reserva)</Text>
                     </Text>
+                    {c.salidas > 0 && (
+                      <Text style={[styles.reportSubValue, { color: '#DC2626', marginTop: 2, fontWeight: 'bold' }]}>
+                        {c.salidas} salidas registradas
+                      </Text>
+                    )}
                   </View>
                 </View>
               </Surface>
@@ -1471,9 +1538,26 @@ const styles = StyleSheet.create({
     marginTop: 2, letterSpacing: 0.2,
   },
   cardDivider: { backgroundColor: COLORS.surface, marginBottom: 8, height: 1.5 },
-  cardMeta: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginBottom: 6 },
+  cardMeta: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginBottom: 6, alignItems: 'center' },
   cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   cardMetaText: { color: COLORS.inkLight, fontSize: 12, fontWeight: '800' },
+  horaPill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  horaPillTurno2: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#DDD6FE',
+  },
+  horaPillText: {
+    color: COLORS.blue,
+    fontSize: 11,
+    fontWeight: '900',
+  },
 
   sedeRow: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
