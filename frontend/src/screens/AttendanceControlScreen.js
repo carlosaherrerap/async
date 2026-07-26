@@ -684,20 +684,28 @@ const AttendanceControlScreen = ({ navigation }) => {
   };
 
   const renderResumen = () => {
-    if (!stats) return null;
+    if (!stats) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
+          <MaterialCommunityIcons name="chart-bar" size={48} color="#CBD5E1" />
+          <Text style={{ color: '#94A3B8', marginTop: 12, fontSize: 14 }}>Cargando estadísticas...</Text>
+        </View>
+      );
+    }
+    const metasPorCargo = Array.isArray(stats.metasPorCargo) ? stats.metasPorCargo : [];
     return (
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         <View style={styles.kpiContainer}>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, { color: '#15803D' }]}>{stats.presentes}</Text>
+            <Text style={[styles.kpiValue, { color: '#15803D' }]}>{stats.presentes ?? 0}</Text>
             <Text style={styles.kpiLabel}>ASISTENCIAS</Text>
           </Surface>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, { color: '#B91C1C' }]}>{stats.faltas}</Text>
+            <Text style={[styles.kpiValue, { color: '#B91C1C' }]}>{stats.faltas ?? 0}</Text>
             <Text style={styles.kpiLabel}>FALTAS / NO REG</Text>
           </Surface>
           <Surface style={styles.kpiCard} elevation={0}>
-            <Text style={[styles.kpiValue, { color: '#F1C40F' }]}>{stats.tardanzas}</Text>
+            <Text style={[styles.kpiValue, { color: '#F1C40F' }]}>{stats.tardanzas ?? 0}</Text>
             <Text style={styles.kpiLabel}>TARDANZAS</Text>
           </Surface>
           <Surface style={styles.kpiCard} elevation={0}>
@@ -713,7 +721,9 @@ const AttendanceControlScreen = ({ navigation }) => {
 
         <Surface style={styles.chartCard} elevation={0}>
           <Text style={styles.chartTitle}>METAS POR CARGO (TOTALES REGISTRADOS)</Text>
-          {stats.metasPorCargo.map(m => {
+          {metasPorCargo.length === 0 ? (
+            <Text style={{ color: '#94A3B8', fontSize: 13, textAlign: 'center', paddingVertical: 12 }}>Sin datos de metas configuradas</Text>
+          ) : metasPorCargo.map(m => {
             const registeredCount = parseInt(m.registrados || 0);
             const limitVal = parseInt(m.meta || 0);
             const perc = limitVal > 0 ? (registeredCount / limitVal) * 100 : 0;
@@ -750,28 +760,47 @@ const AttendanceControlScreen = ({ navigation }) => {
   };
 
   const renderAsistencia = () => {
+    // Fecha de hoy en formato YYYY-MM-DD para comparar marcacion_2
+    const todayStr = selectedDate;
+
     const checkTurnoMatch = (item) => {
       if (filterTurno === 'TODOS') return true;
       const condStr = String(item.condicion ?? 1).trim();
-      if (filterTurno === '2') {
-        return condStr === '2';
-      }
-      if (filterTurno === '1') {
-        return condStr !== '2';
-      }
+      if (filterTurno === '2') return condStr === '2';
+      if (filterTurno === '1') return condStr !== '2';
       return true;
     };
 
+    // Para condicion=2 en filtro '2 Turnos': ASISTIERON = tienen marcacion_2 válida HOY
+    const hasMarcacion2Hoy = (item) => {
+      const m2 = item.marcacion_2;
+      return m2 && m2 !== '0' && m2 !== 'null' && m2.substring(0, 10) === todayStr;
+    };
+
     const filteredData = {
-      presentes: dailyData.presentes.filter(item => {
-        const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
-        const sedeItem = item.sede_regional || item.sede_reg || '';
-        const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
-        const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
-        const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        const matchTurno = checkTurnoMatch(item);
-        return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
-      }),
+      presentes: (() => {
+        const base = [...dailyData.presentes];
+        // Si filtro es 2 Turnos: incluir ausentes de 1er turno que SÍ tienen marcacion_2
+        if (filterTurno === '2') {
+          dailyData.ausentes.forEach(item => {
+            const condStr = String(item.condicion ?? 1).trim();
+            if (condStr === '2' && hasMarcacion2Hoy(item)) base.push(item);
+          });
+        }
+        return base.filter(item => {
+          const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
+          const sedeItem = item.sede_regional || item.sede_reg || '';
+          const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
+          const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
+          const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
+          const matchTurno = checkTurnoMatch(item);
+          // Para filtro 2 Turnos: solo los que marcaron 2do turno hoy
+          if (filterTurno === '2') {
+            return matchCargo && matchSede && matchTipo && matchDni && matchTurno && hasMarcacion2Hoy(item);
+          }
+          return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
+        });
+      })(),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
         const sedeItem = item.sede_regional || item.sede_reg || '';
@@ -779,6 +808,10 @@ const AttendanceControlScreen = ({ navigation }) => {
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
         const matchTurno = checkTurnoMatch(item);
+        // Para filtro 2 Turnos: ausentees son condicion=2 que NO marcaron 2do turno
+        if (filterTurno === '2') {
+          return matchCargo && matchSede && matchTipo && matchDni && matchTurno && !hasMarcacion2Hoy(item);
+        }
         return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
       }),
     };
@@ -926,10 +959,26 @@ const AttendanceControlScreen = ({ navigation }) => {
     const turnoLabel = item.turno === 'DIA' ? 'DIURNO' : item.turno === 'TARDE' ? 'TARDE' : item.turno;
 
     const isDoubleTurno = String(item.condicion ?? 1) === '2';
-    const horaIngreso1 = item.hora_ingreso ? item.hora_ingreso.substring(0, 5) : '—';
-    const horaIngreso2 = (item.hora_ingreso_2 && item.hora_ingreso_2 !== '0')
-      ? item.hora_ingreso_2.substring(0, 5)
-      : '13:00';
+
+    // Hora 1er turno: solo mostrar si tiene un valor real (no '0', no null)
+    const horaIngreso1Raw = item.hora_ingreso;
+    const horaIngreso1 = (horaIngreso1Raw && horaIngreso1Raw !== '0' && horaIngreso1Raw !== '00:00')
+      ? horaIngreso1Raw.substring(0, 5)
+      : null;
+
+    // Hora 2do turno programada: solo mostrar si condicion=2 y tiene valor real
+    const horaIngreso2Raw = item.hora_ingreso_2;
+    const horaIngreso2 = (isDoubleTurno && horaIngreso2Raw && horaIngreso2Raw !== '0' && horaIngreso2Raw !== '00:00')
+      ? horaIngreso2Raw.substring(0, 5)
+      : (isDoubleTurno ? '13:00' : null);
+
+    // Marcación real del 2do turno (si existe y es de hoy)
+    const marcacion2Raw = item.marcacion_2;
+    const marcacion2Valid = marcacion2Raw && marcacion2Raw !== '0' && marcacion2Raw !== 'null' &&
+      marcacion2Raw.substring(0, 10) === selectedDate;
+    const marcacion2Display = marcacion2Valid
+      ? new Date(marcacion2Raw.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : null;
 
     return (
       <Surface key={`${item.id}-${item.dni}`} style={[styles.card, { borderLeftColor: cfg.avatar }]} elevation={1}>
@@ -973,19 +1022,27 @@ const AttendanceControlScreen = ({ navigation }) => {
             </View>
           ) : null}
 
-          {/* Botón 1er Turno (hora_ingreso de tabla principal) */}
-          {horaIngreso1 !== '—' && (
+          {/* Botón 1er Turno - Solo si tiene hora válida Y no es solo-tarde */}
+          {horaIngreso1 && (
             <View style={[styles.cardMetaItem, styles.horaPill]}>
               <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.blue} />
               <Text style={styles.horaPillText}>{horaIngreso1}</Text>
             </View>
           )}
 
-          {/* Botón 2do Turno (hora_ingreso_2 de tabla turnos) - Solo si condicion === 2 */}
-          {isDoubleTurno && (
+          {/* Botón 2do Turno programado - Solo si condicion === 2 */}
+          {horaIngreso2 && (
             <View style={[styles.cardMetaItem, styles.horaPill, styles.horaPillTurno2]}>
               <MaterialCommunityIcons name="clock-fast" size={14} color="#7C3AED" />
               <Text style={[styles.horaPillText, { color: '#7C3AED' }]}>{horaIngreso2}</Text>
+            </View>
+          )}
+
+          {/* Marcación real del 2do turno - Si existe y fue hoy */}
+          {marcacion2Display && (
+            <View style={[styles.cardMetaItem, { backgroundColor: '#D1FAE5', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+              <MaterialCommunityIcons name="check-circle" size={13} color="#15803D" />
+              <Text style={[styles.horaPillText, { color: '#15803D', fontSize: 10 }]}>2T: {marcacion2Display}</Text>
             </View>
           )}
         </View>

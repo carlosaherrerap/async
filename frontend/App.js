@@ -1373,18 +1373,27 @@ global.dbHelper = {
     const turno = turnoRes[0];
 
     if (turno.condicion !== 2) throw new Error('El postulante no tiene condición de doble turno');
-    if (turno.marcacion_2 && turno.marcacion_2 !== '0') throw new Error('Ya se registró el segundo ingreso de hoy.');
 
+    // Verificar si ya marcó el 2do turno HOY
     const now = new Date();
-    const currentHours = now.getHours();
-    const currentMinutes = now.getMinutes();
-    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+    const limaFormatter = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const limaParts = limaFormatter.formatToParts(now);
+    const get = (t) => limaParts.find(x => x.type === t).value;
+    const todayStr = `${get('year')}-${get('month')}-${get('day')}`;
 
-    const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
+    const yaMarcoHoy = turno.marcacion_2 && turno.marcacion_2 !== '0' &&
+        turno.marcacion_2.substring(0, 10) === todayStr;
+    if (yaMarcoHoy) throw new Error('Ya se registró el segundo ingreso de hoy.');
+
+    // Calcular estado usando hora Lima
+    const currentH = parseInt(get('hour'), 10);
+    const currentM = parseInt(get('minute'), 10);
+    const currentTotalMinutes = currentH * 60 + currentM;
+    const [ingH, ingM] = (turno.hora_ingreso_2 || '13:00').split(':').map(Number);
     const ingresoTotalMinutes = ingH * 60 + ingM;
-
     const estado = currentTotalMinutes <= ingresoTotalMinutes ? 'P' : 'T';
-    const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + '.000000';
+
+    const timestampStr = `${todayStr} ${get('hour')}:${get('minute')}:${get('second')}.000000`;
 
     await db.runAsync('UPDATE turnos SET marcacion_2 = ?, estado = ? WHERE principal_id = ?', [
       timestampStr, estado, worker.id
@@ -1406,7 +1415,7 @@ global.dbHelper = {
         puesto: worker.cargo,
         area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
         turno: worker.turno,
-        hora_ingreso: worker.hora_ingreso
+        hora_ingreso: turno.hora_ingreso_2
       },
       record: {
         principal_id: worker.id,
