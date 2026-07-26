@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
 
   // ── Top header ─────────────────────────────────────────────
   topHeader: {
-    paddingTop: 48, paddingBottom: 18,
+    paddingTop: 48, paddingBottom: 32,
     paddingHorizontal: 20,
   },
   topHeaderInner: {
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginHorizontal: 20,
-    marginTop: -24,
+    marginTop: -14,
     marginBottom: 8,
     padding: 6,
     elevation: 6,

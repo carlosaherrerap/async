@@ -681,13 +681,15 @@ global.dbHelper = {
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
                sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
-               p.hora_ingreso, a.estado, a.fecha_hora
+               p.hora_ingreso, a.estado, a.fecha_hora,
+               COALESCE(t.condicion, 1) as condicion
         FROM asistencias a
         JOIN principal p ON a.principal_id = p.id
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
         LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+        LEFT JOIN turnos t ON t.principal_id = p.id
         WHERE date(a.fecha_hora, 'localtime') = date(?)
       `;
 
@@ -695,12 +697,14 @@ global.dbHelper = {
         SELECT p.id, p.doc_identidad as dni, p.nombres, p.ape_pat, p.ape_mat, 
                c.nombre as cargo, tp.descripcion as tipo_postulante,
                sr.nombre as sede_reg, sj.nombre as sede_juris, p.local, p.turno, p.aula,
-               p.hora_ingreso
+               p.hora_ingreso,
+               COALESCE(t.condicion, 1) as condicion
         FROM principal p
         JOIN cargos c ON p.cargo_id = c.id
         JOIN tipo_postulante tp ON p.tipo_postulante_id = tp.id
         LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id
         LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id
+        LEFT JOIN turnos t ON t.principal_id = p.id
         WHERE NOT EXISTS (
           SELECT 1 FROM asistencias a 
           WHERE a.principal_id = p.id AND date(a.fecha_hora, 'localtime') = date(?)

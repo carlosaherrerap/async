@@ -360,7 +360,7 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [dailyData, setDailyData] = useState({ presentes: [], ausentes: [] });
   const [cargos, setCargos] = useState([]);
 
-  const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | ASISTENCIA
+  const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | REPORTE | ASISTENCIA
   // Usar timezone America/Lima explícitamente para evitar desfase UTC en el emulador
   const getLocalDateString = () => {
     return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
@@ -374,6 +374,7 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [filterCargo, setFilterCargo] = useState('TODOS');
   const [filterSede, setFilterSede] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS'); // TODOS | Titular | Reserva
+  const [filterTurno, setFilterTurno] = useState('TODOS'); // TODOS | 1 | 2
   const [userRole, setUserRole] = useState('');
   // Sedes regionales cargadas desde la API/SQLite (no hardcodeadas)
   const [sedesDisponibles, setSedesDisponibles] = useState([]);
@@ -383,7 +384,13 @@ const AttendanceControlScreen = ({ navigation }) => {
       try {
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
-          setUserRole(JSON.parse(userData).rol);
+          const rol = JSON.parse(userData).rol;
+          setUserRole(rol);
+          // Si el rol NO es admin ni su, forzar pestaña ASISTENCIA
+          const isPrivileged = rol?.toLowerCase() === 'admin' || rol?.toLowerCase() === 'su';
+          if (!isPrivileged) {
+            setActiveTab('ASISTENCIA');
+          }
         }
       } catch (_) {}
     };
@@ -540,20 +547,26 @@ const AttendanceControlScreen = ({ navigation }) => {
     });
   };
 
+  const isPrivilegedRole = userRole?.toLowerCase() === 'admin' || userRole?.toLowerCase() === 'su';
+
   const renderTabs = () => (
     <View style={styles.tabContainer}>
-      <TouchableOpacity
-        style={[styles.tabButton, activeTab === 'RESUMEN' && styles.tabActive]}
-        onPress={() => setActiveTab('RESUMEN')}
-      >
-        <Text style={[styles.tabText, activeTab === 'RESUMEN' && styles.tabTextActive]}>RESUMEN & METAS</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tabButton, activeTab === 'REPORTE' && styles.tabActive]}
-        onPress={() => setActiveTab('REPORTE')}
-      >
-        <Text style={[styles.tabText, activeTab === 'REPORTE' && styles.tabTextActive]}>REPORTE DIARIO</Text>
-      </TouchableOpacity>
+      {isPrivilegedRole && (
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'RESUMEN' && styles.tabActive]}
+          onPress={() => setActiveTab('RESUMEN')}
+        >
+          <Text style={[styles.tabText, activeTab === 'RESUMEN' && styles.tabTextActive]}>RESUMEN & METAS</Text>
+        </TouchableOpacity>
+      )}
+      {isPrivilegedRole && (
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'REPORTE' && styles.tabActive]}
+          onPress={() => setActiveTab('REPORTE')}
+        >
+          <Text style={[styles.tabText, activeTab === 'REPORTE' && styles.tabTextActive]}>REPORTE DIARIO</Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         style={[styles.tabButton, activeTab === 'ASISTENCIA' && styles.tabActive]}
         onPress={() => setActiveTab('ASISTENCIA')}
@@ -739,7 +752,8 @@ const AttendanceControlScreen = ({ navigation }) => {
         const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        return matchCargo && matchSede && matchTipo && matchDni;
+        const matchTurno = filterTurno === 'TODOS' || String(item.condicion ?? 1) === filterTurno;
+        return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
       }),
       ausentes: dailyData.ausentes.filter(item => {
         const matchCargo = filterCargo === 'TODOS' || item.cargo === filterCargo;
@@ -747,7 +761,8 @@ const AttendanceControlScreen = ({ navigation }) => {
         const matchSede = filterSede === 'TODOS' || sedeItem === filterSede;
         const matchTipo = filterTipo === 'TODOS' || item.tipo_postulante === filterTipo;
         const matchDni = !searchDni.trim() || (item.dni || item.doc_identidad || '').includes(searchDni.trim());
-        return matchCargo && matchSede && matchTipo && matchDni;
+        const matchTurno = filterTurno === 'TODOS' || String(item.condicion ?? 1) === filterTurno;
+        return matchCargo && matchSede && matchTipo && matchDni && matchTurno;
       }),
     };
 
@@ -803,6 +818,25 @@ const AttendanceControlScreen = ({ navigation }) => {
               />
             </View>
           )}
+        </View>
+
+        {/* Filtro de Turnos (condicion) */}
+        <View style={styles.filterRow}>
+          <View style={{ flex: 1 }}>
+            <DropdownModal
+              label="Turnos"
+              value={filterTurno}
+              displayText={filterTurno === 'TODOS' ? 'Todos los Turnos' : filterTurno === '1' ? '1 Turno' : '2 Turnos'}
+              options={[
+                { value: 'TODOS', label: 'Todos los Turnos' },
+                { value: '1', label: '1 Turno' },
+                { value: '2', label: '2 Turnos' },
+              ]}
+              onSelect={(val) => setFilterTurno(val)}
+              activeColor="#334155"
+              style={styles.filterDropdownHeader}
+            />
+          </View>
         </View>
 
         {/* Búsqueda por DNI input */}
