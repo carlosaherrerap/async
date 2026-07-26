@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, Text, TouchableOpacity,
-  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar, Image,
+  ScrollView, RefreshControl, Dimensions, Alert, Animated, StatusBar, Image, FlatList,
 } from 'react-native';
 import { Surface, ActivityIndicator, IconButton, Portal, Modal, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { COLORS } from '../theme/colors';
+import { COLORS, TIPO_CONFIG } from '../theme/colors';
 import { API_URL } from '../config';
 
 import DropdownModal from '../components/DropdownModal';
@@ -107,6 +107,11 @@ const HomeScreen = ({ navigation }) => {
 
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugData, setDebugData] = useState(null);
+
+  // ── Modal de detalle de estadística ────────────────────────────
+  const [statsModal, setStatsModal] = useState({ visible: false, type: null, title: '', color: COLORS.blue });
+  const [statsDetail, setStatsDetail] = useState([]);
+  const [statsDetailLoading, setStatsDetailLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -329,6 +334,193 @@ const HomeScreen = ({ navigation }) => {
     </Portal>
   );
 
+  // ── Abrir modal de detalle de stats ──────────────────────────
+  const openStatsModal = async (type, title, color) => {
+    setStatsModal({ visible: true, type, title, color });
+    setStatsDetailLoading(true);
+    setStatsDetail([]);
+    await fetchStatsDetail(type);
+  };
+
+  const fetchStatsDetail = async (type) => {
+    try {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+      let data = null;
+
+      const netState = await NetInfo.fetch();
+      const online = !!netState.isConnected;
+      if (online) {
+        const token = await AsyncStorage.getItem('userToken');
+        const res = await fetch(`${API_URL}/api/asistencia/reporte-diario?date=${today}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) data = await res.json();
+      }
+      if (!data) {
+        data = await global.dbHelper.getDailyAttendance(today);
+      }
+
+      const presentes = data?.presentes || [];
+      const todayStr = today;
+
+      // Filtrar según turno
+      const filterByShift = (arr) => arr.filter(item => {
+        const condStr = String(item.condicion ?? 1).trim();
+        const h = parseInt((item.hora_ingreso || '00:00').split(':')[0], 10);
+        if (shift === 'tarde') {
+          return h >= 13 || condStr === '2';
+        } else {
+          return h < 13 && condStr !== '2';
+        }
+      });
+
+      // Filtrar por sede si tiene seleccionado
+      const filterBySede = (arr) => {
+        if (!selectedSedeFilter || selectedSedeFilter === 'TODOS') return arr;
+        return arr.filter(item => (item.sede_regional || item.sede_reg || '') === selectedSedeFilter);
+      };
+
+      let filtered = filterBySede(filterByShift(presentes));
+
+      if (type === 'presentes') {
+        // todos los que tienen asistencia
+        filtered = filtered.sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
+      } else if (type === 'tardanzas') {
+        filtered = filtered
+          .filter(item => item.estado === 'T')
+          .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
+      } else if (type === 'temprano') {
+        filtered = filtered
+          .filter(item => item.estado === 'P')
+          .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
+      }
+
+      setStatsDetail(filtered);
+    } catch (e) {
+      console.error('Error fetching stats detail:', e);
+      setStatsDetail([]);
+    } finally {
+      setStatsDetailLoading(false);
+    }
+  };
+
+  // ── Card de postulante para el modal de stats ─────────────────
+  const renderStatDetailCard = (item) => {
+    const tipo = item.tipo_postulante;
+    const cfg = TIPO_CONFIG[tipo] || TIPO_CONFIG.default;
+    const fullName = `${item.nombres || ''} ${item.ape_pat || ''} ${item.ape_mat || ''}`.trim();
+    const statusColor = item.estado === 'P' ? '#2563EB' : '#F1C40F';
+    const statusLabel = item.estado === 'P' ? 'TEMPRANO' : 'TARDE';
+    const marcaHora = item.fecha_hora
+      ? new Date(item.fecha_hora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '—';
+
+    // Marcacion 2do turno
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+    const m2Raw = item.marcacion_2;
+    const m2Valid = m2Raw && m2Raw !== '0' && m2Raw !== 'null' && m2Raw.substring(0, 10) === today;
+    const m2Display = m2Valid
+      ? new Date(m2Raw.replace(' ', 'T')).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : null;
+
+    return (
+      <Surface key={`sd-${item.id}-${item.dni}`} style={styles.sdCard} elevation={1}>
+        <View style={[styles.sdCardAccent, { backgroundColor: cfg.avatar }]} />
+        <View style={styles.sdCardContent}>
+          {/* Header: Nombre + Badge tipo */}
+          <View style={styles.sdCardHeader}>
+            <View style={[styles.sdAvatar, { backgroundColor: cfg.avatar }]}>
+              <Text style={styles.sdAvatarText}>{(item.nombres || '?')[0].toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sdName} numberOfLines={1}>{fullName.toUpperCase()}</Text>
+              <Text style={styles.sdCargo} numberOfLines={1}>{(item.cargo || '—').toUpperCase()}</Text>
+            </View>
+            <View style={[styles.sdTipoBadge, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
+              <Text style={[styles.sdTipoBadgeText, { color: cfg.text }]}>{(tipo || 'SIN TIPO').toUpperCase()}</Text>
+            </View>
+          </View>
+
+          {/* Meta: DNI + Marcación + Estado */}
+          <View style={styles.sdMeta}>
+            <View style={styles.sdMetaItem}>
+              <MaterialCommunityIcons name="card-account-details" size={14} color={COLORS.blue} />
+              <Text style={styles.sdMetaText}>{item.dni || item.doc_identidad || '—'}</Text>
+            </View>
+            {item.fecha_hora && (
+              <View style={[styles.sdMetaItem, { backgroundColor: statusColor + '18', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                <MaterialCommunityIcons name="clock-check" size={13} color={statusColor} />
+                <Text style={[styles.sdMetaText, { color: statusColor, fontWeight: '800' }]}>{marcaHora} · {statusLabel}</Text>
+              </View>
+            )}
+            {m2Display && (
+              <View style={[styles.sdMetaItem, { backgroundColor: '#D1FAE5', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                <MaterialCommunityIcons name="check-circle" size={13} color="#15803D" />
+                <Text style={[styles.sdMetaText, { color: '#15803D', fontWeight: '800' }]}>2T: {m2Display}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Sede */}
+          {(item.sede_reg || item.sede_juris) && (
+            <View style={styles.sdSedeRow}>
+              <MaterialCommunityIcons name="map-marker" size={12} color={COLORS.blue} />
+              <Text style={styles.sdSedeText} numberOfLines={1}>
+                {[item.sede_reg, item.sede_juris].filter(Boolean).join(' › ')}
+              </Text>
+            </View>
+          )}
+        </View>
+      </Surface>
+    );
+  };
+
+  // ── Modal de detalle de estadística ─────────────────────────
+  const renderStatsDetailModal = () => (
+    <Portal>
+      <Modal
+        visible={statsModal.visible}
+        onDismiss={() => setStatsModal(m => ({ ...m, visible: false }))}
+        contentContainerStyle={[styles.statsDetailModal, { borderTopColor: statsModal.color }]}
+      >
+        <View style={styles.statsDetailHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.statsDetailTitle, { color: statsModal.color }]}>{statsModal.title}</Text>
+            <Text style={styles.statsDetailSubtitle}>
+              {shift === 'dia' ? 'TURNO DÍA' : 'TURNO TARDE'}
+              {selectedSedeFilter !== 'TODOS' ? ` · ${selectedSedeFilter}` : ' · TODAS LAS SEDES'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setStatsModal(m => ({ ...m, visible: false }))}>
+            <MaterialCommunityIcons name="close" size={24} color={COLORS.muted} />
+          </TouchableOpacity>
+        </View>
+
+        {statsDetailLoading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator animating color={statsModal.color} />
+            <Text style={{ color: COLORS.muted, marginTop: 10, fontSize: 12 }}>Cargando...</Text>
+          </View>
+        ) : statsDetail.length === 0 ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <MaterialCommunityIcons name="account-off" size={48} color="#CBD5E1" />
+            <Text style={{ color: '#94A3B8', marginTop: 10, fontSize: 13 }}>Sin registros</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={statsDetail}
+            keyExtractor={(item) => `${item.id}-${item.dni}`}
+            renderItem={({ item }) => renderStatDetailCard(item)}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            contentContainerStyle={{ paddingBottom: 12, paddingTop: 4 }}
+            style={{ maxHeight: 480 }}
+          />
+        )}
+      </Modal>
+    </Portal>
+  );
+
   // ── Renderización ───────────────────────────────────────────
   return (
     <View style={styles.container}>
@@ -427,10 +619,10 @@ const HomeScreen = ({ navigation }) => {
             <ActivityIndicator animating color={COLORS.blue} style={{ marginVertical: 20 }} />
           ) : (
             <View style={styles.statsRow}>
-              <StatCard value={stats.presentes} label="Presentes" color={COLORS.success} icon="account-check" />
+              <StatCard value={stats.presentes} label="Presentes" color={COLORS.success} icon="account-check" onPress={() => openStatsModal('presentes', 'POSTULANTES PRESENTES', COLORS.success)} />
               <StatCard value={stats.faltas} label="Faltas" color={COLORS.danger} icon="account-remove" onPress={() => navigation.navigate('Absentees')} />
-              <StatCard value={stats.tardanzas} label="Tardanzas" color={COLORS.warning} icon="account-clock" />
-              <StatCard value={stats.temprano ?? 0} label="Temprano" color={COLORS.blue} icon="account-star" />
+              <StatCard value={stats.tardanzas} label="Tardanzas" color={COLORS.warning} icon="account-clock" onPress={() => openStatsModal('tardanzas', 'POSTULANTES CON TARDANZA', COLORS.warning)} />
+              <StatCard value={stats.temprano ?? 0} label="Temprano" color={COLORS.blue} icon="account-star" onPress={() => openStatsModal('temprano', 'POSTULANTES PUNTUALES / TEMPRANO', COLORS.blue)} />
             </View>
           )}
         </Animated.View>
@@ -505,6 +697,7 @@ const HomeScreen = ({ navigation }) => {
       </ScrollView>
 
       {renderDebugModal()}
+      {renderStatsDetailModal()}
     </View>
   );
 };
@@ -742,6 +935,117 @@ const styles = StyleSheet.create({
   },
   queueType: { color: COLORS.warning, fontSize: 10, fontWeight: '900' },
   queueDetail: { color: COLORS.inkLight, fontSize: 10, flex: 1, fontWeight: '700' },
+
+  // ── Stats Detail Modal ───────────────────────────────────────
+  statsDetailModal: {
+    backgroundColor: COLORS.white,
+    padding: 16, margin: 16,
+    borderRadius: 16,
+    borderTopWidth: 5,
+    maxHeight: '80%',
+  },
+  statsDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  statsDetailTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  statsDetailSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  sdCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sdCardAccent: {
+    width: 4,
+  },
+  sdCardContent: {
+    flex: 1,
+    padding: 10,
+    gap: 4,
+  },
+  sdCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sdAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sdAvatarText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  sdName: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  sdCargo: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  sdTipoBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  sdTipoBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  sdMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  sdMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sdMetaText: {
+    fontSize: 10,
+    color: '#334155',
+    fontWeight: '700',
+  },
+  sdSedeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  sdSedeText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '600',
+  },
 });
 
 export default HomeScreen;

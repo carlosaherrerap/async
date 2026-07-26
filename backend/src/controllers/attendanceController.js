@@ -198,7 +198,50 @@ const verifyWorker = async (req, res) => {
         );
 
         const attendance = attendanceRes.rows[0];
-        
+
+        // ── PRIORIDAD: Si condicion=2 y ya tiene marcacion_2 de HOY → solo salida ──
+        if (turno.condicion === 2) {
+            const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+            const yaMarcoSegundo = turno.marcacion_2 && turno.marcacion_2 !== '0' &&
+                turno.marcacion_2.substring(0, 10) === todayStr;
+
+            if (yaMarcoSegundo) {
+                if (turno.salida) {
+                    return res.json({
+                        worker: {
+                            id: worker.id, dni: worker.doc_identidad,
+                            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                            puesto: worker.cargo,
+                            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                            sede_reg: worker.sede_reg, sede_juris: worker.sede_juris,
+                            tipo_postulante: worker.tipo_postulante, turno: worker.turno,
+                            hora_ingreso: turno.hora_ingreso_2
+                        },
+                        status: 'already_completed',
+                        message: 'Usuario ya completó su asistencia. El día de mañana se habilitará nuevamente.',
+                        attendance,
+                        turno: { condicion: turno.condicion, hora_ingreso_2: turno.hora_ingreso_2, marcacion_2: turno.marcacion_2, estado: turno.estado, salida: turno.salida }
+                    });
+                } else {
+                    return res.json({
+                        worker: {
+                            id: worker.id, dni: worker.doc_identidad,
+                            nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                            puesto: worker.cargo,
+                            area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                            sede_reg: worker.sede_reg, sede_juris: worker.sede_juris,
+                            tipo_postulante: worker.tipo_postulante, turno: worker.turno,
+                            hora_ingreso: turno.hora_ingreso_2
+                        },
+                        status: 'prompt_exit',
+                        message: 'El postulante ya marcó su 2do ingreso. ¿Deseas registrar su salida?',
+                        attendance,
+                        turno: { condicion: turno.condicion, hora_ingreso_2: turno.hora_ingreso_2, marcacion_2: turno.marcacion_2, estado: turno.estado, salida: turno.salida }
+                    });
+                }
+            }
+        }
+
         // Si no ha marcado primer ingreso
         if (!attendance) {
             if (turno.condicion === 2) {

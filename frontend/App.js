@@ -804,11 +804,59 @@ global.dbHelper = {
       turno = turnoRes[0];
     } else {
       turno = turnoRes[0];
-      // Si no han marcado primer check-in hoy, resetear campos de turnos para hoy
+      // Si no han marcado primer check-in hoy, resetear campos de turnos — pero NO si ya marcó 2do turno hoy
       if (!attendance) {
-        await db.runAsync('UPDATE turnos SET marcacion_2 = \'0\', estado = \'NA\', salida = NULL WHERE principal_id = ?', [worker.id]);
-        turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
-        turno = turnoRes[0];
+        const todayStrLocal = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+        const yaMarco2Hoy = turno.condicion === 2 && turno.marcacion_2 && turno.marcacion_2 !== '0' &&
+          turno.marcacion_2.substring(0, 10) === todayStrLocal;
+        if (!yaMarco2Hoy) {
+          await db.runAsync('UPDATE turnos SET marcacion_2 = \'0\', estado = \'NA\', salida = NULL WHERE principal_id = ?', [worker.id]);
+          turnoRes = await db.getAllAsync('SELECT * FROM turnos WHERE principal_id = ?', [worker.id]);
+          turno = turnoRes[0];
+        }
+      }
+    }
+
+    // ── PRIORIDAD: Si condicion=2 y ya tiene marcacion_2 de HOY → solo salida ──
+    if (turno.condicion === 2) {
+      const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+      const yaMarcoSegundo = turno.marcacion_2 && turno.marcacion_2 !== '0' &&
+        turno.marcacion_2.substring(0, 10) === todayStr;
+
+      if (yaMarcoSegundo) {
+        if (turno.salida) {
+          return {
+            worker: {
+              id: worker.id, dni: worker.doc_identidad,
+              nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+              puesto: worker.cargo,
+              area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+              sede_reg: worker.sede_reg, sede_juris: worker.sede_juris,
+              tipo_postulante: worker.tipo_postulante, turno: worker.turno,
+              hora_ingreso: turno.hora_ingreso_2
+            },
+            status: 'already_completed',
+            message: 'Usuario ya completó su asistencia. El día de mañana se habilitará nuevamente.',
+            attendance,
+            turno: { condicion: turno.condicion, hora_ingreso_2: turno.hora_ingreso_2, marcacion_2: turno.marcacion_2, estado: turno.estado, salida: turno.salida }
+          };
+        } else {
+          return {
+            worker: {
+              id: worker.id, dni: worker.doc_identidad,
+              nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+              puesto: worker.cargo,
+              area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+              sede_reg: worker.sede_reg, sede_juris: worker.sede_juris,
+              tipo_postulante: worker.tipo_postulante, turno: worker.turno,
+              hora_ingreso: turno.hora_ingreso_2
+            },
+            status: 'prompt_exit',
+            message: 'El postulante ya marcó su 2do ingreso. ¿Deseas registrar su salida?',
+            attendance,
+            turno: { condicion: turno.condicion, hora_ingreso_2: turno.hora_ingreso_2, marcacion_2: turno.marcacion_2, estado: turno.estado, salida: turno.salida }
+          };
+        }
       }
     }
 

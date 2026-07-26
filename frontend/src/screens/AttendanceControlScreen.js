@@ -360,7 +360,7 @@ const AttendanceControlScreen = ({ navigation }) => {
   const [dailyData, setDailyData] = useState({ presentes: [], ausentes: [] });
   const [cargos, setCargos] = useState([]);
 
-  const [activeTab, setActiveTab] = useState('RESUMEN'); // RESUMEN | REPORTE | ASISTENCIA
+  const [activeTab, setActiveTab] = useState('ASISTENCIA'); // REPORTE | ASISTENCIA
   // Usar timezone America/Lima explícitamente para evitar desfase UTC en el emulador
   const getLocalDateString = () => {
     return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
@@ -392,11 +392,6 @@ const AttendanceControlScreen = ({ navigation }) => {
         if (userData) {
           const rol = JSON.parse(userData).rol;
           setUserRole(rol);
-          // Si el rol NO es admin ni su, forzar pestaña ASISTENCIA
-          const isPrivileged = isUserAdminOrSU(rol);
-          if (!isPrivileged) {
-            setActiveTab('ASISTENCIA');
-          }
         }
       } catch (_) {}
     };
@@ -557,14 +552,6 @@ const AttendanceControlScreen = ({ navigation }) => {
 
   const renderTabs = () => (
     <View style={styles.tabContainer}>
-      {isPrivilegedRole && (
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'RESUMEN' && styles.tabActive]}
-          onPress={() => setActiveTab('RESUMEN')}
-        >
-          <Text style={[styles.tabText, activeTab === 'RESUMEN' && styles.tabTextActive]}>RESUMEN & METAS</Text>
-        </TouchableOpacity>
-      )}
       {isPrivilegedRole && (
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'REPORTE' && styles.tabActive]}
@@ -1236,11 +1223,7 @@ const AttendanceControlScreen = ({ navigation }) => {
       </TouchableOpacity>
 
       {renderTabs()}
-      {activeTab === 'RESUMEN' ? (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {renderResumen()}
-        </ScrollView>
-      ) : activeTab === 'REPORTE' ? (
+      {activeTab === 'REPORTE' ? (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {renderReporteDiario()}
         </ScrollView>
