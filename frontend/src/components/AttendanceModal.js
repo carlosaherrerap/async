@@ -321,11 +321,12 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
               }
             }
 
+            Alert.alert('Asistencia Registrada', result.message || 'Se acaba de marcar su asistencia correctamente.');
             onClose();
             if (onRegisterSuccess) onRegisterSuccess(result);
             return;
           } else {
-            alert(result.message || 'Error al registrar segundo ingreso');
+            Alert.alert('Error', result.message || 'Error al registrar segundo ingreso');
             return;
           }
         } catch (fetchErr) {
@@ -336,10 +337,11 @@ const AttendanceModal = ({ visible, data, onClose, onRegisterSuccess }) => {
       // Modo offline
       const result = await global.dbHelper.registerSecondAttendanceOffline(worker.dni);
       try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch (_) {}
+      Alert.alert('Asistencia Registrada', 'Se acaba de marcar su asistencia correctamente.');
       onClose();
       if (onRegisterSuccess) onRegisterSuccess(result);
     } catch (error) {
-      alert(error.message || 'Error al registrar segundo ingreso');
+      Alert.alert('Error', error.message || 'Error al registrar segundo ingreso');
     } finally {
       setLoading(false);
     }

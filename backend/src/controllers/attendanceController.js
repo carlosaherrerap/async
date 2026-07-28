@@ -243,27 +243,8 @@ const verifyWorker = async (req, res) => {
                 const ingreso2Min = toMinutes(turno.hora_ingreso_2 || '13:00');
                 const esManana = ingreso1Min >= toMinutes('05:00') && ingreso1Min <= toMinutes('10:00');
 
-                // Si es turno de mañana y ya pasaron las 11:00 AM (660 min), el 1er ingreso está vencido
+                // Si es turno de mañana y ya pasaron las 11:00 AM (660 min), el 1er ingreso está vencido y se habilita el 2do ingreso directamente
                 if (esManana && currentTotalMinutes > toMinutes('11:00')) {
-                    const releaseTotalMinutes = ingreso2Min - 30;
-                    if (currentTotalMinutes < releaseTotalMinutes) {
-                        return res.json({
-                            worker: {
-                                id: worker.id, dni: worker.doc_identidad,
-                                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
-                                puesto: worker.cargo,
-                                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
-                                sede_reg: worker.sede_reg, sede_juris: worker.sede_juris,
-                                tipo_postulante: worker.tipo_postulante, turno: worker.turno,
-                                hora_ingreso: turno.hora_ingreso_2
-                            },
-                            status: 'blocked_second',
-                            message: `INGRESO 1 BLOQUEADO. El plazo para el 1er ingreso finalizó a las 11:00 AM. El 2do ingreso se habilitará 30 min antes de las ${turno.hora_ingreso_2}.`,
-                            attendance: null,
-                            turno: { condicion: turno.condicion, hora_ingreso_2: turno.hora_ingreso_2, marcacion_2: turno.marcacion_2, estado: turno.estado, salida: turno.salida }
-                        });
-                    }
-
                     return res.json({
                         worker: {
                             id: worker.id, dni: worker.doc_identidad,
@@ -393,18 +374,23 @@ const verifyWorker = async (req, res) => {
             });
         } else if (turno.condicion === 2) {
             if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
-                // Verificar si se liberó (30 min antes de hora_ingreso_2)
-                const now = new Date();
-                const options = { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false };
-                const formatter = new Intl.DateTimeFormat('es-PE', options);
-                const [currentHoursStr, currentMinutesStr] = formatter.format(now).split(':');
-                const currentTotalMinutes = parseInt(currentHoursStr, 10) * 60 + parseInt(currentMinutesStr, 10);
+                // Verificar si se liberó (a partir de las 11:01 AM si es de mañana, o 30 min antes de hora_ingreso_2)
+                const currentTotalMinutes = getNowMinutesLima();
+                const ingreso1Min = toMinutes(worker.hora_ingreso);
+                const ingreso2Min = toMinutes(turno.hora_ingreso_2 || '13:00');
+                const esManana = ingreso1Min >= toMinutes('05:00') && ingreso1Min <= toMinutes('10:00');
 
-                const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
-                const ingresoTotalMinutes = ingH * 60 + ingM;
-                const releaseTotalMinutes = ingresoTotalMinutes - 30;
+                let debaHabilitar = false;
+                if (esManana && currentTotalMinutes > toMinutes('11:00')) {
+                    debaHabilitar = true;
+                } else {
+                    const releaseTotalMinutes = ingreso2Min - 30;
+                    if (currentTotalMinutes >= releaseTotalMinutes) {
+                        debaHabilitar = true;
+                    }
+                }
 
-                if (currentTotalMinutes < releaseTotalMinutes) {
+                if (!debaHabilitar) {
                     return res.json({
                         worker: {
                             id: worker.id,

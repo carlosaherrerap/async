@@ -871,13 +871,45 @@ global.dbHelper = {
 
         const [ing1H, ing1M] = (worker.hora_ingreso || '00:00').split(':').map(Number);
         const ingreso1TotalMinutes = ing1H * 60 + ing1M;
+        const [ing2H, ing2M] = (turno.hora_ingreso_2 || '13:00').split(':').map(Number);
+        const ingreso2TotalMinutes = ing2H * 60 + ing2M;
 
-        if (currentTotalMinutes > ingreso1TotalMinutes + 60) {
+        const esManana = ingreso1TotalMinutes >= (5 * 60) && ingreso1TotalMinutes <= (10 * 60);
+
+        // Si es turno de mañana y ya pasaron las 11:00 AM (660 min), se habilita marcar el 2do ingreso directamente
+        if (esManana && currentTotalMinutes > (11 * 60)) {
+          worker.hora_ingreso = turno.hora_ingreso_2; // Overriding visible time
+          if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
+            return {
+              worker: {
+                id: worker.id,
+                dni: worker.doc_identidad,
+                nombre: `${worker.nombres} ${worker.ape_pat} ${worker.ape_mat}`,
+                puesto: worker.cargo,
+                area: `${worker.sede_reg} - ${worker.local} (Aula ${worker.aula})`,
+                sede_reg: worker.sede_reg,
+                sede_juris: worker.sede_juris,
+                tipo_postulante: worker.tipo_postulante,
+                turno: worker.turno,
+                hora_ingreso: worker.hora_ingreso
+              },
+              status: 'prompt_second_entrance',
+              message: "1er ingreso finalizado (venció a las 11:00 AM). ¿Deseas marcar su 2do ingreso?",
+              attendance: null,
+              turno: {
+                condicion: turno.condicion,
+                hora_ingreso_2: turno.hora_ingreso_2,
+                marcacion_2: turno.marcacion_2,
+                estado: turno.estado,
+                salida: turno.salida
+              }
+            };
+          }
+        } else if (currentTotalMinutes > ingreso1TotalMinutes + 60) {
           worker.hora_ingreso = turno.hora_ingreso_2; // Overriding visible time
           
           if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
-            const [ing2H, ing2M] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
-            const releaseTotalMinutes = (ing2H * 60 + ing2M) - 30;
+            const releaseTotalMinutes = ingreso2TotalMinutes - 30;
 
             if (currentTotalMinutes < releaseTotalMinutes) {
               return {
@@ -920,7 +952,7 @@ global.dbHelper = {
                 hora_ingreso: worker.hora_ingreso
               },
               status: 'prompt_second_entrance',
-              message: "Postulante perdió el 1er ingreso. ¿Deseas marcar su 2do ingreso?",
+              message: "1er ingreso finalizado (venció a las 11:00 AM). ¿Deseas marcar su 2do ingreso?",
               attendance: null,
               turno: {
                 condicion: turno.condicion,
@@ -1064,17 +1096,30 @@ global.dbHelper = {
       }
     } else if (turno.condicion === 2) {
       if (!turno.marcacion_2 || turno.marcacion_2 === '0') {
-        // Verificar si se liberó (30 min antes de hora_ingreso_2)
+        // Verificar si se liberó (a partir de las 11:01 AM si es de mañana, o 30 min antes de hora_ingreso_2)
         const now = new Date();
         const currentHours = now.getHours();
         const currentMinutes = now.getMinutes();
         const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
+        const [ing1H, ing1M] = (worker.hora_ingreso || '00:00').split(':').map(Number);
+        const ingreso1TotalMinutes = ing1H * 60 + ing1M;
         const [ingH, ingM] = (turno.hora_ingreso_2 || '00:00').split(':').map(Number);
         const ingresoTotalMinutes = ingH * 60 + ingM;
-        const releaseTotalMinutes = ingresoTotalMinutes - 30;
 
-        if (currentTotalMinutes < releaseTotalMinutes) {
+        const esManana = ingreso1TotalMinutes >= (5 * 60) && ingreso1TotalMinutes <= (10 * 60);
+
+        let debaHabilitar = false;
+        if (esManana && currentTotalMinutes > (11 * 60)) {
+          debaHabilitar = true;
+        } else {
+          const releaseTotalMinutes = ingresoTotalMinutes - 30;
+          if (currentTotalMinutes >= releaseTotalMinutes) {
+            debaHabilitar = true;
+          }
+        }
+
+        if (!debaHabilitar) {
           return {
             worker: {
               id: worker.id,
