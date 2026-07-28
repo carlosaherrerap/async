@@ -1,0 +1,474 @@
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "nombre": "Administrador",
+    "rol": "admin",
+    "activo": true,
+    "fecha_creacion": "2026-07-14T23:29:18.927Z"
+  },
+  {
+    "id": 4,
+    "username": "AMAZONAS2",
+    "nombre": "INES URBINA",
+    "rol": "01",
+    "activo": true,
+    "fecha_creacion": "2026-07-15T19:30:27.961Z"
+  },
+  {
+    "id": 5,
+    "username": "CAPACITACION",
+    "nombre": "ALAN GARCIA",
+    "rol": "ADMIN",
+    "activo": true,
+    "fecha_creacion": "2026-07-15T19:32:45.667Z"
+  },
+  {
+    "id": 6,
+    "username": "LIMA METROPOLITANA",
+    "nombre": "LIMEÑO-MET3",
+    "rol": "16",
+    "activo": true,
+    "fecha_creacion": "2026-07-16T02:02:30.993Z"
+  },
+  {
+    "id": 7,
+    "username": "AMAZONAS1",
+    "nombre": "AMAZONAS 1",
+    "rol": "01",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:12:57.777Z"
+  },
+  {
+    "id": 8,
+    "username": "ANCASH1",
+    "nombre": "ANCASH 1",
+    "rol": "02",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:14:27.986Z"
+  },
+  {
+    "id": 9,
+    "username": "ANCASH2",
+    "nombre": "ANCASH 2",
+    "rol": "02",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:14:38.931Z"
+  },
+  {
+    "id": 10,
+    "username": "ANCASH-HUARAZ1",
+    "nombre": "ANCASH-HUARAZ 1",
+    "rol": "03",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:15:43.871Z"
+  },
+  {
+    "id": 11,
+    "username": "ANCASH-HUARAZ2",
+    "nombre": "ANCASH-HUARAZ 2",
+    "rol": "03",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:16:00.269Z"
+  },
+  {
+    "id": 12,
+    "username": "APURIMAC1",
+    "nombre": "APURIMAC 1",
+    "rol": "04",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:17:51.554Z"
+  },
+  {
+    "id": 13,
+    "username": "APURIMAC2",
+    "nombre": "APURIMAC 2",
+    "rol": "04",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:18:01.604Z"
+  },
+  {
+    "id": 14,
+    "username": "AREQUIPA1",
+    "nombre": "AREQUIPA 1",
+    "rol": "05",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:18:52.765Z"
+  },
+  {
+    "id": 15,
+    "username": "AREQUIPA2",
+    "nombre": "AREQUIPA 2",
+    "rol": "05",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:19:04.392Z"
+  },
+  {
+    "id": 16,
+    "username": "AYACUCHO1",
+    "nombre": "AYACUCHO 1",
+    "rol": "06",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:19:35.512Z"
+  },
+  {
+    "id": 17,
+    "username": "AYACUCHO2",
+    "nombre": "AYACUCHO 2",
+    "rol": "06",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:19:56.650Z"
+  },
+  {
+    "id": 18,
+    "username": "CAJAMARCA1",
+    "nombre": "CAJAMARCA 1",
+    "rol": "07",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:20:34.925Z"
+  },
+  {
+    "id": 19,
+    "username": "CAJAMARCA2",
+    "nombre": "CAJAMARCA 2",
+    "rol": "07",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:21:21.564Z"
+  },
+  {
+    "id": 20,
+    "username": "CALLAO1",
+    "nombre": "CALLAO 1",
+    "rol": "08",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:21:54.403Z"
+  },
+  {
+    "id": 21,
+    "username": "CALLAO2",
+    "nombre": "CALLAO 2",
+    "rol": "08",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:23:03.433Z"
+  },
+  {
+    "id": 22,
+    "username": "CUSCO1",
+    "nombre": "CUSCO 1",
+    "rol": "09",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:23:30.039Z"
+  },
+  {
+    "id": 23,
+    "username": "CUSCO2",
+    "nombre": "CUSCO 2",
+    "rol": "09",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:23:49.964Z"
+  },
+  {
+    "id": 24,
+    "username": "HVLICA1",
+    "nombre": "HUANCAVELICA 1",
+    "rol": "10",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:24:29.732Z"
+  },
+  {
+    "id": 25,
+    "username": "HVLICA2",
+    "nombre": "HUANCAVELICA 2",
+    "rol": "10",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:24:41.048Z"
+  },
+  {
+    "id": 26,
+    "username": "HUANUCO1",
+    "nombre": "HUANUCO 1",
+    "rol": "11",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:25:08.603Z"
+  },
+  {
+    "id": 27,
+    "username": "HUANUCO2",
+    "nombre": "HUANUCO 2",
+    "rol": "11",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:25:17.056Z"
+  },
+  {
+    "id": 28,
+    "username": "ICA1",
+    "nombre": "ICA 1",
+    "rol": "12",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:25:57.035Z"
+  },
+  {
+    "id": 29,
+    "username": "ICA2",
+    "nombre": "ICA 2",
+    "rol": "12",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:26:10.077Z"
+  },
+  {
+    "id": 30,
+    "username": "JUNIN1",
+    "nombre": "JUNIN 1",
+    "rol": "13",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:26:41.812Z"
+  },
+  {
+    "id": 31,
+    "username": "JUNIN2",
+    "nombre": "JUNIN 2",
+    "rol": "13",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:27:40.518Z"
+  },
+  {
+    "id": 32,
+    "username": "LALIBERTAD1",
+    "nombre": "LA LIBERTAD 1",
+    "rol": "14",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:28:18.660Z"
+  },
+  {
+    "id": 33,
+    "username": "LALIBERTAD2",
+    "nombre": "LA LIBERTAD 2",
+    "rol": "14",
+    "activo": true,
+    "fecha_creacion": "2026-07-26T23:28:31.319Z"
+  },
+  {
+    "id": 34,
+    "username": "LAMBAYEQUE1",
+    "nombre": "LAMBAYEQUE 1",
+    "rol": "15",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:46.719Z"
+  },
+  {
+    "id": 35,
+    "username": "LAMBAYEQUE2",
+    "nombre": "LAMBAYEQUE 2",
+    "rol": "15",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:46.995Z"
+  },
+  {
+    "id": 36,
+    "username": "LMETRO1",
+    "nombre": "LIMA METROPOLITANA 1",
+    "rol": "16",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:47.262Z"
+  },
+  {
+    "id": 37,
+    "username": "LMETRO2",
+    "nombre": "LIMA METROPOLITANA 2",
+    "rol": "16",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:47.532Z"
+  },
+  {
+    "id": 38,
+    "username": "LPROV1",
+    "nombre": "LIMA PROVINCIAS 1",
+    "rol": "17",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:47.806Z"
+  },
+  {
+    "id": 39,
+    "username": "LPROV2",
+    "nombre": "LIMA PROVINCIAS 2",
+    "rol": "17",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:48.075Z"
+  },
+  {
+    "id": 40,
+    "username": "LORETO1",
+    "nombre": "LORETO 1",
+    "rol": "18",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:48.349Z"
+  },
+  {
+    "id": 41,
+    "username": "LORETO2",
+    "nombre": "LORETO 2",
+    "rol": "18",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:48.621Z"
+  },
+  {
+    "id": 42,
+    "username": "MDIOS1",
+    "nombre": "MADRE DE DIOS 1",
+    "rol": "19",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:48.890Z"
+  },
+  {
+    "id": 43,
+    "username": "MDIOS2",
+    "nombre": "MADRE DE DIOS 2",
+    "rol": "19",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:49.163Z"
+  },
+  {
+    "id": 44,
+    "username": "MOQUEGUA1",
+    "nombre": "MOQUEGUA 1",
+    "rol": "20",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:49.434Z"
+  },
+  {
+    "id": 45,
+    "username": "MOQUEGUA2",
+    "nombre": "MOQUEGUA 2",
+    "rol": "20",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:49.705Z"
+  },
+  {
+    "id": 46,
+    "username": "PASCO1",
+    "nombre": "PASCO 1",
+    "rol": "21",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:49.978Z"
+  },
+  {
+    "id": 47,
+    "username": "PASCO2",
+    "nombre": "PASCO 2",
+    "rol": "21",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:50.251Z"
+  },
+  {
+    "id": 48,
+    "username": "PIURA1",
+    "nombre": "PIURA 1",
+    "rol": "22",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:50.515Z"
+  },
+  {
+    "id": 49,
+    "username": "PIURA2",
+    "nombre": "PIURA 2",
+    "rol": "22",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:50.784Z"
+  },
+  {
+    "id": 50,
+    "username": "PUNO1",
+    "nombre": "PUNO 1",
+    "rol": "23",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:51.057Z"
+  },
+  {
+    "id": 51,
+    "username": "PUNO2",
+    "nombre": "PUNO 2",
+    "rol": "23",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:51.330Z"
+  },
+  {
+    "id": 52,
+    "username": "SMARTINM1",
+    "nombre": "SAN MARTIN-MOYOBAMBA 1",
+    "rol": "24",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:51.604Z"
+  },
+  {
+    "id": 53,
+    "username": "SMARTIN2",
+    "nombre": "SAN MARTIN-MOYOBAMBA 2",
+    "rol": "24",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:51.880Z"
+  },
+  {
+    "id": 54,
+    "username": "SMARTINT1",
+    "nombre": "SAN MARTIN-TARAPOTO 1",
+    "rol": "25",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:52.146Z"
+  },
+  {
+    "id": 55,
+    "username": "SMARTINT2",
+    "nombre": "SAN MARTIN-TARAPOTO 2",
+    "rol": "25",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:52.431Z"
+  },
+  {
+    "id": 56,
+    "username": "TACNA1",
+    "nombre": "TACNA 1",
+    "rol": "26",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:52.704Z"
+  },
+  {
+    "id": 57,
+    "username": "TACNA2",
+    "nombre": "TACNA 2",
+    "rol": "26",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:52.973Z"
+  },
+  {
+    "id": 58,
+    "username": "TUMBES1",
+    "nombre": "TUMBES 1",
+    "rol": "27",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:53.237Z"
+  },
+  {
+    "id": 59,
+    "username": "TUMBES2",
+    "nombre": "TUMBES 2",
+    "rol": "27",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:53.610Z"
+  },
+  {
+    "id": 60,
+    "username": "UCAYALI1",
+    "nombre": "UCAYALI 1",
+    "rol": "28",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:53.903Z"
+  },
+  {
+    "id": 61,
+    "username": "UCAYALI2",
+    "nombre": "UCAYALI 2",
+    "rol": "28",
+    "activo": true,
+    "fecha_creacion": "2026-07-27T21:27:54.220Z"
+  }
+]
