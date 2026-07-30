@@ -35,11 +35,7 @@ const isUserAdminOrSU = (rol) => {
 };
 
 const getOrResetTurno = async (principalId) => {
-    // Verificar si hay primer check-in hoy
-    const attendanceCheck = await db.query(
-        'SELECT 1 FROM asistencias WHERE principal_id = $1 AND (fecha_hora AT TIME ZONE \'America/Lima\')::date = (CURRENT_TIMESTAMP AT TIME ZONE \'America/Lima\')::date',
-        [principalId]
-    );
+    const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
     
     let turnoRes = await db.query('SELECT * FROM turnos WHERE principal_id = $1', [principalId]);
     let turno;
@@ -53,25 +49,20 @@ const getOrResetTurno = async (principalId) => {
         turno = insertTurno.rows[0];
     } else {
         turno = turnoRes.rows[0];
-        // Solo resetear si NO hay marcación de ningún tipo hoy
-        const noPrimerIngreso = attendanceCheck.rows.length === 0;
-        
-        if (noPrimerIngreso) {
-            // Verificar si tampoco hay marcacion_2 de hoy (para postulantes condicion=2 que solo marcan tarde)
-            const yaMarcoSegundo = turno.condicion === 2 &&
-                turno.marcacion_2 &&
-                turno.marcacion_2 !== '0' &&
-                turno.marcacion_2.substring(0, 10) === new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Lima' });
+        // Verificar si la marcacion_2 guardada pertenece al día de hoy
+        const marcacionEsDeHoy = turno.marcacion_2 &&
+            turno.marcacion_2 !== '0' &&
+            turno.marcacion_2.substring(0, 10) === todayStr;
 
-            if (!yaMarcoSegundo) {
-                const updateTurno = await db.query(
-                    `UPDATE turnos 
-                     SET marcacion_2 = '0', estado = 'NA', salida = NULL 
-                     WHERE principal_id = $1 RETURNING *`,
-                    [principalId]
-                );
-                turno = updateTurno.rows[0];
-            }
+        // Si marcacion_2 es de un día anterior (o no es de hoy), resetear los campos del día manteniendo intacta la condicion
+        if (!marcacionEsDeHoy && (turno.marcacion_2 !== '0' || turno.estado !== 'NA' || turno.salida !== null)) {
+            const updateTurno = await db.query(
+                `UPDATE turnos 
+                 SET marcacion_2 = '0', estado = 'NA', salida = NULL 
+                 WHERE principal_id = $1 RETURNING *`,
+                [principalId]
+            );
+            turno = updateTurno.rows[0];
         }
     }
     return turno;
