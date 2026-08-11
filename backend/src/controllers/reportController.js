@@ -162,13 +162,13 @@ const getStats = async (req, res) => {
         if (shift === 'tarde') {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal p ${roleJoin} LEFT JOIN turnos t ON t.principal_id = p.id WHERE (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 OR t.condicion = 2) ${roleWhere}) as total_postulantes,
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} LEFT JOIN turnos t ON t.principal_id = p.id WHERE (EXTRACT(HOUR FROM p.hora_ingreso) >= 13 OR t.condicion = 2) ${roleWhere}) as total_postulantes,
                     
                     (SELECT COUNT(*) FROM principal p ${roleJoin} 
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.id IS NOT NULL) OR
+                       (EXTRACT(HOUR FROM p.hora_ingreso) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.id IS NOT NULL) OR
                        (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
                      ) ${roleWhere}) as presentes,
                      
@@ -176,7 +176,7 @@ const getStats = async (req, res) => {
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'T') OR
+                       (EXTRACT(HOUR FROM p.hora_ingreso) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'T') OR
                        (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'T')
                      ) ${roleWhere}) as tardanzas,
                      
@@ -184,26 +184,26 @@ const getStats = async (req, res) => {
                      LEFT JOIN asistencias a ON a.principal_id = p.id AND (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                      LEFT JOIN turnos t ON t.principal_id = p.id
                      WHERE (
-                       (CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'P') OR
+                       (EXTRACT(HOUR FROM p.hora_ingreso) >= 13 AND COALESCE(t.condicion, 1) != 2 AND a.estado = 'P') OR
                        (COALESCE(t.condicion, 1) = 2 AND t.marcacion_2 != '0' AND t.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date AND t.estado = 'P')
                      ) ${roleWhere}) as temprano
             `;
         } else {
             statsQuery = `
                 SELECT 
-                    (SELECT COUNT(*) FROM principal p ${roleJoin} WHERE CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as total_postulantes,
+                    (SELECT COUNT(*) FROM principal p ${roleJoin} WHERE EXTRACT(HOUR FROM p.hora_ingreso) < 13 ${roleWhere}) as total_postulantes,
                     
                     (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
                      WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
-                     AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as presentes,
+                     AND EXTRACT(HOUR FROM p.hora_ingreso) < 13 ${roleWhere}) as presentes,
                      
                     (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
                      WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
-                     AND a.estado = 'T' AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as tardanzas,
+                     AND a.estado = 'T' AND EXTRACT(HOUR FROM p.hora_ingreso) < 13 ${roleWhere}) as tardanzas,
                      
                     (SELECT COUNT(*) FROM principal p ${roleJoin} JOIN asistencias a ON a.principal_id = p.id 
                      WHERE (a.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date 
-                     AND a.estado = 'P' AND CAST(SUBSTRING(p.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as temprano
+                     AND a.estado = 'P' AND EXTRACT(HOUR FROM p.hora_ingreso) < 13 ${roleWhere}) as temprano
             `;
         }
 
@@ -215,12 +215,12 @@ const getStats = async (req, res) => {
         if (shift === 'tarde') {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
-                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 OR t2.condicion = 2) ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (EXTRACT(HOUR FROM p2.hora_ingreso) >= 13 OR t2.condicion = 2) ${roleWhere}) as total_cargo,
                        (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
                         LEFT JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                         LEFT JOIN turnos t2 ON p2.id = t2.principal_id
                         WHERE p2.cargo_id = c.id AND (
-                          (CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) >= 13 AND a2.id IS NOT NULL) OR
+                          (EXTRACT(HOUR FROM p2.hora_ingreso) >= 13 AND a2.id IS NOT NULL) OR
                           (t2.condicion = 2 AND t2.marcacion_2 != '0' AND t2.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t2.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
                         ) ${roleWhere}) as presentes
                 FROM cargos c
@@ -229,10 +229,10 @@ const getStats = async (req, res) => {
         } else {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
-                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id AND CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhere}) as total_cargo,
                        (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
                         JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
-                        WHERE p2.cargo_id = c.id AND CAST(SUBSTRING(p2.hora_ingreso FROM 1 FOR 2) AS INTEGER) < 13 ${roleWhere}) as presentes
+                        WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhere}) as presentes
                 FROM cargos c
                 ORDER BY c.id ASC
             `;
