@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS turnos (
     id             SERIAL        PRIMARY KEY,
     principal_id   INT           NOT NULL UNIQUE REFERENCES principal(id) ON DELETE CASCADE,

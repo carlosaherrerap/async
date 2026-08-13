@@ -5,7 +5,7 @@ const reportController = require('../controllers/reportController');
 const ocrController = require('../controllers/ocrController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
-// Ruta para verificar trabajador y estado
+// Ruta para verificar postulante y estado
 router.get('/verificar', verifyToken, attendanceController.verifyWorker);
 
 // Ruta para escanear y procesar imagen de DNI

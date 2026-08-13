@@ -1,8 +1,3 @@
--- =============================================================================
--- INIT.SQL  —  Hard Reset completo de la base de datos ENLA-2026
--- Esquema normalizado: principal usa sede_juris_id (FK) sin sede_reg/sede_juris
--- =============================================================================
-
 -- Eliminar tablas en orden inverso a las dependencias
 DROP TABLE IF EXISTS intentos_login          CASCADE;
 DROP TABLE IF EXISTS historial_cambios_sede  CASCADE;
@@ -202,9 +197,3 @@ FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
 CREATE OR REPLACE TRIGGER trg_actualizacion_sede_juris
 AFTER INSERT OR UPDATE OR DELETE ON sede_juris
 FOR EACH ROW EXECUTE FUNCTION registrar_actualizacion();
-
--- =============================================================================
--- FIN DEL SCRIPT
--- Para aplicar: psql -U <usuario> -d <base_de_datos> -f init.sql
--- ADVERTENCIA: elimina TODOS los datos existentes
--- =============================================================================
