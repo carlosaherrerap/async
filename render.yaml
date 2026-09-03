@@ -25,4 +25,4 @@ databases:
   - name: asistencia-db
     databaseName: asistencia_db
     user: asistencia_user
-    plan: free
+    plan: basic-256mb
