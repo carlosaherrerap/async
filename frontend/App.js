@@ -728,11 +728,19 @@ global.dbHelper = {
       const ausentesParams = [targetDate];
 
       if (!isSU && userRole) {
-        presentesQuery += ` AND sj.sede_regional_id = ?`;
-        presentesParams.push(userRole);
+        if (String(userRole).includes('-')) {
+          presentesQuery += ` AND p.sede_juris_id = ?`;
+          presentesParams.push(userRole);
 
-        ausentesQuery += ` AND sj.sede_regional_id = ?`;
-        ausentesParams.push(userRole);
+          ausentesQuery += ` AND p.sede_juris_id = ?`;
+          ausentesParams.push(userRole);
+        } else {
+          presentesQuery += ` AND sj.sede_regional_id = ?`;
+          presentesParams.push(userRole);
+
+          ausentesQuery += ` AND sj.sede_regional_id = ?`;
+          ausentesParams.push(userRole);
+        }
       }
 
       presentesQuery += ` ORDER BY a.fecha_hora DESC`;
@@ -786,11 +794,19 @@ global.dbHelper = {
     if (userData) {
       const user = JSON.parse(userData);
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
-      if (!isSU && worker.sede_regional_id !== user.rol) {
-        return {
-          error: 'Este postulante no pertenece a la sede actual',
-          worker: { dni: worker.doc_identidad, sede_reg: worker.sede_reg }
-        };
+      if (!isSU) {
+        const isJuris = user.rol && String(user.rol).includes('-');
+        if (isJuris && worker.sede_juris_id !== user.rol) {
+          return {
+            error: 'Este postulante no pertenece a su sede jurisdiccional',
+            worker: { dni: worker.doc_identidad, sede_reg: worker.sede_reg, sede_juris: worker.sede_juris }
+          };
+        } else if (!isJuris && worker.sede_regional_id !== user.rol) {
+          return {
+            error: 'Este postulante no pertenece a la sede actual',
+            worker: { dni: worker.doc_identidad, sede_reg: worker.sede_reg, sede_juris: worker.sede_juris }
+          };
+        }
       }
     }
     const attendanceRes = await db.getAllAsync('SELECT * FROM asistencias WHERE principal_id = ? AND date(fecha_hora, \'localtime\') = date(\'now\', \'localtime\')', [worker.id]);
@@ -1250,8 +1266,13 @@ global.dbHelper = {
       const user = JSON.parse(userData);
       localUserId = user.id;
       const isSU = user.rol?.toLowerCase() === 'su' || user.rol?.toLowerCase() === 'admin';
-      if (!isSU && worker.sede_regional_id !== user.rol) {
-        throw new Error('Este postulante no pertenece a la sede actual');
+      if (!isSU) {
+        const isJuris = user.rol && String(user.rol).includes('-');
+        if (isJuris && worker.sede_juris_id !== user.rol) {
+          throw new Error('Este postulante no pertenece a su sede jurisdiccional');
+        } else if (!isJuris && worker.sede_regional_id !== user.rol) {
+          throw new Error('Este postulante no pertenece a la sede actual');
+        }
       }
     }
 

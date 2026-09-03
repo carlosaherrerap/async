@@ -179,12 +179,17 @@ const HomeScreen = ({ navigation }) => {
         setSedeName(currentSedeName);
       }
 
-      // Si no tenemos el nombre de la sede y el rol es el ID de la sede (ej. '01')
+      // Si no tenemos el nombre de la sede y el rol es el ID de la sede (ej. '01' o '01-01')
       if (!currentSedeName && currentRole && !isUserAdminOrSU(currentRole)) {
         try {
           const db = global.dbHelper?.db;
           if (db) {
-            const rows = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [currentRole]);
+            let rows;
+            if (String(currentRole).includes('-')) {
+              rows = await db.getAllAsync('SELECT nombre FROM sede_juris WHERE id = ?', [currentRole]);
+            } else {
+              rows = await db.getAllAsync('SELECT nombre FROM sede_regional WHERE id = ?', [currentRole]);
+            }
             if (rows && rows.length > 0) {
               setSedeName(rows[0].nombre);
             }

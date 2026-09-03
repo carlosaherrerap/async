@@ -93,8 +93,13 @@ const registerAttendance = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_regional_id !== userRole) {
-            return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+        const isJurisRole = userRole && String(userRole).includes('-');
+        if (!isSU) {
+            if (isJurisRole && worker.sede_juris_id !== userRole) {
+                return res.status(403).json({ message: 'Este postulante no pertenece a su sede jurisdiccional' });
+            } else if (!isJurisRole && worker.sede_regional_id !== userRole) {
+                return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+            }
         }
 
         // Asegurar/Resetear turno antes de registrar ingreso
@@ -186,8 +191,13 @@ const verifyWorker = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_regional_id !== userRole) {
-            return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
+        const isJurisRole = userRole && String(userRole).includes('-');
+        if (!isSU) {
+            if (isJurisRole && worker.sede_juris_id !== userRole) {
+                return res.status(400).json({ message: 'Este postulante no pertenece a su sede jurisdiccional' });
+            } else if (!isJurisRole && worker.sede_regional_id !== userRole) {
+                return res.status(400).json({ message: 'Este postulante no pertenece a la sede actual' });
+            }
         }
 
         // Obtener/Resetear el estado del turno
@@ -479,8 +489,14 @@ const registerWorker = async (req, res) => {
         }
         const sedeRegionalId = jurisCheck.rows[0].sede_regional_id;
 
-        if (!isSU && sedeRegionalId !== userRole) {
-            return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede del usuario activo' });
+        if (!isSU) {
+            if (userRole && String(userRole).includes('-')) {
+                if (sede_juris_id !== userRole) {
+                    return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede jurisdiccional del usuario activo' });
+                }
+            } else if (sedeRegionalId !== userRole) {
+                return res.status(400).json({ message: 'Solo se permite registrar postulantes para la sede del usuario activo' });
+            }
         }
 
         const exists = await db.query('SELECT id FROM principal WHERE doc_identidad = $1', [dni]);
@@ -560,7 +576,11 @@ const getAllWorkers = async (req, res) => {
             params.push(tipo);
         }
         if (!isSU) {
-            conditions.push(`sj.sede_regional_id = $${conditions.length + 1}`);
+            if (userRole && String(userRole).includes('-')) {
+                conditions.push(`p.sede_juris_id = $${conditions.length + 1}`);
+            } else {
+                conditions.push(`sj.sede_regional_id = $${conditions.length + 1}`);
+            }
             params.push(userRole);
         }
 
@@ -593,19 +613,29 @@ const updateWorker = async (req, res) => {
     try {
         if (!isSU) {
             const checkWorker = await db.query(`
-                SELECT sj.sede_regional_id 
+                SELECT p.sede_juris_id, sj.sede_regional_id 
                 FROM principal p 
                 JOIN sede_juris sj ON p.sede_juris_id = sj.id 
                 WHERE p.id = $1
             `, [id]);
             if (checkWorker.rows.length === 0) return res.status(404).json({ message: 'Postulante no encontrado' });
-            if (checkWorker.rows[0].sede_regional_id !== userRole) {
-                return res.status(403).json({ message: 'No tiene permisos para modificar este postulante' });
-            }
-            if (sede_juris_id) {
-                const newJurisCheck = await db.query('SELECT sede_regional_id FROM sede_juris WHERE id = $1', [sede_juris_id]);
-                if (newJurisCheck.rows.length === 0 || newJurisCheck.rows[0].sede_regional_id !== userRole) {
-                    return res.status(400).json({ message: 'No puede cambiar la sede del postulante a otra diferente de la suya' });
+            
+            if (userRole && String(userRole).includes('-')) {
+                if (checkWorker.rows[0].sede_juris_id !== userRole) {
+                    return res.status(403).json({ message: 'No tiene permisos para modificar este postulante' });
+                }
+                if (sede_juris_id && sede_juris_id !== userRole) {
+                    return res.status(400).json({ message: 'No puede cambiar la sede jurisdiccional del postulante' });
+                }
+            } else {
+                if (checkWorker.rows[0].sede_regional_id !== userRole) {
+                    return res.status(403).json({ message: 'No tiene permisos para modificar este postulante' });
+                }
+                if (sede_juris_id) {
+                    const newJurisCheck = await db.query('SELECT sede_regional_id FROM sede_juris WHERE id = $1', [sede_juris_id]);
+                    if (newJurisCheck.rows.length === 0 || newJurisCheck.rows[0].sede_regional_id !== userRole) {
+                        return res.status(400).json({ message: 'No puede cambiar la sede del postulante a otra diferente de la suya' });
+                    }
                 }
             }
         }
@@ -658,27 +688,48 @@ const getSyncPull = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            queryWorkers = `
-                SELECT p.id, p.sede_juris_id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
-                       p.aula, p.tipo_postulante_id, p.cargo_id, p.turno, p.hora_ingreso 
-                FROM principal p
-                JOIN sede_juris sj ON p.sede_juris_id = sj.id
-                WHERE sj.sede_regional_id = $1
-            `;
-            queryAsistencias = `
-                SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
-                FROM asistencias a
-                JOIN principal p ON a.principal_id = p.id
-                JOIN sede_juris sj ON p.sede_juris_id = sj.id
-                WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1
-            `;
-            queryTurnos = `
-                SELECT t.id, t.principal_id, t.condicion, t.hora_ingreso_2, t.marcacion_2, t.estado, t.salida
-                FROM turnos t
-                JOIN principal p ON t.principal_id = p.id
-                JOIN sede_juris sj ON p.sede_juris_id = sj.id
-                WHERE sj.sede_regional_id = $1
-            `;
+            if (userRole && String(userRole).includes('-')) {
+                queryWorkers = `
+                    SELECT p.id, p.sede_juris_id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
+                           p.aula, p.tipo_postulante_id, p.cargo_id, p.turno, p.hora_ingreso 
+                    FROM principal p
+                    WHERE p.sede_juris_id = $1
+                `;
+                queryAsistencias = `
+                    SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
+                    FROM asistencias a
+                    JOIN principal p ON a.principal_id = p.id
+                    WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_juris_id = $1
+                `;
+                queryTurnos = `
+                    SELECT t.id, t.principal_id, t.condicion, t.hora_ingreso_2, t.marcacion_2, t.estado, t.salida
+                    FROM turnos t
+                    JOIN principal p ON t.principal_id = p.id
+                    WHERE p.sede_juris_id = $1
+                `;
+            } else {
+                queryWorkers = `
+                    SELECT p.id, p.sede_juris_id, p.doc_identidad as dni, p.ape_pat, p.ape_mat, p.nombres, p.local as area, 
+                           p.aula, p.tipo_postulante_id, p.cargo_id, p.turno, p.hora_ingreso 
+                    FROM principal p
+                    JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                    WHERE sj.sede_regional_id = $1
+                `;
+                queryAsistencias = `
+                    SELECT a.id, a.principal_id, a.estado, a.fecha_hora, a.observaciones, a.usuario_registro_id 
+                    FROM asistencias a
+                    JOIN principal p ON a.principal_id = p.id
+                    JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                    WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1
+                `;
+                queryTurnos = `
+                    SELECT t.id, t.principal_id, t.condicion, t.hora_ingreso_2, t.marcacion_2, t.estado, t.salida
+                    FROM turnos t
+                    JOIN principal p ON t.principal_id = p.id
+                    JOIN sede_juris sj ON p.sede_juris_id = sj.id
+                    WHERE sj.sede_regional_id = $1
+                `;
+            }
             params.push(userRole);
         }
 
@@ -719,8 +770,13 @@ const getSyncCheck = async (req, res) => {
         const params = [];
 
         if (!isSU) {
-            queryWorkers = 'SELECT COUNT(*) FROM principal p JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE sj.sede_regional_id = $1';
-            queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1';
+            if (userRole && String(userRole).includes('-')) {
+                queryWorkers = 'SELECT COUNT(*) FROM principal p WHERE p.sede_juris_id = $1';
+                queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id WHERE a.fecha_hora::date = CURRENT_DATE AND p.sede_juris_id = $1';
+            } else {
+                queryWorkers = 'SELECT COUNT(*) FROM principal p JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE sj.sede_regional_id = $1';
+                queryAsistencias = 'SELECT COUNT(*) FROM asistencias a JOIN principal p ON a.principal_id = p.id JOIN sede_juris sj ON p.sede_juris_id = sj.id WHERE a.fecha_hora::date = CURRENT_DATE AND sj.sede_regional_id = $1';
+            }
             params.push(userRole);
         }
 
@@ -805,12 +861,21 @@ const scanDniImage = async (req, res) => {
             const userRole = req.user.rol;
             const isSU = userRole?.toLowerCase() === 'su' || userRole?.toLowerCase() === 'admin';
 
-            if (!isSU && worker.sede_regional_id !== userRole) {
-                return res.json({
-                    status: 'not_found',
-                    dni,
-                    message: `DNI ${dni} decodificado, pero no registrado en su sede regional.`
-                });
+            if (!isSU) {
+                const isJuris = userRole && String(userRole).includes('-');
+                if (isJuris && worker.sede_juris_id !== userRole) {
+                    return res.json({
+                        status: 'not_found',
+                        dni,
+                        message: `DNI ${dni} decodificado, pero no registrado en su sede jurisdiccional.`
+                    });
+                } else if (!isJuris && worker.sede_regional_id !== userRole) {
+                    return res.json({
+                        status: 'not_found',
+                        dni,
+                        message: `DNI ${dni} decodificado, pero no registrado en su sede regional.`
+                    });
+                }
             }
 
             // Verificar si ya se registró hoy
@@ -955,8 +1020,13 @@ const registrarSegundaAsistencia = async (req, res) => {
 
         const worker = workerRes.rows[0];
 
-        if (!isSU && worker.sede_regional_id !== userRole) {
-            return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+        if (!isSU) {
+            const isJuris = userRole && String(userRole).includes('-');
+            if (isJuris && worker.sede_juris_id !== userRole) {
+                return res.status(403).json({ message: 'Este postulante no pertenece a la sede jurisdiccional actual' });
+            } else if (!isJuris && worker.sede_regional_id !== userRole) {
+                return res.status(403).json({ message: 'Este postulante no pertenece a la sede actual' });
+            }
         }
 
         const turno = await getOrResetTurno(worker.id);

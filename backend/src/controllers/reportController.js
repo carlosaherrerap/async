@@ -14,11 +14,16 @@ const exportAttendanceToExcel = async (req, res) => {
 
         // Filtro por rol si no es admin/SU
         if (!isSU && userRole) {
-            params.push(userRole);
-            const p1 = `$${params.length}`;
-            params.push(`${userRole}-%`);
-            const p2 = `$${params.length}`;
-            whereClauses.push(`(sj.sede_regional_id = ${p1} OR p.sede_juris_id LIKE ${p2})`);
+            if (String(userRole).includes('-')) {
+                params.push(userRole);
+                whereClauses.push(`p.sede_juris_id = $${params.length}`);
+            } else {
+                params.push(userRole);
+                const p1 = `$${params.length}`;
+                params.push(`${userRole}-%`);
+                const p2 = `$${params.length}`;
+                whereClauses.push(`(sj.sede_regional_id = ${p1} OR p.sede_juris_id LIKE ${p2})`);
+            }
         }
 
         // Filtro por rango de fechas o fecha única
@@ -123,7 +128,11 @@ const getAbsentees = async (req, res) => {
         `;
         const params = [];
         if (!isSU) {
-            query += ` AND sj.sede_regional_id = $1`;
+            if (userRole && String(userRole).includes('-')) {
+                query += ` AND p.sede_juris_id = $1`;
+            } else {
+                query += ` AND sj.sede_regional_id = $1`;
+            }
             params.push(userRole);
         }
         const result = await db.query(query, params);
@@ -145,16 +154,26 @@ const getStats = async (req, res) => {
         let roleJoin = '';
         let roleWhere = '';
         let roleJoinSub = '';
+        let roleWhereSub = '';
 
         if (!isSU) {
-            roleJoin = 'JOIN sede_juris sj ON p.sede_juris_id = sj.id';
-            roleWhere = 'AND sj.sede_regional_id = $1';
-            roleJoinSub = 'JOIN sede_juris sj ON p2.sede_juris_id = sj.id';
+            if (userRole && String(userRole).includes('-')) {
+                roleJoin = '';
+                roleWhere = 'AND p.sede_juris_id = $1';
+                roleJoinSub = '';
+                roleWhereSub = 'AND p2.sede_juris_id = $1';
+            } else {
+                roleJoin = 'JOIN sede_juris sj ON p.sede_juris_id = sj.id';
+                roleWhere = 'AND sj.sede_regional_id = $1';
+                roleJoinSub = 'JOIN sede_juris sj ON p2.sede_juris_id = sj.id';
+                roleWhereSub = 'AND sj.sede_regional_id = $1';
+            }
             params.push(userRole);
         } else if (filterSede && filterSede !== 'TODOS') {
             roleJoin = 'LEFT JOIN sede_juris sj ON p.sede_juris_id = sj.id LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id';
             roleWhere = 'AND (sr.nombre = $1 OR sr.id::text = $1 OR sj.sede_regional_id::text = $1)';
             roleJoinSub = 'LEFT JOIN sede_juris sj ON p2.sede_juris_id = sj.id LEFT JOIN sede_regional sr ON sj.sede_regional_id = sr.id';
+            roleWhereSub = 'AND (sr.nombre = $1 OR sr.id::text = $1 OR sj.sede_regional_id::text = $1)';
             params.push(filterSede);
         }
 
@@ -215,24 +234,24 @@ const getStats = async (req, res) => {
         if (shift === 'tarde') {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
-                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (EXTRACT(HOUR FROM p2.hora_ingreso) >= 13 OR t2.condicion = 2) ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} LEFT JOIN turnos t2 ON p2.id = t2.principal_id WHERE p2.cargo_id = c.id AND (EXTRACT(HOUR FROM p2.hora_ingreso) >= 13 OR t2.condicion = 2) ${roleWhereSub}) as total_cargo,
                        (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
                         LEFT JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
                         LEFT JOIN turnos t2 ON p2.id = t2.principal_id
                         WHERE p2.cargo_id = c.id AND (
                           (EXTRACT(HOUR FROM p2.hora_ingreso) >= 13 AND a2.id IS NOT NULL) OR
                           (t2.condicion = 2 AND t2.marcacion_2 != '0' AND t2.marcacion_2 IS NOT NULL AND CAST(SUBSTRING(t2.marcacion_2 FROM 1 FOR 10) AS DATE) = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
-                        ) ${roleWhere}) as presentes
+                        ) ${roleWhereSub}) as presentes
                 FROM cargos c
                 ORDER BY c.id ASC
             `;
         } else {
             queryAsistenciaPorCargo = `
                 SELECT c.nombre as cargo, 
-                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhere}) as total_cargo,
+                       (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhereSub}) as total_cargo,
                        (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} 
                         JOIN asistencias a2 ON a2.principal_id = p2.id AND (a2.fecha_hora AT TIME ZONE 'America/Lima')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
-                        WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhere}) as presentes
+                        WHERE p2.cargo_id = c.id AND EXTRACT(HOUR FROM p2.hora_ingreso) < 13 ${roleWhereSub}) as presentes
                 FROM cargos c
                 ORDER BY c.id ASC
             `;
@@ -241,7 +260,7 @@ const getStats = async (req, res) => {
         let queryMetasPorCargo = `
             SELECT c.nombre as cargo,
                    COALESCE(m.limite_vacantes, 0) as meta,
-                   (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id ${roleWhere}) as registrados
+                   (SELECT COUNT(*) FROM principal p2 ${roleJoinSub} WHERE p2.cargo_id = c.id ${roleWhereSub}) as registrados
             FROM cargos c
             LEFT JOIN metas_cargos m ON m.cargo_id = c.id
             ORDER BY c.id ASC
@@ -311,10 +330,14 @@ const getDailyAttendance = async (req, res) => {
         const paramsAusentes = [targetDate];
 
         if (!isSU) {
-            queryPresentes += ` AND sj.sede_regional_id = $2`;
+            if (userRole && String(userRole).includes('-')) {
+                queryPresentes += ` AND p.sede_juris_id = $2`;
+                queryAusentes += ` AND p.sede_juris_id = $2`;
+            } else {
+                queryPresentes += ` AND sj.sede_regional_id = $2`;
+                queryAusentes += ` AND sj.sede_regional_id = $2`;
+            }
             paramsPresentes.push(userRole);
-
-            queryAusentes += ` AND sj.sede_regional_id = $2`;
             paramsAusentes.push(userRole);
         }
 
