@@ -95,7 +95,20 @@ const logout = async (req, res) => {
     res.json({ success: true, message: 'Sesión cerrada correctamente' });
 };
 
+const verifyAdmin = async (req, res) => {
+    res.json({
+        valid: true,
+        user: {
+            id: req.user.id,
+            username: req.user.username,
+            rol: req.user.rol
+        }
+    });
+};
+
 module.exports = {
     login,
-    logout
+    logout,
+    verifyAdmin
 };
+

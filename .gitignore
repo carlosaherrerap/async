@@ -26,6 +26,7 @@ yarn-error.log*
 *.aab
 *.app
 *.ipa
+*.xlsx
 
 # Bases de datos SQLite locales
 *.db

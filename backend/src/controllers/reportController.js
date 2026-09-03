@@ -368,10 +368,59 @@ const getUltimaActualizacion = async (req, res) => {
     }
 };
 
+const getAdminSummary = async (req, res) => {
+    try {
+        const { startDate, endDate, date } = req.query;
+        let whereClauses = [];
+        let params = [];
+
+        if (startDate && endDate) {
+            params.push(startDate, endDate);
+            whereClauses.push(`(
+                (asist.fecha_hora AT TIME ZONE 'America/Lima')::date BETWEEN $1 AND $2
+                OR (t.marcacion_2 IS NOT NULL AND t.marcacion_2 != '0' AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) BETWEEN $1 AND $2)
+            )`);
+        } else if (date) {
+            params.push(date);
+            whereClauses.push(`(
+                (asist.fecha_hora AT TIME ZONE 'America/Lima')::date = $1
+                OR (t.marcacion_2 IS NOT NULL AND t.marcacion_2 != '0' AND CAST(SUBSTRING(t.marcacion_2 FROM 1 FOR 10) AS DATE) = $1)
+            )`);
+        }
+
+        const whereStr = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        const countQuery = `
+            SELECT 
+                COUNT(*) as total_asistencias,
+                COUNT(DISTINCT asist.principal_id) as postulantes_distintos
+            FROM asistencias asist
+            LEFT JOIN turnos t ON t.principal_id = asist.principal_id
+            ${whereStr}
+        `;
+
+        const totalPostulantesRes = await db.query('SELECT COUNT(*) as total FROM principal');
+        const statsRes = await db.query(countQuery, params);
+
+        res.json({
+            total_postulantes: parseInt(totalPostulantesRes.rows[0]?.total || 0),
+            total_asistencias: parseInt(statsRes.rows[0]?.total_asistencias || 0),
+            postulantes_distintos: parseInt(statsRes.rows[0]?.postulantes_distintos || 0),
+            fecha_inicio: startDate || date || null,
+            fecha_fin: endDate || date || null
+        });
+    } catch (error) {
+        console.error('Error al obtener resumen administrativo:', error);
+        res.status(500).json({ message: 'Error al obtener resumen de asistencias.' });
+    }
+};
+
 module.exports = {
     exportAttendanceToExcel,
     getAbsentees,
     getStats,
     getDailyAttendance,
-    getUltimaActualizacion
+    getUltimaActualizacion,
+    getAdminSummary
 };
+

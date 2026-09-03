@@ -30,6 +30,10 @@ router.get('/estadisticas', verifyToken, reportController.getStats);
 router.get('/reporte-diario', verifyToken, reportController.getDailyAttendance);
 router.get('/ultima-actualizacion', verifyToken, reportController.getUltimaActualizacion);
 
+// Rutas exclusivas para plataforma web de Administración
+router.get('/admin/exportar-excel', [verifyToken, isAdmin], reportController.exportAttendanceToExcel);
+router.get('/admin/resumen-asistencia', [verifyToken, isAdmin], reportController.getAdminSummary);
+
 router.post('/cambiar-sede', [verifyToken, isAdmin], attendanceController.changeSede);
 router.get('/historial-sedes', [verifyToken, isAdmin], attendanceController.getSedeHistory);
 
