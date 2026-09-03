@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo - Control de Asistencias</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Encabezado General -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="header-titles">
+                    <span class="system-tag">SISTEMA ENLA 2026</span>
+                    <h1 class="system-title">Consolidado Nacional de Asistencias</h1>
+                </div>
+                <div id="user-session-info" class="user-info hidden">
+                    <span id="session-user-text" class="user-text">Sesión: Admin</span>
+                    <button id="btn-logout" class="btn-secondary btn-sm" type="button">Cerrar Sesión</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Mensajes Globales de Notificación -->
+        <div id="global-alert" class="alert-box hidden" role="alert">
+            <span id="global-alert-text"></span>
+        </div>
+
+        <!-- Vista 1: Formulario de Autenticación ADMIN -->
+        <section id="login-section" class="panel-section">
+            <div class="card login-card">
+                <div class="card-header">
+                    <h2 class="card-title">Acceso al Panel Administrativo</h2>
+                    <p class="card-subtitle">Ingrese sus credenciales de Administrador para gestionar y descargar reportes.</p>
+                </div>
+                <form id="login-form" class="form-layout">
+                    <div class="form-group">
+                        <label for="input-username" class="form-label">Usuario</label>
+                        <input type="text" id="input-username" class="form-input" placeholder="Nombre de usuario" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-password" class="form-label">Contraseña</label>
+                        <input type="password" id="input-password" class="form-input" placeholder="Contraseña de administrador" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" id="btn-login-submit" class="btn-primary btn-block">
+                        Ingresar al Sistema
+                    </button>
+                </form>
+                <div class="security-note">
+                    <p>Nota de Seguridad: Este módulo está restringido exclusivamente para cuentas con rol ADMIN o SUPERADMIN. Todo intento de acceso es registrado en auditoría.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista 2: Panel de Descarga de Asistencias -->
+        <section id="dashboard-section" class="panel-section hidden">
+            <!-- Selector de Fechas -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">Descarga Consolidada de Asistencias</h2>
+                    <p class="card-subtitle">Seleccione el rango de fechas para consultar y generar el archivo Excel con todas las asistencias de las sedes.</p>
+                </div>
+
+                <div class="filters-container">
+                    <div class="dates-row">
+                        <div class="form-group">
+                            <label for="input-start-date" class="form-label">Fecha Inicio</label>
+                            <input type="date" id="input-start-date" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-end-date" class="form-label">Fecha Fin</label>
+                            <input type="date" id="input-end-date" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="quick-dates-row">
+                        <span class="quick-label">Accesos rápidos:</span>
+                        <button type="button" id="btn-quick-today" class="btn-chip">Hoy</button>
+                        <button type="button" id="btn-quick-september" class="btn-chip">Mes Setiembre 2026</button>
+                        <button type="button" id="btn-quick-all" class="btn-chip">Todo el Histórico</button>
+                    </div>
+                </div>
+
+                <!-- Resumen de Métricas -->
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <span class="metric-label">Total Postulantes Registrados</span>
+                        <span id="metric-total-postulantes" class="metric-value">--</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Asistencias en el Rango</span>
+                        <span id="metric-total-asistencias" class="metric-value">--</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Postulantes Únicos con Asistencia</span>
+                        <span id="metric-postulantes-unicos" class="metric-value">--</span>
+                    </div>
+                </div>
+
+                <!-- Botón Principal de Descarga -->
+                <div class="download-actions">
+                    <button type="button" id="btn-download-excel" class="btn-primary btn-large">
+                        Descargar Reporte Excel (.xlsx)
+                    </button>
+                    <button type="button" id="btn-refresh-summary" class="btn-secondary">
+                        Actualizar Resumen
+                    </button>
+                </div>
+
+                <!-- Estado de Procesamiento -->
+                <div id="download-status" class="status-box hidden">
+                    <span id="download-status-text">Generando archivo Excel consolidado...</span>
+                </div>
+            </div>
+
+            <!-- Información sobre el Reporte -->
+            <div class="card info-card">
+                <h3 class="info-title">Estructura del Consolidado Nacional</h3>
+                <p class="info-description">El archivo exportado incluye la totalidad de las 165 sedes jurisdiccionales sin restricciones de sede con los siguientes campos:</p>
+                <div class="table-responsive">
+                    <table class="spec-table">
+                        <thead>
+                            <tr>
+                                <th>Grupo</th>
+                                <th>Campos Exportados</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Identificación</td>
+                                <td>ID, Tipo Documento, Número de Documento (DNI), Apellido Paterno, Apellido Materno, Nombres</td>
+                            </tr>
+                            <tr>
+                                <td>Ubicación y Cargo</td>
+                                <td>Sede Regional, Sede Jurisdiccional, Local, Número de Aula, Cargo, Tipo Postulante, Turno</td>
+                            </tr>
+                            <tr>
+                                <td>Control de Turnos</td>
+                                <td>Condición de Turno (1 o 2), Hora Programada 1, Marcación 1, Hora Programada 2, Marcación 2, Marcación Salida</td>
+                            </tr>
+                            <tr>
+                                <td>Estado y Auditoría</td>
+                                <td>Fecha de Registro, Estado de Asistencia (Puntual, Tarde, NA), Observaciones, Usuario de Registro</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="./app.js"></script>
+</body>
+</html>

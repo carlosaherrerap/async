@@ -10,10 +10,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Servir plataforma web de administración
+// Servir plataforma web de administración (en raíz /, /index.html, /login.html y /admin)
+app.use(express.static(path.join(__dirname, '../public')));
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
-app.get(['/admin', '/admin/*'], (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/admin/index.html'));
+
+app.get(['/', '/index.html', '/login.html', '/admin', '/admin/*'], (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // Rutas
@@ -25,7 +27,7 @@ app.use('/api/asistencia', attendanceRoutes);
 app.use('/api/autenticacion', authRoutes);
 app.use('/api/configuracion', configRoutes);
 
-app.get('/', (req, res) => {
+app.get('/api/estado', (req, res) => {
     res.json({ message: 'API de Asistencia activa' });
 });
 

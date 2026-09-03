@@ -1,4 +1,7 @@
 services:
+  # Servicio Web Unificado: API Backend (Node.js/Express) + Plataforma Web Administrativa
+  # rootDir: backend incluye tanto la API (src/) como la plataforma web (public/index.html y public/login.html)
+  # Acceso web en Render: https://<tu-servicio>.onrender.com/ (o /index.html, /login.html, /admin)
   - type: web
     name: backend
     env: node
